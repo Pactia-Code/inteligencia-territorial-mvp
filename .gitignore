@@ -1,0 +1,49 @@
+# Secretos y configuración local
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+secrets/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Node
+node_modules/
+.next/
+dist/
+build/
+npm-debug.log*
+yarn-error.log*
+
+# Datos y artefactos del pipeline
+*.db
+*.sqlite3
+data/raw/
+data/interim/
+*.csv.gz
+*.parquet
+
+# Logs
+logs/
+*.log
+
+# Editores
+.vscode/
+.idea/
+*.swp
+
+# Sistema operativo / OneDrive
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+.DS_Store
