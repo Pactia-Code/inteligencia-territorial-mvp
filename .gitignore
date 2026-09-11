@@ -25,10 +25,11 @@ npm-debug.log*
 yarn-error.log*
 
 # Datos y artefactos del pipeline
+# data/ es todo generado localmente: base SQLite, almacen de objetos, informes,
+# infografias. El origen de verdad es docs/territorial_data_cruda_v3.json.
+data/
 *.db
 *.sqlite3
-data/raw/
-data/interim/
 *.csv.gz
 *.parquet
 
