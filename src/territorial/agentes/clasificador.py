@@ -32,7 +32,7 @@ from territorial.agentes.cliente import cliente_compartido, despliegue_de
 from territorial.config import Config, obtener_config
 
 PROMPTS = Path(__file__).parent / "prompts"
-VERSION_PROMPT = "v1"
+VERSION_PROMPT = "v4"
 
 CATEGORIAS = {
     "obra_vial",
@@ -56,6 +56,12 @@ class Evidencia(BaseModel):
 
 
 class InsightPropuesto(BaseModel):
+    # La prueba de sustancia, obligatoria: qué queda sobre el suelo cuando el
+    # contrato termine. Obligar a escribirla es lo que impide clasificar por
+    # tema en vez de por efecto.
+    cambio_fisico: str = Field(
+        description="Qué queda construido, ampliado, conectado o habilitado, en concreto"
+    )
     categoria: str
     resumen: str
     implicacion_inmobiliaria: str
@@ -94,6 +100,10 @@ class ResultadoLote:
     tokens_salida: int = 0
     duracion_ms: int = 0
     error: str | None = None
+    # CA-M2.5 exige saber qué se descartó y por qué. Una señal que no aparece
+    # ni en un insight ni en los descartes se perdió sin dejar rastro.
+    sin_contabilizar: list[int] = field(default_factory=list)
+    version_prompt: str = VERSION_PROMPT
 
 
 @lru_cache
@@ -125,6 +135,7 @@ def clasificar_lote(
     municipio: str,
     departamento: str,
     config: Config | None = None,
+    version: str = VERSION_PROMPT,
 ) -> ResultadoLote:
     """Clasifica un lote de señales de un municipio.
 
@@ -144,7 +155,7 @@ def clasificar_lote(
     try:
         respuesta = cliente.responses.parse(
             model=modelo,
-            instructions=instrucciones(),
+            instructions=instrucciones(version),
             input=_serializar(senales, municipio, departamento),
             text_format=SalidaClasificador,
             max_output_tokens=cfg.max_tokens_salida,
@@ -153,6 +164,7 @@ def clasificar_lote(
         return ResultadoLote(
             duracion_ms=int((time.perf_counter() - inicio) * 1000),
             error=f"{type(exc).__name__}: {exc}",
+            version_prompt=version,
         )
 
     duracion = int((time.perf_counter() - inicio) * 1000)
@@ -165,6 +177,7 @@ def clasificar_lote(
             tokens_salida=uso.output_tokens,
             duracion_ms=duracion,
             error="el modelo no devolvio salida estructurada (posible corte por max_output_tokens)",
+            version_prompt=version,
         )
 
     ids_validos = {s.id for s in senales}
@@ -190,6 +203,7 @@ def clasificar_lote(
         categoria = prop.categoria if prop.categoria in CATEGORIAS else "otro"
         insights.append(
             {
+                "cambio_fisico": getattr(prop, "cambio_fisico", ""),
                 "categoria": categoria,
                 "resumen": prop.resumen,
                 "implicacion_inmobiliaria": prop.implicacion_inmobiliaria,
@@ -204,12 +218,20 @@ def clasificar_lote(
         if d.id_senal in ids_validos
     ]
 
+    # CA-M2.5: toda señal debe quedar en un insight o en un descarte. Lo que
+    # no aparece en ninguno se perdió sin motivo registrado.
+    usadas = {i for ins in insights for i in ins["ids_senal"]}
+    descartadas = {d["id_senal"] for d in descartes}
+    sin_contabilizar = sorted(ids_validos - usadas - descartadas)
+
     return ResultadoLote(
         insights=insights,
         descartes=descartes,
         tokens_entrada=uso.input_tokens,
         tokens_salida=uso.output_tokens,
         duracion_ms=duracion,
+        sin_contabilizar=sin_contabilizar,
+        version_prompt=version,
     )
 
 

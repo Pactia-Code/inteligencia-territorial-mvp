@@ -15,6 +15,8 @@ Registro único de lo que falta decidir. Consolida [PRD §10](prd.md),
 | **B1** | Clave, endpoint y **nombres de despliegue** de Azure OpenAI en el tenant | M2, M4, M6 — toda llamada a LLM | Área de Analítica | Addendum 02 |
 | **B4** | Rehacer la estimación de costo tras el cambio a Azure OpenAI: verificar disponibilidad de batch, mecanismo de caching y tarifas reales del tenant | **H5** — la extrapolación a 1.103 municipios quedó sin base | Área de Analítica | Addendum 02 D6.3 |
 | **A2** | Validar el diccionario de palabras clave de obra sobre el campo `objeto` de SECOP | Precisión de F1, F2 y F3 del scoring | Área de Analítica | Addendum 01 |
+| **A3** | **Atribución geográfica (R8).** 0,5% de las señales SECOP hablan de un municipio distinto al que están archivadas, y el caso de Frontino muestra que también entran municipios fuera del MVP. Detectarlo exige un nomenclátor DIVIPOLA de los 1.103 municipios | Credibilidad del informe del top 3 | Área de Analítica | Addendum 01 §4.2 |
+| **A4** | **Consolidación del Clasificador.** Tras cuatro versiones del prompt sigue partiendo un mismo frente de obra en varios insights: en Carepa produjo cuatro insights de pavimentación que son un solo frente | Calidad del informe; infla el conteo de insights | Área de Analítica | Afinamiento de prompt |
 | **A1 / 4** | Pesos definitivos del score (hay propuesta provisional en Addendum 01 D4) | Calibración de M5 | Gerencia General | PRD §10 · Addendum 01 |
 | **B2** | Confirmar que el despliegue del Clasificador alcanza CA-M2.1. El prefiltro solo reduce 61,2%, así que el Clasificador debe descartar otro **61,4%** de lo que recibe — no es un ajuste fino | Calibración de M2 | Área de Analítica | Addendum 02 |
 

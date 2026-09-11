@@ -75,6 +75,34 @@ def test_contiene_rechaza_cita_vacia():
     assert not contiene("cualquier cosa", "")
 
 
+# --- Variación de separadores: SECOP intercambia coma y punto y coma ---
+
+
+def test_contiene_tolera_coma_contra_punto_y_coma():
+    fuente = "PAVIMENTACIÓN MEDIANTE REPOSICIÓN DE PAVIMENTO, ANDENES Y SILVICULTURA URBANA"
+    cita = "PAVIMENTACIÓN MEDIANTE REPOSICIÓN DE PAVIMENTO; ANDENES Y SILVICULTURA URBANA"
+    assert contiene(fuente, cita)
+
+
+def test_normalizar_conserva_comas_dentro_de_numeros():
+    """Quitar la coma de '1,000' lo convertiría en otro número."""
+    assert normalizar("valor 1,000 millones") == "valor 1,000 millones"
+
+
+def test_contiene_no_confunde_cifras_distintas():
+    assert not contiene("el contrato es por 1,000 millones", "el contrato es por 1,500 millones")
+
+
+def test_contiene_sigue_detectando_palabras_inventadas():
+    """La tolerancia a puntuación no puede dejar pasar una invención."""
+    fuente = "CONSTRUCCIÓN DE PAVIMENTO, ANDENES Y SILVICULTURA"
+    assert not contiene(fuente, "CONSTRUCCIÓN DE AEROPUERTO; ANDENES Y SILVICULTURA")
+
+
+def test_contiene_respeta_el_orden_de_las_palabras():
+    assert not contiene("andenes y pavimento", "pavimento y andenes")
+
+
 # --------------------------------------------------------------------------
 # Validador — casos que deben pasar
 # --------------------------------------------------------------------------

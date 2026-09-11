@@ -194,6 +194,26 @@ no del MVP.
 | R5 | El snapshot es estático: no se valida la ingesta viva (CA-M1.1 a CA-M1.5) | Alto — aceptado | El MVP valida clasificación, validación, correlación y scoring. **No concluir de este MVP que la ingesta automatizada funciona** |
 | R6 | 18 municipios en vez de 25-30 | Bajo | El PRD ya acepta que el MVP valida el mecanismo, no la cobertura (§7) |
 | R7 | **La extracción SECOP está truncada en los 6 municipios de mayor volumen** | **Alto — mitigado** | Ver §4.1. Mitigado por la normalización de cobertura de D4 |
+| R8 | **Atribución geográfica poco fiable**: hay señales archivadas bajo un municipio cuyo texto habla de otro | **Medio — no resuelto** | Ver §4.2 |
+
+### 4.2 R8 — atribución geográfica
+
+Medido sobre los 19.640 registros SECOP: **95 señales (0,5%)** nombran en su texto un municipio
+distinto de aquel bajo el que están archivadas, sin mencionar el propio. Los casos frecuentes son
+municipios vecinos — Manizales con La Dorada (30), Pereira con Dosquebradas (8), Apartadó con
+Chigorodó (8) — lo que apunta a entidades contratantes de alcance regional.
+
+**El 0,5% es un piso, no el total.** Solo cuenta menciones a los otros 17 municipios del MVP. Una
+señal atribuida a un municipio que ni siquiera está en la lista no se detecta con este método. Se
+encontró al menos un caso real: tres contratos sobre **Frontino** (Antioquia, fuera del MVP)
+archivados bajo Apartadó, que produjeron un insight geográficamente equivocado.
+
+**Por qué importa:** el Clasificador es fiel a la fuente, así que reproduce el municipio que dice
+el texto. Un insight mal ubicado llega al informe del top 3 y lo leen las 7 gerencias a la vez.
+Afecta la credibilidad, no solo la precisión.
+
+**Sin resolver.** Detectarlo en general exige un nomenclátor DIVIPOLA completo de los 1.103
+municipios, que no está en el snapshot. Queda como pendiente A3.
 
 ### 4.1 R7 en detalle — truncamiento de la extracción SECOP
 
