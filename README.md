@@ -48,13 +48,23 @@ uv pip install --python "$env:LOCALAPPDATA\venvs\territorial\Scripts\python.exe"
 Copy-Item .env.example .env
 ```
 
-Luego se rellenan los valores en `.env`. La clave de Foundry va en
-`FOUNDRY_API_KEY`; se obtiene en el portal de Azure AI Foundry, en el recurso
-donde esté desplegado el modelo, sección *Keys and Endpoint*.
+Luego se rellenan los valores en `.env`. Los tres que importan:
+
+| Variable | Qué es | Dónde se obtiene |
+|---|---|---|
+| `AZURE_OPENAI_API_KEY` | La clave | Portal de Azure AI Foundry → recurso → *Keys and Endpoint* |
+| `AZURE_OPENAI_ENDPOINT` | **URL completa**, con `https://` y sin barra final | Misma pantalla, campo *Endpoint* |
+| `MODELO_*` | **Nombre del despliegue**, no del modelo | Columna *Deployment name* del portal |
+
+Para comprobar que quedó bien:
+
+```powershell
+& $py scripts\verificar_llm.py
+```
 
 `.env` nunca se sube a git. `.env.example` sí, con valores de ejemplo.
 
-**La ingesta no necesita la clave de Foundry** — solo la necesitan los agentes.
+**Ni la ingesta ni la capa determinista necesitan la clave** — solo los agentes.
 
 ## Uso
 

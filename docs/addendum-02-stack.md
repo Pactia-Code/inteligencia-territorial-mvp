@@ -27,42 +27,65 @@ Un solo lenguaje, un solo repositorio, un solo despliegue.
 
 ---
 
-## D6 — El LLM se consume vía Microsoft Foundry
+## D6 — El LLM se consume vía Azure OpenAI
 
-Los modelos se despliegan en el tenant de Pactia en Azure AI Foundry. El cliente es
-`AnthropicFoundry(api_key=..., resource=...)` del SDK oficial `anthropic`.
+> **Revisado el 2026-09-11.** La versión anterior de D6 usaba Claude vía
+> `AnthropicFoundry`. Por decisión del equipo se cambia a **modelos OpenAI** desplegados en el
+> tenant de Pactia. El registro del cambio está en §D6.3.
 
-### Modelos propuestos
+Cliente: `AzureOpenAI(api_key=..., azure_endpoint=..., api_version=...)` del SDK oficial
+`openai`, construido en un único punto ([`agentes/cliente.py`](../src/territorial/agentes/cliente.py)).
 
-| Agente | Modelo | Razón |
+### D6.1 — Despliegues por agente
+
+| Agente | Despliegue propuesto | Razón |
 |---|---|---|
-| Clasificador | `claude-haiku-4-5` | Clasificación masiva de ~19.640 registros; el trabajo es de criba, no de razonamiento |
-| Correlacionador | `claude-opus-5` | Cruza señales y extrapola implicación inmobiliaria. Es donde se juega H1 |
-| Sintetizador | `claude-opus-5` | Redacta el informe del top 3 bajo la restricción de CA-M6.3 |
+| Clasificador | `gpt-4o-mini` | Criba masiva de 7.628 registros tras el prefiltro; es trabajo de volumen, no de razonamiento |
+| Correlacionador | `gpt-4o` | Cruza señales y extrapola implicación inmobiliaria. Es donde se juega H1 |
+| Sintetizador | `gpt-4o` | Redacta el informe del top 3 bajo la restricción de CA-M6.3 |
 
-El Agente Fuentes no usa LLM en el MVP: lee del snapshot (ver Addendum 01, D2).
+El Agente Fuentes no usa LLM en el MVP: lee del snapshot (Addendum 01, D2).
 
-### Lo que Foundry no soporta — verificado
+**Son nombres de despliegue, no nombres de modelo.** En Azure cada despliegue lleva el nombre que
+se le puso al crearlo, que puede no coincidir con el del modelo. El valor correcto es el de la
+columna *Deployment name* del portal. Es la causa más común de fallo en la primera llamada.
 
-| Capacidad | Foundry | Consecuencia |
+### D6.2 — Diferencias de configuración frente al cliente anterior
+
+| | Claude vía Foundry | Azure OpenAI |
 |---|---|---|
-| **Message Batches** | ❌ No | Se pierde el descuento del 50% en la clasificación masiva |
-| Prompt caching (5m, 1h) | ✅ GA | **Pasa a ser la palanca principal de costo** |
-| Messages, streaming, tool use | ✅ GA | Sin impacto |
-| Structured outputs / strict tools | ⚠️ Beta | Usable; es beta en esta plataforma |
-| Adaptive thinking / effort | ⚠️ Beta | Idem |
-| Token counting | ⚠️ Beta | Afecta cómo se instrumenta H5 |
-| Models API | ❌ No | El catálogo se fija por configuración, no se descubre en runtime |
+| Identificación del recurso | `resource="pactia-ia"` (solo el nombre) | `azure_endpoint="https://pactia-ia.openai.azure.com"` (**URL completa**) |
+| Versión de API | No aplica | `api_version` obligatoria |
+| Llamada | `client.messages.create(...)` | `client.chat.completions.create(...)` |
+| Límite de salida | `max_tokens` | `max_completion_tokens` |
 
-**Impacto real.** Para el MVP es despreciable: 19.640 registros procesados una sola vez cuestan
-del orden de $10–30 en total, con o sin batch. Para Fase 0 sí pesa, porque a escala nacional la
-clasificación no baja a la mitad.
+### D6.3 — Lo que queda invalidado por el cambio
 
-**Mitigación — orden del prompt.** Como el caching sí está disponible, el prompt del Clasificador
-debe ordenarse con lo estable primero (instrucciones, taxonomía de categorías, ejemplos) y lo
-volátil al final (el registro a clasificar). El caching es por coincidencia de prefijo: cualquier
-byte que cambie antes del punto de corte invalida todo lo que sigue. Se verifica midiendo
-`usage.cache_read_input_tokens`; si sale cero de forma repetida, algo está invalidando el prefijo.
+La tabla de capacidades que documentaba la versión anterior de D6 era específica de **Claude en
+Foundry** y **no aplica a Azure OpenAI**. En concreto:
+
+- **El hallazgo "Foundry no tiene Batch API" ya no vale como está escrito.** Era una limitación
+  de Claude en Foundry. Azure OpenAI ofrece despliegues de tipo *batch* con tarifa reducida.
+  **Sin verificar** contra el tenant de Pactia.
+- **La estrategia de prompt caching cambia.** El caching de Claude es explícito y se mide con
+  `usage.cache_read_input_tokens`; el de Azure OpenAI funciona con otro mecanismo y otras
+  métricas de uso.
+- **La estimación de costo de §D6 anterior queda sin base.** Estaba calculada con tarifas de
+  Claude. Hay que rehacerla con las de los despliegues que efectivamente se creen.
+
+**Queda como pendiente B4** (ver §Pendientes): verificar disponibilidad de batch, mecanismo de
+caching y tarifas reales en el tenant, y rehacer la extrapolación de costo que alimenta **H5**.
+
+### D6.4 — Lo que no cambia
+
+La arquitectura es indiferente al proveedor, y eso es deliberado:
+
+- El validador determinista (M3) y el motor de scoring (M5) **no usan LLM** (PRD §3.1). La pieza
+  que mide la alucinación es la misma con cualquier modelo.
+- `traza_agente.modelo` ya registra qué modelo corrió cada paso, así que el linaje sigue siendo
+  reproducible tras el cambio.
+- El cliente se construye en un solo archivo. Cambiar de proveedor otra vez tocaría ese archivo
+  y el `.env`, no los agentes.
 
 ---
 

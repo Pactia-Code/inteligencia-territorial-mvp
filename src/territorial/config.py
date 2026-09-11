@@ -24,13 +24,15 @@ class Config(BaseSettings):
         extra="ignore",
     )
 
-    # --- LLM: Azure AI Foundry (Addendum 02, D6) ---
-    # Opcionales: la ingesta no los necesita.
-    foundry_api_key: str | None = None
-    foundry_resource: str | None = None
-    modelo_clasificador: str = "claude-haiku-4-5"
-    modelo_correlacionador: str = "claude-opus-5"
-    modelo_sintetizador: str = "claude-opus-5"
+    # --- LLM: Azure OpenAI (Addendum 02, D6) ---
+    # Opcionales: la ingesta y la capa determinista no los necesitan.
+    azure_openai_api_key: str | None = None
+    azure_openai_endpoint: str | None = None
+    azure_openai_api_version: str = "2024-10-21"
+    # Nombres de DESPLIEGUE en Azure, no nombres de modelo.
+    modelo_clasificador: str = "gpt-4o-mini"
+    modelo_correlacionador: str = "gpt-4o"
+    modelo_sintetizador: str = "gpt-4o"
 
     # --- Observabilidad ---
     langfuse_public_key: str | None = None
