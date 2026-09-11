@@ -20,13 +20,14 @@ sys.path.insert(0, str(RAIZ / "src"))
 from territorial.agentes.cliente import (  # noqa: E402
     ConfiguracionLLMIncompleta,
     construir_cliente,
+    texto_de,
 )
 from territorial.config import obtener_config  # noqa: E402
 
 MARCADORES = {
     "",
     "pega-aqui-la-clave",
-    "https://nombre-del-recurso.openai.azure.com",
+    "https://nombre-del-recurso.services.ai.azure.com/openai/v1",
     "nombre-del-recurso",
 }
 
@@ -56,9 +57,8 @@ def main() -> int:
         return 1
 
     clave = cfg.azure_openai_api_key  # nunca se imprime completa
-    print(f"  AZURE_OPENAI_API_KEY     : {clave[:6]}…{clave[-4:]}  ({len(clave)} caracteres)")
-    print(f"  AZURE_OPENAI_ENDPOINT    : {cfg.azure_openai_endpoint}")
-    print(f"  AZURE_OPENAI_API_VERSION : {cfg.azure_openai_api_version}")
+    print(f"  AZURE_OPENAI_API_KEY  : {clave[:4]}…{clave[-4:]}  ({len(clave)} caracteres)")
+    print(f"  AZURE_OPENAI_ENDPOINT : {cfg.azure_openai_endpoint}")
 
     print("\n=== 2. Cliente ===\n")
     try:
@@ -66,7 +66,7 @@ def main() -> int:
     except ConfiguracionLLMIncompleta as exc:
         print(f"  {exc}")
         return 1
-    print("  Cliente AzureOpenAI construido.")
+    print(f"  Cliente OpenAI construido contra {cliente.base_url}")
 
     print("\n=== 3. Despliegues ===\n")
     despliegues = {
@@ -78,29 +78,28 @@ def main() -> int:
     fallos = 0
     for agente, despliegue in despliegues.items():
         try:
-            r = cliente.chat.completions.create(
+            r = cliente.responses.create(
                 model=despliegue,
-                max_completion_tokens=16,
-                messages=[{"role": "user", "content": "Responde solo: ok"}],
+                input="Responde solo: ok",
+                max_output_tokens=cfg.max_tokens_salida,
             )
         except Exception as exc:
             fallos += 1
-            print(f"  {agente:<16} {despliegue:<24} FALLÓ  {type(exc).__name__}")
+            print(f"  {agente:<16} {despliegue:<16} FALLÓ  {type(exc).__name__}")
             print(f"      {str(exc)[:180]}")
             continue
 
-        uso = r.usage
-        texto = (r.choices[0].message.content or "").strip()
+        u = r.usage
         print(
-            f"  {agente:<16} {despliegue:<24} OK  "
-            f"respuesta={texto!r}  tokens={uso.prompt_tokens}+{uso.completion_tokens}"
+            f"  {agente:<16} {despliegue:<16} OK   respuesta={texto_de(r)[:24]!r}  "
+            f"tokens entrada={u.input_tokens} salida={u.output_tokens}"
         )
 
     if fallos:
         print(f"\n  {fallos} despliegue(s) fallaron. Revisa:")
         print("   · que el nombre sea el de la columna 'Deployment name' del portal,")
         print("     no el nombre del modelo")
-        print("   · que AZURE_OPENAI_API_VERSION coincida con la del despliegue")
+        print("   · que AZURE_OPENAI_ENDPOINT termine en /openai/v1 y no en /responses")
         print("   · que la clave corresponda a ese mismo recurso")
         return 1
 

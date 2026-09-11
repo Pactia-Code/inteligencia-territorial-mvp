@@ -14,7 +14,7 @@ Un solo lenguaje, un solo repositorio, un solo despliegue.
 | Capa | Elección | Reemplaza a (PRD §4.3) |
 |---|---|---|
 | Orquestación | LangGraph + checkpointer | LangGraph — sin cambio |
-| LLM | `AnthropicFoundry` (SDK `anthropic`) contra el tenant de Pactia | No especificado en el PRD |
+| LLM | `OpenAI` (SDK `openai`) contra la superficie v1 del tenant de Pactia | No especificado en el PRD |
 | Observabilidad | Langfuse Cloud, instrumentado por nodo | Langfuse — sin cambio |
 | Semi-estructurado | Azure Blob Storage (local: sistema de archivos) | No previsto |
 | Estructurado | SQLite en local → Azure PostgreSQL en nube | Postgres — ver D8 |
@@ -31,35 +31,64 @@ Un solo lenguaje, un solo repositorio, un solo despliegue.
 
 > **Revisado el 2026-09-11.** La versión anterior de D6 usaba Claude vía
 > `AnthropicFoundry`. Por decisión del equipo se cambia a **modelos OpenAI** desplegados en el
-> tenant de Pactia. El registro del cambio está en §D6.3.
+> tenant de Pactia. El registro de lo que el cambio invalida está en §D6.4.
 
-Cliente: `AzureOpenAI(api_key=..., azure_endpoint=..., api_version=...)` del SDK oficial
-`openai`, construido en un único punto ([`agentes/cliente.py`](../src/territorial/agentes/cliente.py)).
+Cliente: **`OpenAI(api_key=..., base_url=...)`** del SDK oficial `openai`, apuntando a la
+superficie **v1** de Foundry, que es compatible con la API de OpenAI. Construido en un único
+punto ([`agentes/cliente.py`](../src/territorial/agentes/cliente.py)).
+
+No se usa `AzureOpenAI`: esa clase sirve a la superficie clásica de Azure OpenAI, que tiene otra
+forma de URL y exige `api_version`. Las llamadas van por la **Responses API**
+(`client.responses.create`), no por chat.completions.
+
+**Endpoint verificado:** `https://contratosai.services.ai.azure.com/openai/v1`
+Termina en `/openai/v1` y **no** lleva `/responses` — eso lo añade el SDK. `normalizar_base_url()`
+lo corrige si viene pegado, porque es el error más fácil al copiar del portal.
 
 ### D6.1 — Despliegues por agente
 
-| Agente | Despliegue propuesto | Razón |
+Verificado por llamada real contra el tenant el 2026-09-11.
+
+| Agente | Despliegue | Razón |
 |---|---|---|
-| Clasificador | `gpt-4o-mini` | Criba masiva de 7.628 registros tras el prefiltro; es trabajo de volumen, no de razonamiento |
-| Correlacionador | `gpt-4o` | Cruza señales y extrapola implicación inmobiliaria. Es donde se juega H1 |
-| Sintetizador | `gpt-4o` | Redacta el informe del top 3 bajo la restricción de CA-M6.3 |
+| Clasificador | `gpt-5.4-mini` | Criba de 7.628 registros. **No es de razonamiento**: gastó 5 tokens de salida donde `gpt-5` gastó 117 para la misma respuesta trivial. A ese volumen la diferencia manda |
+| Correlacionador | `gpt-5` | Cruza señales y extrapola implicación inmobiliaria. Es donde se juega H1, y aquí los tokens de razonamiento son la función, no el desperdicio |
+| Sintetizador | `gpt-5` | Redacta el informe del top 3 bajo la restricción de CA-M6.3 |
 
 El Agente Fuentes no usa LLM en el MVP: lee del snapshot (Addendum 01, D2).
 
+**Disponibles sin asignar:** `gpt-5-mini` es la vía de escalada si `gpt-5.4-mini` no alcanza
+CA-M2.1 (pendiente B2); `gpt-5.4-nano` es la de abaratamiento si el costo aprieta.
+
 **Son nombres de despliegue, no nombres de modelo.** En Azure cada despliegue lleva el nombre que
-se le puso al crearlo, que puede no coincidir con el del modelo. El valor correcto es el de la
-columna *Deployment name* del portal. Es la causa más común de fallo en la primera llamada.
+se le puso al crearlo, que puede no coincidir con el del modelo. Es la causa más común de fallo
+en la primera llamada.
 
-### D6.2 — Diferencias de configuración frente al cliente anterior
+### D6.2 — Modelos de razonamiento y techo de salida
 
-| | Claude vía Foundry | Azure OpenAI |
+`gpt-5` y `gpt-5-mini` consumen tokens de pensamiento **antes** de emitir texto. Medido: para
+responder "ok", `gpt-5` gastó entre 64 y 173 tokens de salida, y `gpt-5-mini` 97; `gpt-5.4-mini`
+y `gpt-5.4-nano` gastaron 5.
+
+**Consecuencia práctica:** un `max_output_tokens` bajo corta al modelo antes de que llegue a
+escribir nada, y la llamada devuelve vacío sin error. Por eso `max_tokens_salida` está en 4096
+por defecto, no en el valor ajustado que bastaría para la respuesta visible.
+
+**Consecuencia de costo:** la extrapolación de H5 debe contar los tokens de razonamiento, que no
+aparecen en el texto pero sí en la factura. Es parte del pendiente B4.
+
+### D6.3 — Diferencias frente al cliente anterior
+
+| | Claude vía Foundry | Foundry v1, superficie OpenAI |
 |---|---|---|
-| Identificación del recurso | `resource="pactia-ia"` (solo el nombre) | `azure_endpoint="https://pactia-ia.openai.azure.com"` (**URL completa**) |
-| Versión de API | No aplica | `api_version` obligatoria |
-| Llamada | `client.messages.create(...)` | `client.chat.completions.create(...)` |
-| Límite de salida | `max_tokens` | `max_completion_tokens` |
+| Clase | `AnthropicFoundry` | `OpenAI` con `base_url` |
+| Identificación | `resource="pactia-ia"` | `base_url=".../openai/v1"` (**URL completa**) |
+| Versión de API | No aplica | No aplica en la superficie v1 |
+| Llamada | `client.messages.create(...)` | `client.responses.create(...)` |
+| Entrada | `messages=[...]` | `input=...` |
+| Límite de salida | `max_tokens` | `max_output_tokens` |
 
-### D6.3 — Lo que queda invalidado por el cambio
+### D6.4 — Lo que queda invalidado por el cambio
 
 La tabla de capacidades que documentaba la versión anterior de D6 era específica de **Claude en
 Foundry** y **no aplica a Azure OpenAI**. En concreto:
@@ -76,7 +105,7 @@ Foundry** y **no aplica a Azure OpenAI**. En concreto:
 **Queda como pendiente B4** (ver §Pendientes): verificar disponibilidad de batch, mecanismo de
 caching y tarifas reales en el tenant, y rehacer la extrapolación de costo que alimenta **H5**.
 
-### D6.4 — Lo que no cambia
+### D6.5 — Lo que no cambia
 
 La arquitectura es indiferente al proveedor, y eso es deliberado:
 

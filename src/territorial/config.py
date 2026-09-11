@@ -28,11 +28,14 @@ class Config(BaseSettings):
     # Opcionales: la ingesta y la capa determinista no los necesitan.
     azure_openai_api_key: str | None = None
     azure_openai_endpoint: str | None = None
-    azure_openai_api_version: str = "2024-10-21"
+    azure_openai_api_version: str = "no-aplica-en-la-superficie-v1"
     # Nombres de DESPLIEGUE en Azure, no nombres de modelo.
-    modelo_clasificador: str = "gpt-4o-mini"
-    modelo_correlacionador: str = "gpt-4o"
-    modelo_sintetizador: str = "gpt-4o"
+    modelo_clasificador: str = "gpt-5.4-mini"
+    modelo_correlacionador: str = "gpt-5"
+    modelo_sintetizador: str = "gpt-5"
+    # Los modelos de razonamiento gastan tokens de pensamiento antes de
+    # responder. Un techo bajo los corta sin que lleguen a emitir texto.
+    max_tokens_salida: int = 4096
 
     # --- Observabilidad ---
     langfuse_public_key: str | None = None
