@@ -30,6 +30,7 @@ Tres cosas que cambian la cifra y no son obvias
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 from pathlib import Path
 
@@ -72,6 +73,26 @@ def _escenarios() -> list[tuple[str, float, float]]:
     ]
 
 
+RUTA_TARIFAS = RAIZ / "config" / "tarifas.json"
+
+
+def tarifas_del_archivo() -> tuple[dict[str, tuple[float, float]], float | None]:
+    """Lee `config/tarifas.json`. Devuelve (tarifas, TRM).
+
+    Mismo patrón que los pesos del scoring: el dato de negocio vive en un
+    archivo editable, no en el código. Cambiar una tarifa no es un despliegue.
+    """
+    if not RUTA_TARIFAS.exists():
+        return {}, None
+    datos = json.loads(RUTA_TARIFAS.read_text(encoding="utf-8"))
+    tarifas = {
+        k: (float(v["entrada"]), float(v["salida"]))
+        for k, v in datos.items()
+        if not k.startswith("_") and isinstance(v, dict)
+    }
+    return tarifas, datos.get("_trm_cop")
+
+
 def parsear_tarifas(crudas: list[str]) -> dict[str, tuple[float, float]]:
     tarifas: dict[str, tuple[float, float]] = {}
     for item in crudas or []:
@@ -95,8 +116,15 @@ def main() -> int:
         help="despliegue=ENTRADA,SALIDA por millón de tokens; repetible",
     )
     p.add_argument("--moneda", default="USD")
+    p.add_argument("--trm", type=float, default=None, help="COP por USD; añade columna en pesos")
     args = p.parse_args()
-    tarifas = parsear_tarifas(args.tarifa)
+
+    tarifas, trm_archivo = tarifas_del_archivo()
+    # Lo que se pasa por línea de comandos manda sobre el archivo.
+    tarifas.update(parsear_tarifas(args.tarifa))
+    trm = args.trm if args.trm is not None else trm_archivo
+    if tarifas and not args.tarifa:
+        print(f"(tarifas de {RUTA_TARIFAS.relative_to(RAIZ)})")
 
     with sesion() as s:
         filas = s.execute(
@@ -215,7 +243,11 @@ def main() -> int:
               f"{ent_muni:.0f}+{sal_muni:.0f} por municipio (Correlacionador)")
         print()
         for nombre, señales, municipios in _escenarios():
-            print(f"  {nombre:42} {estimar(señales, municipios):>14,.2f}")
+            usd = estimar(señales, municipios)
+            linea = f"  {nombre:42} {usd:>14,.2f}"
+            if trm:
+                linea += f"   {usd * trm:>16,.0f} COP"
+            print(linea)
 
         print()
         print("  No incluye el Sintetizador (M6), que aún no existe.")

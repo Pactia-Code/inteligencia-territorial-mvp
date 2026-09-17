@@ -411,7 +411,7 @@ Con eso, cada score guarda: qué pesos lo produjeron, contra qué dataset, y el 
 | 7 | Normalizar por cobertura real (D4, R7) | Puntuar cero al municipio sin datos | Cinco capitales habrían salido con score ~0 por truncamiento de la extracción, y el informe lo habría presentado como falta de actividad |
 | 8 | SQLite en local (D8) | PostgreSQL en local | No hay Docker ni Postgres en la máquina; el modelo de §4.2 es relacional plano. Precio: deriva de dialecto, contenida por las 3 reglas de D8 |
 | 9 | Blob + SQL separados (D7) | Todo en la base de datos | El snapshot son 20 MB y las infografías son binarios; SQL guarda la URI, no el contenido |
-| 10 | Prompt caching como palanca de costo (D6) | Batch API al 50% | **Foundry no ofrece Batch API** — verificado. El caching sí está GA allí |
+| 10 | Prompt caching como palanca de costo (D6) | Batch API al 50% | **Corregido 2026-09-17.** El «Foundry no ofrece Batch API» era de la etapa Claude. Azure OpenAI sí ofrece batch al 50%, y sobre el piloto baja la quincena de $1,51 a $0,75. El caching está disponible pero **medido no se activa**: `cached_tokens` marca 0 en todas las llamadas |
 | 11 | Entorno virtual fuera del repo | `.venv` dentro del proyecto | La política corporativa bloquea ejecutar binarios desde `Downloads` |
 | 12 | `venv` estándar, no `uv venv` | Trampolín de uv | El trampolín va sin firmar y la política lo bloquea; `venv` copia el ejecutable real firmado |
 

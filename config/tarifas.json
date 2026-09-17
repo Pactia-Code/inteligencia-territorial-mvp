@@ -1,0 +1,8 @@
+{
+  "_nota": "Tarifas del tenant de Pactia en Azure AI Foundry, Global Standard. USD por millon de tokens. Cotizadas el 2026-09-17. Cierran el pendiente B4. Cambiarlas aqui no exige tocar codigo.",
+  "_trm_cop": 3128.46,
+  "_advertencia": "El despliegue del Clasificador es gpt-5.4-mini, pero la cotizacion se pidio para gpt-5-mini. Verificar que la tarifa aplique al despliegue que corre de verdad.",
+  "gpt-5-mini": { "entrada": 0.25, "salida": 2.00 },
+  "gpt-5.4-mini": { "entrada": 0.25, "salida": 2.00 },
+  "gpt-5": { "entrada": 1.25, "salida": 10.00 }
+}

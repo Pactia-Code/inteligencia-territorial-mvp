@@ -3,8 +3,9 @@
 Separa contratación de obra e infraestructura del ruido administrativo antes
 de que el LLM vea nada. Cumple dos funciones:
 
-  1. Reduce el volumen que llega al Clasificador. Foundry no ofrece Batch API
-     (Addendum 02, D6), así que cada registro ahorrado se nota en el costo.
+  1. Reduce el volumen que llega al Clasificador, y con él el costo.
+     (El «Foundry no ofrece Batch API» que decía aquí era de la etapa Claude;
+     Azure OpenAI sí lo ofrece al 50%. Ver Addendum 02 §96.)
   2. Alimenta los factores F1, F2 y F3 del scoring (Addendum 01, D4).
 
 **Este diccionario está sin validar.** Es el pendiente A2: sobre el snapshot

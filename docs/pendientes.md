@@ -13,7 +13,6 @@ Registro único de lo que falta decidir. Consolida [PRD §10](prd.md),
 | # | Pendiente | Bloquea | Decide | Origen |
 |---|---|---|---|---|
 | **B1** | Clave, endpoint y **nombres de despliegue** de Azure OpenAI en el tenant | M2, M4, M6 — toda llamada a LLM | Área de Analítica | Addendum 02 |
-| **B4** | **Tarifas reales del tenant.** Los volúmenes ya están medidos y `scripts/estimar_costo.py` calcula el precio en cuanto se le pasen: falta solo el dato. Medido: 240+92 tokens por señal en el Clasificador y 2.768+6.354 por municipio en el Correlacionador; la carga inicial son ~3,0M tokens y una quincena nacional ~22,6M. Dos hallazgos: **el razonamiento ya viene dentro de `output_tokens`** (no se suma aparte, lo que corrige D6.2), y **el caché marca 0 en todas las llamadas** pese a que las instrucciones son estables — hay que ver si está habilitado en el tenant | **H5** | Área de Analítica | Addendum 02 D6.3 · remedido 2026-09-17 |
 | **A2** | Validar el diccionario de palabras clave de obra sobre el campo `objeto` de SECOP | Precisión de F1, F2 y F3 del scoring | Área de Analítica | Addendum 01 |
 | **A3** | **Atribución geográfica (R8).** 0,5% de las señales SECOP hablan de un municipio distinto al que están archivadas, y el caso de Frontino muestra que también entran municipios fuera del MVP. Detectarlo exige un nomenclátor DIVIPOLA de los 1.103 municipios | Credibilidad del informe del top 3 | Área de Analítica | Addendum 01 §4.2 |
 | **A4** | **Consolidación del Clasificador.** Tras cuatro versiones del prompt sigue partiendo un mismo frente de obra en varios insights: en Carepa produjo cuatro insights de pavimentación que son un solo frente | Calidad del informe; infla el conteo de insights | Área de Analítica | Afinamiento de prompt |
@@ -54,6 +53,7 @@ Registro único de lo que falta decidir. Consolida [PRD §10](prd.md),
 
 | # | Pendiente | Cómo se cerró |
 |---|---|---|
+| **B4** | **Estimación de costo y base de H5.** | Cerrado 2026-09-17 con tarifas del tenant (Global Standard, TRM 3.128,46), en `config/tarifas.json`. Verificadas contra los volúmenes medidos: cuadran al céntimo. **Piloto: USD 39/año. Nacional 1.103 municipios: USD 2.160/año.** El costo no es una barrera para la Fase 0. El Correlacionador es el 89% del gasto y su salida de razonamiento sola es el 84%; Batch (−50%) y bajarlo a mini (−71%) se acumulan hasta −86% |
 | **B3** | Instalar Python en la máquina de desarrollo | Python 3.12.14 vía uv, sorteando el MSI que bloquea la política corporativa |
 | **2** | Lista definitiva de municipios del MVP | Resuelto de facto: los **18** que trae el snapshot, no los 25-30 que preveía §2.1 |
 | **B5** | **El Clasificador se truncaba con lotes grandes.** | Cerrado 2026-09-17: el techo era de texto, no de razonamiento. A ~111 tokens de salida por señal, 40 señales daban 4.243 y el corte estaba en 4.096. Techo a 16.384 y troceo de 50 en 50 ordenando por objeto normalizado. Barranquilla c2 completa: 284 señales, 6 lotes, sin truncar |

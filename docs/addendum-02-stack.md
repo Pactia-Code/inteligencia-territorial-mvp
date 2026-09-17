@@ -205,7 +205,7 @@ invoque.
 ## Anexo — Decisiones en una línea
 
 - **D5** · Monolito Python: LangGraph + Langfuse + Django, un repo, un lenguaje.
-- **D6** · LLM vía `AnthropicFoundry` en el tenant de Pactia. Sin Batch API; el caching compensa.
+- **D6** · LLM vía Azure OpenAI (superficie v1) en el tenant de Pactia. Revisado 2026-09-11. Batch **sí** está disponible, al 50% (ver §96); el caching está disponible pero medido no se activa.
 - **D7** · Blob para lo semi-estructurado e inmutable, SQL para lo consultable. SQL guarda la URI.
 - **D8** · Local: carpeta + SQLite. Nube: Blob + Postgres. Misma interfaz, distinta configuración.
 - **D9** · Los 3 ciclos se ejecutan a mano. El scheduler se difiere a Fase 0.

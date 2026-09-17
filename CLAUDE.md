@@ -131,9 +131,12 @@ de `tests/` pasan (reglas, scoring, correlacionador, persistencia y troceo).
   municipio distinto al que están archivadas, y entran municipios fuera del MVP
   (caso Frontino). Resolverlo exige un nomenclátor DIVIPOLA de los 1.103
   municipios, que el snapshot no trae.
-- **B4** — **H5 quedó sin base** tras el cambio de proveedor a Azure OpenAI. Hay
-  que rehacer la estimación de costo contando los **tokens de razonamiento**,
-  que no aparecen en el texto pero sí en la factura.
+- ~~**B4**~~ — cerrado el 2026-09-17. **H5 tiene base y el costo no es una
+  barrera**: USD 39/año el piloto, USD 2.160/año los 1.103 municipios. Tarifas
+  en `config/tarifas.json`, cálculo en `scripts/estimar_costo.py`. El 89% del
+  gasto es el Correlacionador, y el 84% del total es solo su salida de
+  razonamiento. **No cuenta el Sintetizador (M6), que también corre sobre
+  gpt-5** y podría no ser menor.
 - **A5** — dos decisiones de M5 que D4 no cubre y que Analítica debe confirmar:
   la **escala común** de los factores (min-max por cohorte) y el **umbral de
   información** del 50% para entrar al top 3. Ver §7.
