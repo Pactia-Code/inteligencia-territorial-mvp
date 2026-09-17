@@ -18,7 +18,7 @@ from typing import Any
 
 from territorial.almacen.blob import Almacen, obtener_almacen
 from territorial.almacen.modelos import Ciclo, Municipio, SenalCruda, VersionDataset
-from territorial.almacen.sesion import crear_esquema, sesion
+from territorial.almacen.sesion import aplicar_migraciones, sesion
 from territorial.config import Config, obtener_config
 from territorial.utiles.divipola import desde_bloque
 
@@ -153,7 +153,7 @@ def cargar(config: Config | None = None) -> Resumen:
     uri = almacen.escribir_bytes(f"raw/{ruta.name}", crudo)
     huella = hashlib.sha256(crudo).hexdigest()
 
-    crear_esquema(cfg)
+    aplicar_migraciones(cfg)
     resumen = Resumen()
 
     with sesion(cfg) as s:

@@ -1,0 +1,7 @@
+Migraciones del esquema (regla 2 de D8).
+
+Configuración de una sola base, con la URL tomada de `Config.url_base_datos`
+en vez de `alembic.ini`, para que SQLite en local y PostgreSQL en nube usen
+siempre la misma. Ver el encabezado de env.py.
+
+El uso diario y las cuatro trampas conocidas están en CLAUDE.md §6.1.

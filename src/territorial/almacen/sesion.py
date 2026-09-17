@@ -13,7 +13,6 @@ from pathlib import Path
 from sqlalchemy import Engine, create_engine, event
 from sqlalchemy.orm import Session, sessionmaker
 
-from territorial.almacen.modelos import Base
 from territorial.config import Config, obtener_config
 
 
@@ -53,13 +52,37 @@ def obtener_motor(config: Config | None = None) -> Engine:
     return motor
 
 
-def crear_esquema(config: Config | None = None) -> None:
-    """Crea las tablas que falten.
+def aplicar_migraciones(config: Config | None = None) -> None:
+    """Lleva la base al `head` de Alembic (regla 2 de D8).
 
-    Atajo para el arranque del MVP. A partir de la primera migración, el esquema
-    lo gobierna Alembic (regla 2 de D8).
+    Sustituye al `create_all` que usaba el arranque del MVP. La diferencia no es
+    cosmética: `create_all` crea lo que falta y **calla ante lo que cambió**, así
+    que una columna con tipo distinto al del modelo sobrevive sin aviso. Alembic
+    falla, que es lo que se quiere.
+
+    Se invoca desde código, y no solo por CLI, porque la ingesta tiene que poder
+    correr en un entorno recién clonado sin un paso manual previo.
     """
-    Base.metadata.create_all(obtener_motor(config))
+    from alembic.config import Config as ConfigAlembic
+
+    from alembic import command
+
+    cfg = config or obtener_config()
+    ini = cfg.ruta_absoluta(Path("alembic.ini"))
+    if not ini.exists():  # pragma: no cover
+        raise FileNotFoundError(
+            f"No se encontró {ini}. El esquema se gobierna con Alembic (regla 2 de D8); "
+            "sin alembic.ini no hay forma de crearlo."
+        )
+
+    alembic_cfg = ConfigAlembic(str(ini))
+    alembic_cfg.set_main_option("script_location", str(ini.parent / "alembic"))
+    # Se pasa la URL de ESTE Config, no la global: si no, migrar una base de
+    # prueba acabaría migrando la de desarrollo sin que nadie lo notara.
+    alembic_cfg.set_main_option(
+        "sqlalchemy.url", _preparar_sqlite(cfg.url_base_datos, cfg).replace("%", "%%")
+    )
+    command.upgrade(alembic_cfg, "head")
 
 
 @contextmanager

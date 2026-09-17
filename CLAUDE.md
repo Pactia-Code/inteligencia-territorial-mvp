@@ -118,8 +118,8 @@ de [tests/test_reglas.py](tests/test_reglas.py) pasan.
 | **M5** Scoring y priorización | ⬜ Sin código | Diseño cerrado en Addendum 01 **D4** (seis factores). Los **pesos definitivos** los decide Gerencia General (**pendiente A1/4**) |
 | **M6** Síntesis y distribución | ⬜ Sin código | Canal de notificación sin decidir (**pendiente 11.4/3**); §2.2 excluye Teams |
 | **M7** Calificación | ⬜ Sin código | Depende del aplicativo web |
-| **M8** Trazabilidad y observabilidad | 🟡 Parcial | Linaje de dataset listo en `almacen/`. Langfuse y el checkpointing de LangGraph están declarados en `pyproject.toml` pero **no instalados ni usados** |
-| **M9** Aplicativo web | ⬜ Sin código | Django y Playwright sin versión fijada. Playwright está por verificar: descarga binarios sin firmar que la política de esta máquina bloquea |
+| **M8** Trazabilidad y observabilidad | 🟡 Parcial | Linaje de dataset listo en `almacen/`. Langfuse 4.15.4 y langgraph 1.2.11 están **instalados pero sin cablear**: no hay `grafo/` ni trazas por agente |
+| **M9** Aplicativo web | ⬜ Sin código | Django **no está instalado** ni tiene versión fijada. Playwright está por verificar: descarga binarios sin firmar que la política de esta máquina bloquea |
 
 ### Pendientes que frenan el avance
 
@@ -137,18 +137,17 @@ de [tests/test_reglas.py](tests/test_reglas.py) pasan.
 
 ---
 
-## 5. Dos problemas abiertos en el repositorio
+## 5. Problemas abiertos en el repositorio
 
 1. **La tabla «Estado» del [README.md](README.md) está desactualizada.** Declara
    M2 y M3 como pendientes, cuando ambos están en el repo desde los commits
    `440fe58` y `6f0b098`. La tabla de §4 de este archivo es la fuente correcta
    mientras el README no se corrija.
 
-2. **Alembic está declarado pero no se usa.** No existe carpeta `alembic/` ni
-   una sola migración, y el esquema de [src/territorial/almacen/modelos.py](src/territorial/almacen/modelos.py)
-   ya tiene 259 líneas. La regla 2.1.2 de este documento **no se está cumpliendo
-   hoy**. Antes de tocar el esquema, crea la migración inicial: cuanto más
-   crezca el modelo, más caro será regularizarlo.
+*Cerrado 2026-09-17:* Alembic estaba instalado pero sin inicializar. Ya existe
+`alembic/` con la migración de línea base `949a8ff9e15d`, la ingesta migra en
+vez de llamar a `create_all` y la base de desarrollo quedó estampada en `head`.
+Ver §6.1.
 
 ---
 
@@ -168,6 +167,31 @@ $py = "$env:LOCALAPPDATA\venvs\territorial\Scripts\python.exe"
 Scripts de calibración: `medir_prefiltro.py`, `probar_clasificador.py`
 (prefiltro → Clasificador → Validador en miniatura) y `comparar_prompts.py`,
 que mide dos versiones de prompt sobre el mismo lote.
+
+### 6.1 Migraciones (regla 2 de D8)
+
+```powershell
+& $py -m alembic current                              # en qué revisión está
+& $py -m alembic upgrade head                         # aplicar pendientes
+& $py -m alembic revision --autogenerate -m "motivo"  # tras tocar modelos.py
+& $py -m alembic check                                # ¿el esquema y los modelos concuerdan?
+```
+
+Cuatro cosas que ahorran un rato:
+
+- **`aplicar_migraciones()` en `almacen/sesion.py` es el camino desde código.**
+  La ingesta lo llama; ya no existe `crear_esquema`. `create_all` quedó
+  prohibido porque crea lo que falta y calla ante lo que cambió.
+- **La URL no está en `alembic.ini`.** Sale de `Config.url_base_datos` vía
+  `env.py`. No la escribas en el `.ini` o local y nube se separarán sin aviso.
+- **`render_as_batch=True` está activo**, y es obligatorio: SQLite no sabe
+  eliminar una columna ni cambiarle el tipo con un `ALTER TABLE` normal.
+- **`--autogenerate` compara contra la base a la que apuntes.** Si esa base ya
+  tiene las tablas, la migración sale vacía. Genera contra una base limpia:
+  `URL_BASE_DATOS="sqlite:///$env:TEMP\vacia.db"`.
+
+Corre `alembic check` antes de abrir una PR que toque `modelos.py`: falla si el
+modelo y las migraciones se desincronizaron.
 
 **Ni la ingesta ni la capa determinista necesitan la clave** — solo los agentes.
 `.env` nunca se sube a git; `.env.example` sí.
