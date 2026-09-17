@@ -53,6 +53,25 @@ MUNICIPIOS_NACIONAL = 1_103
 QUINCENAS_POR_ANIO = 26
 
 
+def _escenarios() -> list[tuple[str, float, float]]:
+    """(nombre, señales, corridas de municipio) de cada escenario.
+
+    Las «corridas de municipio» son lo que factura el Correlacionador: corre
+    una vez por municipio y ciclo, no una vez por señal.
+    """
+    por_muni = SENALES_POR_QUINCENA_18 / MUNICIPIOS_MVP
+    return [
+        ("Carga inicial: 3 ciclos del MVP", SENALES_CARGA_INICIAL, MUNICIPIOS_MVP * 3),
+        ("Quincena de operación, 18 municipios", SENALES_POR_QUINCENA_18, MUNICIPIOS_MVP),
+        ("Quincena, 1.103 municipios (H5)", por_muni * MUNICIPIOS_NACIONAL, MUNICIPIOS_NACIONAL),
+        (
+            "Año nacional (26 quincenas)",
+            por_muni * MUNICIPIOS_NACIONAL * QUINCENAS_POR_ANIO,
+            MUNICIPIOS_NACIONAL * QUINCENAS_POR_ANIO,
+        ),
+    ]
+
+
 def parsear_tarifas(crudas: list[str]) -> dict[str, tuple[float, float]]:
     tarifas: dict[str, tuple[float, float]] = {}
     for item in crudas or []:
@@ -116,6 +135,42 @@ def main() -> int:
 
     print(f"{'TOTAL':31} {sum(f[2] for f in filas):>8} {total_ent:>10,} {total_sal:>10,}")
 
+    # El Clasificador escala por señal; el Correlacionador por municipio.
+    clas = [f for f in filas if f[0] == "clasificador"]
+    corr = [f for f in filas if f[0] == "correlacionador"]
+    modelo_clas = clas[0][1] if clas else None
+    modelo_corr = corr[0][1] if corr else None
+    # La tasa por señal se toma de la medición documentada arriba y no se deduce
+    # de los propios tokens, que sería circular: la traza no guarda cuántas
+    # señales llevaba cada lote.
+    ent_sen, sal_sen = ENTRADA_POR_SENAL, SALIDA_POR_SENAL
+    ent_muni = sum((f[3] or 0) for f in corr) / sum(f[2] for f in corr) if corr else 0
+    sal_muni = sum((f[4] or 0) for f in corr) / sum(f[2] for f in corr) if corr else 0
+
+    if clas and corr:
+        print()
+        print("=" * 78)
+        print("TOKENS PROYECTADOS POR AGENTE Y MODELO")
+        print("=" * 78)
+        print(f"  Clasificador    {ent_sen:>6,.0f} entrada + {sal_sen:>6,.0f} salida por SEÑAL")
+        print(
+            f"  Correlacionador {ent_muni:>6,.0f} entrada + {sal_muni:>6,.0f} "
+            "salida por MUNICIPIO"
+        )
+        print()
+        print(f"{'escenario':38} {'agente':16} {'modelo':14} {'entrada':>13} {'salida':>13}")
+        for nombre, señales, municipios in _escenarios():
+            print(
+                f"{nombre:38} {'Clasificador':16} {modelo_clas:14} "
+                f"{señales * ent_sen:>13,.0f} {señales * sal_sen:>13,.0f}"
+            )
+            print(
+                f"{'':38} {'Correlacionador':16} {modelo_corr:14} "
+                f"{municipios * ent_muni:>13,.0f} {municipios * sal_muni:>13,.0f}"
+            )
+        print()
+        print("  No incluye el Sintetizador (M6), que aún no existe.")
+
     if not tarifas:
         print()
         print("Sin --tarifa no se calcula precio: las del tenant son el pendiente B4.")
@@ -140,21 +195,7 @@ def main() -> int:
         print(f"  {modelo:14} {c:>12,.4f}")
     print(f"  {'TOTAL':14} {costo_medido:>12,.4f}")
 
-    # --- Proyecciones ---
-    # El Clasificador escala por señal; el Correlacionador por municipio.
-    clas = [f for f in filas if f[0] == "clasificador"]
-    corr = [f for f in filas if f[0] == "correlacionador"]
-
     if clas and corr:
-        modelo_clas = clas[0][1]
-        modelo_corr = corr[0][1]
-        # La traza no guarda cuántas señales llevaba cada lote, así que la tasa
-        # por señal se toma de la medición documentada arriba en vez de
-        # deducirla de los propios tokens, que sería circular.
-        ent_sen, sal_sen = ENTRADA_POR_SENAL, SALIDA_POR_SENAL
-        llamadas_corr = sum(f[2] for f in corr)
-        ent_muni = sum((f[3] or 0) for f in corr) / llamadas_corr
-        sal_muni = sum((f[4] or 0) for f in corr) / llamadas_corr
 
         def estimar(señales: float, municipios: float) -> float:
             total = 0.0
@@ -173,21 +214,7 @@ def main() -> int:
         print(f"  base medida: {ent_sen:.0f}+{sal_sen:.0f} tokens/señal (Clasificador), "
               f"{ent_muni:.0f}+{sal_muni:.0f} por municipio (Correlacionador)")
         print()
-        escenarios = [
-            ("Carga inicial: los 3 ciclos del MVP", SENALES_CARGA_INICIAL, MUNICIPIOS_MVP * 3),
-            ("Una quincena de operación, 18 municipios", SENALES_POR_QUINCENA_18, MUNICIPIOS_MVP),
-            (
-                "Una quincena, 1.103 municipios (H5)",
-                SENALES_POR_QUINCENA_18 / MUNICIPIOS_MVP * MUNICIPIOS_NACIONAL,
-                MUNICIPIOS_NACIONAL,
-            ),
-            (
-                "Un año nacional (26 quincenas)",
-                SENALES_POR_QUINCENA_18 / MUNICIPIOS_MVP * MUNICIPIOS_NACIONAL * QUINCENAS_POR_ANIO,
-                MUNICIPIOS_NACIONAL * QUINCENAS_POR_ANIO,
-            ),
-        ]
-        for nombre, señales, municipios in escenarios:
+        for nombre, señales, municipios in _escenarios():
             print(f"  {nombre:42} {estimar(señales, municipios):>14,.2f}")
 
         print()
