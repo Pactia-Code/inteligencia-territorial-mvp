@@ -4,7 +4,7 @@ Registro único de lo que falta decidir. Consolida [PRD §10](prd.md),
 [Addendum 01 §7](addendum-01-fuente-de-datos.md),
 [Addendum 02](addendum-02-stack.md) y [Arquitectura §11](architecture.md).
 
-**Actualizado:** 2026-09-11
+**Actualizado:** 2026-09-17
 
 ---
 
@@ -18,6 +18,7 @@ Registro único de lo que falta decidir. Consolida [PRD §10](prd.md),
 | **A3** | **Atribución geográfica (R8).** 0,5% de las señales SECOP hablan de un municipio distinto al que están archivadas, y el caso de Frontino muestra que también entran municipios fuera del MVP. Detectarlo exige un nomenclátor DIVIPOLA de los 1.103 municipios | Credibilidad del informe del top 3 | Área de Analítica | Addendum 01 §4.2 |
 | **A4** | **Consolidación del Clasificador.** Tras cuatro versiones del prompt sigue partiendo un mismo frente de obra en varios insights: en Carepa produjo cuatro insights de pavimentación que son un solo frente | Calidad del informe; infla el conteo de insights | Área de Analítica | Afinamiento de prompt |
 | **A1 / 4** | Pesos definitivos del score (hay propuesta provisional en Addendum 01 D4) | Calibración de M5 | Gerencia General | PRD §10 · Addendum 01 |
+| **A5** | **Dos decisiones de M5 que D4 no cubre.** (a) La **escala común** en que se suman los factores: se implementó min-max por cohorte del ciclo, con el costo de que los scores no son comparables entre ciclos. (b) El **umbral de información** para entrar al top 3: en el ciclo 3, redistribuir el peso deja a Armenia con 0 de 239 días de cobertura, un solo factor vivo y score perfecto — la redistribución premia al que no tiene datos. Se fijó en 50%, configurable | Credibilidad del top 3 del ciclo 3 | Área de Analítica | Implementación de M5, 2026-09-17 |
 | **B2** | Confirmar que el despliegue del Clasificador alcanza CA-M2.1. El prefiltro solo reduce 61,2%, así que el Clasificador debe descartar otro **61,4%** de lo que recibe — no es un ajuste fino | Calibración de M2 | Área de Analítica | Addendum 02 |
 
 ## Bloquean alcance

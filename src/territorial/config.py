@@ -58,6 +58,18 @@ class Config(BaseSettings):
 
     umbral_cobertura: float = Field(default=0.30, ge=0.0, le=1.0)
 
+    # --- Scoring (Addendum 01, D4) ---
+    # CA-M5.3: los pesos se cambian editando este archivo, sin tocar código. Si
+    # no existe, rigen los provisionales de D4. Pendiente A1: los definitivos
+    # los decide Gerencia General.
+    ruta_pesos: Path = Path("config/pesos.json")
+
+    # Fracción mínima del peso nominal que debe tener datos para que un
+    # municipio pueda ocupar un puesto del top 3. Ver `ranking.py`: sin esto,
+    # redistribuir el peso de los factores ausentes premia al que no tiene
+    # datos. No es de D4 — es un hallazgo al correrlo sobre el snapshot.
+    umbral_informacion: float = Field(default=0.50, ge=0.0, le=1.0)
+
     @property
     def ventanas_ciclo(self) -> dict[int, tuple[date, date]]:
         """Ventanas [desde, hasta) de los 3 ciclos. El último día es inclusivo."""

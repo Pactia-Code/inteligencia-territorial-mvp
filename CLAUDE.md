@@ -115,7 +115,7 @@ de [tests/test_reglas.py](tests/test_reglas.py) pasan.
 | **M2** Clasificación | 🟡 Funciona, no alcanza el criterio | Salida estructurada con `responses.parse` y esquema pydantic; prompt en **v4**. Reducción medida 43,5%–49,0%, pero **CA-M2.1 exige 85% combinado**, lo que obliga a descartar otro 61,4% de lo que recibe (**pendiente B2**) |
 | **M3** Validación determinista | ✅ Funciona | 7 reglas R1–R7. Tasa de rechazo 0,0% tras corregir el falso positivo de puntuación de SECOP. **Muestra pequeña: insuficiente para concluir sobre H4** |
 | **M4** Correlación | ⬜ Sin código | — |
-| **M5** Scoring y priorización | ⬜ Sin código | Diseño cerrado en Addendum 01 **D4** (seis factores). Los **pesos definitivos** los decide Gerencia General (**pendiente A1/4**) |
+| **M5** Scoring y priorización | ✅ Funciona con pesos provisionales | F1–F6 de D4, normalización por cohorte, winsorizado de F4, redistribución por cobertura, top 3 y desglose. Los 3 ciclos puntúan y persisten. Los **pesos definitivos** los decide Gerencia General (**pendiente A1/4**); rigen los provisionales de D4 |
 | **M6** Síntesis y distribución | ⬜ Sin código | Canal de notificación sin decidir (**pendiente 11.4/3**); §2.2 excluye Teams |
 | **M7** Calificación | ⬜ Sin código | Depende del aplicativo web |
 | **M8** Trazabilidad y observabilidad | 🟡 Parcial | Linaje de dataset listo en `almacen/`. Langfuse 4.15.4 y langgraph 1.2.11 están **instalados pero sin cablear**: no hay `grafo/` ni trazas por agente |
@@ -134,6 +134,9 @@ de [tests/test_reglas.py](tests/test_reglas.py) pasan.
 - **B4** — **H5 quedó sin base** tras el cambio de proveedor a Azure OpenAI. Hay
   que rehacer la estimación de costo contando los **tokens de razonamiento**,
   que no aparecen en el texto pero sí en la factura.
+- **A5** — dos decisiones de M5 que D4 no cubre y que Analítica debe confirmar:
+  la **escala común** de los factores (min-max por cohorte) y el **umbral de
+  información** del 50% para entrar al top 3. Ver §7.
 
 ---
 
@@ -208,7 +211,33 @@ modelo y las migraciones se desincronizaron.
 
 ---
 
-## 7. Al cambiar el prompt de un agente
+## 7. Dos decisiones de M5 que no vienen de D4
+
+Están implementadas, documentadas en el código y son configurables, pero
+**nadie las ha aprobado**. Si tocas el scoring, léelas antes.
+
+**La escala común de los factores.** D4 fija cómo se calcula cada factor y
+cuánto pesa, pero no en qué escala se suman, y sin eso los pesos no significan
+nada: F1 vive en [0, 1], F4 va de -65% a +900% y F2 son miles de millones de
+pesos. Se normaliza **min-max dentro de la cohorte del ciclo**. El costo: los
+scores **no son comparables entre ciclos**, solo dentro de uno. Para el top 3
+por ciclo da igual; para una serie temporal del score, habría que rehacerlo.
+
+**El umbral de información del 50%** (`Config.umbral_informacion`). D4 manda
+redistribuir el peso de los factores sin cobertura para no castigar al
+municipio truncado. Sobre el snapshot aparece el efecto contrario: en el ciclo
+3, Armenia tiene **0 de 239 días cubiertos**, conserva solo F4, ese factor pasa
+a valer el 100% del score y Armenia sale **primera con un 1,0000 perfecto**.
+Ibagué igual, con 3 días. La redistribución acaba premiando al que no tiene
+datos, y encima con ELIC, que es constante en los 3 ciclos (D2/R3) y por tanto
+no aporta señal del ciclo.
+
+La guarda registra qué fracción del peso nominal tenía datos y, por debajo del
+umbral, el municipio **queda fuera del top 3 pero no fuera del ranking**: no se
+le pone cero, que es lo que D4 prohíbe. Con el umbral en `0.0` vuelve el
+comportamiento literal de D4, y hay una prueba que lo verifica.
+
+## 8. Al cambiar el prompt de un agente
 
 No lo afines a ojo. Crea una versión nueva en `agentes/prompts/`, córrela contra
 la anterior sobre el mismo lote con `comparar_prompts.py` y reporta las métricas
