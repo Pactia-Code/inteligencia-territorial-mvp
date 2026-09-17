@@ -14,8 +14,8 @@ dependencies = [
     "alembic>=1.14",
     # Datos
     "polars>=1.17",
-    # LLM vía Foundry (Addendum 02, D6)
-    "anthropic>=0.40",
+    # LLM vía Azure OpenAI, superficie v1 (Addendum 02, D6 revisado 2026-09-11)
+    "openai>=1.50",
     # Orquestación y observabilidad
     "langgraph>=0.2",
     "langgraph-checkpoint-sqlite>=2.0",
