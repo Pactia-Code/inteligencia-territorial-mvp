@@ -95,6 +95,21 @@ def despliegue_de(agente: str, config: Config | None = None) -> str:
     return mapa[agente]
 
 
+# Agentes que corren sobre un modelo de razonamiento. Gastan tokens de
+# pensamiento que no aparecen en el texto pero sí en la factura, y un techo
+# bajo los corta antes de que lleguen a escribir: la llamada vuelve vacía y sin
+# error, que es la forma más difícil de diagnosticar (D6.2).
+AGENTES_QUE_RAZONAN = frozenset({"correlacionador", "sintetizador"})
+
+
+def techo_de(agente: str, config: Config | None = None) -> int:
+    """Máximo de tokens de salida que corresponde a cada agente."""
+    cfg = config or obtener_config()
+    if agente in AGENTES_QUE_RAZONAN:
+        return cfg.max_tokens_salida_razonamiento
+    return cfg.max_tokens_salida
+
+
 def texto_de(respuesta) -> str:
     """Extrae el texto de una respuesta de la Responses API.
 

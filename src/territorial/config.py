@@ -36,6 +36,11 @@ class Config(BaseSettings):
     # Los modelos de razonamiento gastan tokens de pensamiento antes de
     # responder. Un techo bajo los corta sin que lleguen a emitir texto.
     max_tokens_salida: int = 4096
+    # El Correlacionador y el Sintetizador corren sobre gpt-5, donde razonar es
+    # la función y no el desperdicio (D6.2). Con 4096 el Correlacionador se
+    # cortó en seco en Barranquilla: 6 insights sobre 5 categorías y la llamada
+    # volvió vacía sin error. Medido, no supuesto.
+    max_tokens_salida_razonamiento: int = 16384
 
     # --- Observabilidad ---
     langfuse_public_key: str | None = None

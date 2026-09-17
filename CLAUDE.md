@@ -79,7 +79,7 @@ src/territorial/
 ├── CAPA 1 — DETERMINISTA (código, nunca LLM)
 │   ├── ingesta/     Carga, particionado por ciclo, deduplicación
 │   ├── reglas/      validador.py · prefiltro.py · cobertura.py · normalizacion.py
-│   └── scoring/     M5 — F1–F6, pesos, ranking del top 3   [aún sin código]
+│   └── scoring/     M5 — F1–F6, pesos, ranking del top 3, persistencia
 │
 ├── CAPA 2 — AGENTES (LLM)
 │   ├── agentes/     fuentes · clasificador · correlacionador · sintetizador
@@ -105,16 +105,16 @@ una llamada a LLM no vive en `reglas/`.
 
 ## 4. Estado real por módulo
 
-Diagnóstico verificado sobre el árbol de trabajo el 2026-09-17. Las 35 pruebas
-de [tests/test_reglas.py](tests/test_reglas.py) pasan.
+Diagnóstico verificado sobre el árbol de trabajo el 2026-09-17. Las 91 pruebas
+de `tests/` pasan (reglas, scoring y correlacionador).
 
 | Módulo | Estado | Detalle |
 |---|---|---|
 | **M1** Ingesta por API (Agente Fuentes) | ✅ Funciona | Carga los 18 municipios y las 20.030 señales; `data/territorial.db` poblada. Conectores vivos diferidos a Fase 0 |
 | **Prefiltro** (apoya M2 y M5) | 🟡 Implementado, sin validar | Reduce 61,2%. El diccionario de obra produce entre 13% y 90% según el municipio — rango demasiado ancho para confiar en él (**pendiente A2**) |
-| **M2** Clasificación | 🟡 Funciona, no alcanza el criterio | Salida estructurada con `responses.parse` y esquema pydantic; prompt en **v4**. Reducción medida 43,5%–49,0%, pero **CA-M2.1 exige 85% combinado**, lo que obliga a descartar otro 61,4% de lo que recibe (**pendiente B2**) |
+| **M2** Clasificación | 🟡 Funciona, no alcanza el criterio, y no guarda | Salida estructurada con `responses.parse` y esquema pydantic; prompt en **v4**. Reducción medida 43,5%–49,0%, pero **CA-M2.1 exige 85% combinado** (**pendiente B2**). Además: **no persiste nada** —hay 0 insights en la base—, se **trunca** con lotes grandes y **varía entre corridas idénticas**. Ver §8 |
 | **M3** Validación determinista | ✅ Funciona | 7 reglas R1–R7. Tasa de rechazo 0,0% tras corregir el falso positivo de puntuación de SECOP. **Muestra pequeña: insuficiente para concluir sobre H4** |
-| **M4** Correlación | ⬜ Sin código | — |
+| **M4** Correlación | 🟡 Funciona; CA-M4.3 sin ejercitar | Prompt v1, salida estructurada. CA-M4.1, CA-M4.2 y CA-M4.4 verificados contra el tenant. **La evidencia la une el código, no el modelo** (ver el encabezado de `agentes/correlacionador.py`). CA-M4.3 (bucle de aprendizaje) está implementado pero **no se puede probar**: no hay ni una calificación en la base |
 | **M5** Scoring y priorización | ✅ Funciona con pesos provisionales | F1–F6 de D4, normalización por cohorte, winsorizado de F4, redistribución por cobertura, top 3 y desglose. Los 3 ciclos puntúan y persisten. Los **pesos definitivos** los decide Gerencia General (**pendiente A1/4**); rigen los provisionales de D4 |
 | **M6** Síntesis y distribución | ⬜ Sin código | Canal de notificación sin decidir (**pendiente 11.4/3**); §2.2 excluye Teams |
 | **M7** Calificación | ⬜ Sin código | Depende del aplicativo web |
@@ -237,7 +237,27 @@ umbral, el municipio **queda fuera del top 3 pero no fuera del ranking**: no se
 le pone cero, que es lo que D4 prohíbe. Con el umbral en `0.0` vuelve el
 comportamiento literal de D4, y hay una prueba que lo verifica.
 
-## 8. Al cambiar el prompt de un agente
+## 8. Tres cosas que cortan una llamada sin avisar
+
+**El techo de tokens depende del agente, no es único.** `cliente.techo_de()` da
+4096 al Clasificador (`gpt-5.4-mini`, apenas razona) y **16384** al
+Correlacionador y al Sintetizador (`gpt-5`, donde razonar es la función). Con
+4096, el Correlacionador se cortó en seco en Barranquilla —6 insights sobre 5
+categorías— y **la llamada volvió vacía y sin error**, que es la forma más
+difícil de diagnosticar. Si añades un agente sobre un modelo de razonamiento,
+mételo en `AGENTES_QUE_RAZONAN`.
+
+**El Clasificador también se trunca, y falla distinto.** Con 40 señales de
+Barranquilla produjo 6 insights y 31 descartes, y el JSON llegó cortado a
+media cadena: `ValidationError: Invalid JSON: EOF while parsing a string`. No es
+el techo de razonamiento sino el de texto — un descarte por señal ocupa sitio.
+Hasta que se suba, **los lotes grandes fallan**. No está arreglado.
+
+**El Clasificador no es reproducible entre corridas.** El mismo lote de 20
+señales de Carepa dio 3 insights una vez y 6 otra. Importa para H4 y para
+cualquier medición de prompts: `comparar_prompts.py` mide una muestra de uno.
+
+## 9. Al cambiar el prompt de un agente
 
 No lo afines a ojo. Crea una versión nueva en `agentes/prompts/`, córrela contra
 la anterior sobre el mismo lote con `comparar_prompts.py` y reporta las métricas
