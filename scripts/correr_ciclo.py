@@ -34,7 +34,9 @@ def main() -> int:
     p = argparse.ArgumentParser(description="Corre un ciclo completo (M2 → M3 → M4)")
     p.add_argument("--ciclo", type=int, default=1)
     p.add_argument("--municipio", action="append", help="DIVIPOLA; repetible")
-    p.add_argument("--limite", type=int, default=25, help="señales por llamada al Clasificador")
+    p.add_argument(
+        "--lote", type=int, default=None, help="señales por llamada (Config.senales_por_lote)"
+    )
     p.add_argument("--seco", action="store_true", help="no escribe en la base")
     args = p.parse_args()
 
@@ -44,7 +46,7 @@ def main() -> int:
         return 1
 
     with sesion(cfg) as s:
-        resumen = procesar_ciclo(s, args.ciclo, args.limite, args.municipio, cfg)
+        resumen = procesar_ciclo(s, args.ciclo, args.lote, args.municipio, cfg)
 
         print()
         print(resumen)

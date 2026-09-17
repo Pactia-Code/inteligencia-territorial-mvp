@@ -45,6 +45,7 @@ from territorial.agentes.persistencia import (
 )
 from territorial.almacen.modelos import Calificacion, Insight, Municipio, SenalCruda
 from territorial.config import Config, obtener_config
+from territorial.reglas.normalizacion import normalizar
 from territorial.reglas.prefiltro import clasificar as prefiltrar
 from territorial.reglas.validador import Senal as SenalValidador
 from territorial.reglas.validador import validar
@@ -60,6 +61,7 @@ class ResumenMunicipio:
     crudas: int = 0
     tras_prefiltro: int = 0
     enviadas: int = 0
+    lotes: int = 0
     insights: int = 0
     validados: int = 0
     rechazados: int = 0
@@ -107,7 +109,7 @@ class ResumenCiclo:
                 continue
             lineas.append(
                 f"  {m.divipola} {m.nombre:<22} "
-                f"{m.crudas:>5} crudas → {m.enviadas:>3} enviadas → "
+                f"{m.crudas:>5} crudas → {m.enviadas:>4} enviadas en {m.lotes} lotes → "
                 f"{m.validados:>2} válidos, {m.correlacionados} correlacionados"
             )
         lineas.append("")
@@ -137,20 +139,39 @@ def _calificaciones_previas(
     return [CalificacionPrevia(categoria=c, valor=float(v), id_ciclo=ci) for c, v, ci in filas]
 
 
+def _en_lotes(senales: list[SenalCruda], tamano: int) -> list[list[SenalCruda]]:
+    """Trocea las señales de un municipio, agrupando las de objeto parecido.
+
+    El orden importa. El Clasificador agrupa por *frente de intervención*, así
+    que si dos contratos del mismo frente caen en lotes distintos salen dos
+    insights en vez de uno: es el pendiente A4, empeorado por el troceo.
+    Ordenar por el objeto normalizado deja juntos los contratos de redacción
+    casi idéntica, que es el caso frecuente cuando un frente se paga con varios
+    contratos.
+
+    No lo resuelve del todo: dos contratos del mismo frente redactados distinto
+    seguirán separándose. Agruparlos de verdad exigiría medir similitud, y eso
+    es trabajo del pendiente A4.
+    """
+    ordenadas = sorted(senales, key=lambda s: normalizar((s.datos or {}).get("objeto")))
+    return [ordenadas[i : i + tamano] for i in range(0, len(ordenadas), tamano)]
+
+
 def procesar_municipio(
     sesion_bd: Session,
     municipio: Municipio,
     id_ciclo: int,
-    limite: int = 25,
+    tamano_lote: int | None = None,
     config: Config | None = None,
 ) -> ResumenMunicipio:
     """Corre la cadena completa sobre un municipio y persiste el resultado.
 
-    `limite` acota cuántas señales se mandan al Clasificador en una llamada.
-    No es un ajuste de gusto: con 40 señales de Barranquilla el Clasificador
-    devuelve el JSON truncado (pendiente B5). 25 es lo que cabe hoy.
+    Procesa **todas** las señales que pasan el prefiltro, en lotes. Antes se
+    mandaba solo el primer lote y el resto se descartaba en silencio: de las
+    897 señales de Barranquilla en el ciclo 1 se clasificaban 25.
     """
     cfg = config or obtener_config()
+    tamano = tamano_lote or cfg.senales_por_lote
     resumen = ResumenMunicipio(divipola=municipio.divipola, nombre=municipio.nombre)
 
     crudas = sesion_bd.scalars(
@@ -164,41 +185,63 @@ def procesar_municipio(
     pasan = [s for s in contratos if prefiltrar((s.datos or {}).get("objeto"))[0]]
     resumen.tras_prefiltro = len(pasan)
 
-    lote = pasan[:limite]
-    resumen.enviadas = len(lote)
-    if not lote:
+    if not pasan:
         return resumen
 
-    # --- M2 ---
-    entradas = [
-        SenalEntrada(
-            id=s.id,
-            fuente=s.fuente,
-            fecha=s.fecha_publicacion,
-            contenido=(s.datos or {}).get("objeto") or s.contenido,
-            url=s.url,
+    lotes = _en_lotes(pasan, tamano)
+    resumen.lotes = len(lotes)
+    resumen.enviadas = len(pasan)
+
+    # --- M2, lote a lote ---
+    lote_plano: list[SenalCruda] = []
+    insights_crudos: list[dict] = []
+    fallos: list[str] = []
+
+    for lote in lotes:
+        entradas = [
+            SenalEntrada(
+                id=s.id,
+                fuente=s.fuente,
+                fecha=s.fecha_publicacion,
+                contenido=(s.datos or {}).get("objeto") or s.contenido,
+                url=s.url,
+            )
+            for s in lote
+        ]
+        res = clasificar_lote(entradas, municipio.nombre, municipio.departamento, cfg)
+        resumen.tokens_entrada += res.tokens_entrada
+        resumen.tokens_salida += res.tokens_salida
+
+        guardar_traza(
+            sesion_bd,
+            id_ciclo=id_ciclo,
+            agente="clasificador",
+            modelo=despliegue_de("clasificador", cfg),
+            tokens_entrada=res.tokens_entrada,
+            tokens_salida=res.tokens_salida,
+            duracion_ms=res.duracion_ms,
+            hash_input=hash_clasificador(entradas),
         )
-        for s in lote
-    ]
-    res = clasificar_lote(entradas, municipio.nombre, municipio.departamento, cfg)
-    resumen.tokens_entrada += res.tokens_entrada
-    resumen.tokens_salida += res.tokens_salida
 
-    guardar_traza(
-        sesion_bd,
-        id_ciclo=id_ciclo,
-        agente="clasificador",
-        modelo=despliegue_de("clasificador", cfg),
-        tokens_entrada=res.tokens_entrada,
-        tokens_salida=res.tokens_salida,
-        duracion_ms=res.duracion_ms,
-        hash_input=hash_clasificador(entradas),
-    )
+        if res.error:
+            # Un lote malo no tira el municipio: se anota y se sigue con los
+            # demás. Perder un municipio entero por un lote de cincuenta
+            # señales sería peor que procesarlo incompleto y decirlo.
+            fallos.append(res.error)
+            continue
 
-    if res.error:
-        resumen.error = res.error
+        lote_plano.extend(lote)
+        insights_crudos.extend(res.insights)
+
+    if fallos and not insights_crudos:
+        resumen.error = f"todos los lotes fallaron; el primero: {fallos[0]}"
         return resumen
-    resumen.insights = len(res.insights)
+    if fallos:
+        resumen.error = f"{len(fallos)} de {len(lotes)} lotes fallaron: {fallos[0]}"
+
+    resumen.insights = len(insights_crudos)
+    lote = lote_plano
+    res_insights = insights_crudos
 
     # --- M3: determinista, sobre cada insight ---
     vistas = {
@@ -215,7 +258,7 @@ def procesar_municipio(
     }
 
     juzgados: list[dict] = []
-    for ins in res.insights:
+    for ins in res_insights:
         veredicto = validar(ins["evidencia"], municipio.divipola, id_ciclo, vistas)
         juzgados.append(
             {
@@ -296,7 +339,7 @@ def procesar_municipio(
 def procesar_ciclo(
     sesion_bd: Session,
     id_ciclo: int,
-    limite: int = 25,
+    tamano_lote: int | None = None,
     solo: list[str] | None = None,
     config: Config | None = None,
 ) -> ResumenCiclo:
@@ -310,7 +353,7 @@ def procesar_ciclo(
     for municipio in sesion_bd.scalars(consulta).all():
         try:
             resumen.municipios.append(
-                procesar_municipio(sesion_bd, municipio, id_ciclo, limite, cfg)
+                procesar_municipio(sesion_bd, municipio, id_ciclo, tamano_lote, cfg)
             )
         except Exception as exc:  # noqa: BLE001 — un municipio no tumba el ciclo
             resumen.municipios.append(

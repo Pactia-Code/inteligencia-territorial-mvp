@@ -28,7 +28,15 @@ from territorial.agentes.persistencia import (
     guardar_insights,
     guardar_traza,
 )
-from territorial.almacen.modelos import Base, Ciclo, Insight, Municipio, TrazaAgente
+from territorial.almacen.modelos import (
+    Base,
+    Ciclo,
+    Insight,
+    Municipio,
+    SenalCruda,
+    TrazaAgente,
+)
+from territorial.ciclo import _en_lotes
 
 DIVIPOLA = "05147"
 CICLO = 1
@@ -276,3 +284,62 @@ def test_las_trazas_se_acumulan_no_se_reemplazan(bd):
         )
     bd.commit()
     assert bd.query(TrazaAgente).count() == 3
+
+
+# --------------------------------------------------------------------------
+# Troceo por lotes (B5)
+# --------------------------------------------------------------------------
+
+
+def senal_falsa(id_: int, objeto: str) -> SenalCruda:
+    return SenalCruda(
+        id=id_,
+        id_ciclo=CICLO,
+        divipola=DIVIPOLA,
+        fuente="SECOP II",
+        contenido=objeto,
+        hash_dedup=f"h{id_}",
+        datos={"objeto": objeto},
+    )
+
+
+def test_el_troceo_no_pierde_ni_duplica_señales():
+    """Antes se mandaba `pasan[:limite]` y el resto se descartaba en silencio:
+    de las 897 señales de Barranquilla se clasificaban 25."""
+    senales = [senal_falsa(i, f"objeto {i}") for i in range(97)]
+    lotes = _en_lotes(senales, 25)
+
+    assert len(lotes) == 4
+    ids = [s.id for lote in lotes for s in lote]
+    assert sorted(ids) == list(range(97))
+
+
+def test_los_objetos_identicos_caen_en_el_mismo_lote():
+    """El Clasificador agrupa por frente de intervención. Si dos contratos del
+    mismo frente caen en lotes distintos salen dos insights: es A4 empeorado."""
+    senales = (
+        [senal_falsa(i, "RECONSTRUCCION DE VIAS URBANAS") for i in range(5)]
+        + [senal_falsa(100 + i, "SUMINISTRO DE PAPELERIA") for i in range(5)]
+    )
+    # Se barajan para que el orden de entrada no sea el que agrupa.
+    revueltas = [senales[i] for i in (0, 5, 1, 6, 2, 7, 3, 8, 4, 9)]
+    lotes = _en_lotes(revueltas, 5)
+
+    for lote in lotes:
+        objetos = {(s.datos or {})["objeto"] for s in lote}
+        assert len(objetos) == 1, "un lote mezcló frentes que podían ir juntos"
+
+
+def test_el_troceo_ignora_mayusculas_y_acentos_al_agrupar():
+    senales = [
+        senal_falsa(1, "RECONSTRUCCIÓN DE VÍAS"),
+        senal_falsa(2, "suministro de papelería"),
+        senal_falsa(3, "reconstruccion de vias"),
+    ]
+    lotes = _en_lotes(senales, 2)
+    primero = {s.id for s in lotes[0]}
+    assert primero == {1, 3}
+
+
+def test_un_lote_vacio_no_produce_lotes():
+    assert _en_lotes([], 25) == []

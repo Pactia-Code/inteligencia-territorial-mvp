@@ -105,14 +105,14 @@ una llamada a LLM no vive en `reglas/`.
 
 ## 4. Estado real por módulo
 
-Diagnóstico verificado sobre el árbol de trabajo el 2026-09-17. Las 102 pruebas
-de `tests/` pasan (reglas, scoring, correlacionador y persistencia).
+Diagnóstico verificado sobre el árbol de trabajo el 2026-09-17. Las 106 pruebas
+de `tests/` pasan (reglas, scoring, correlacionador, persistencia y troceo).
 
 | Módulo | Estado | Detalle |
 |---|---|---|
 | **M1** Ingesta por API (Agente Fuentes) | ✅ Funciona | Carga los 18 municipios y las 20.030 señales; `data/territorial.db` poblada. Conectores vivos diferidos a Fase 0 |
 | **Prefiltro** (apoya M2 y M5) | 🟡 Implementado, sin validar | Reduce 61,2%. El diccionario de obra produce entre 13% y 90% según el municipio — rango demasiado ancho para confiar en él (**pendiente A2**) |
-| **M2** Clasificación | 🟡 Funciona y persiste; no alcanza el criterio | Salida estructurada con `responses.parse` y prompt **v4**. Ya guarda en la base, válidos y rechazados. **CA-M2.1 exige ≥85%** y sobre Carepa dio 84,1% — cerca, pero de un municipio (**B2**). Se **trunca** con lotes grandes (**B5**) y **varía entre corridas idénticas** (**A6**). Ver §8 |
+| **M2** Clasificación | 🟡 Funciona, persiste y trocea | Prompt **v4**, salida estructurada. Guarda válidos y rechazados. Procesa **todas** las señales en lotes de 50. Primera medición sobre un municipio completo (Barranquilla c2, 284 señales): **94,6% de reducción**, por encima del 85% de CA-M2.1 — falta medirlo en los 18. Sigue **variando entre corridas idénticas** (**A6**). Ver §8 y §9 |
 | **M3** Validación determinista | ✅ Funciona | 7 reglas R1–R7. Tasa de rechazo 0,0% tras corregir el falso positivo de puntuación de SECOP. **Muestra pequeña: insuficiente para concluir sobre H4** |
 | **M4** Correlación | 🟡 Funciona; CA-M4.3 sin ejercitar | Prompt v1, salida estructurada. CA-M4.1, CA-M4.2 y CA-M4.4 verificados contra el tenant. **La evidencia la une el código, no el modelo** (ver el encabezado de `agentes/correlacionador.py`). CA-M4.3 (bucle de aprendizaje) está implementado pero **no se puede probar**: no hay ni una calificación en la base |
 | **M5** Scoring y priorización | ✅ Funciona con pesos provisionales | F1–F6 de D4, normalización por cohorte, winsorizado de F4, redistribución por cobertura, top 3 y desglose. Los 3 ciclos puntúan y persisten. Los **pesos definitivos** los decide Gerencia General (**pendiente A1/4**); rigen los provisionales de D4 |
@@ -243,7 +243,32 @@ umbral, el municipio **queda fuera del top 3 pero no fuera del ranking**: no se
 le pone cero, que es lo que D4 prohíbe. Con el umbral en `0.0` vuelve el
 comportamiento literal de D4, y hay una prueba que lo verifica.
 
-## 8. Tres cosas que cortan una llamada sin avisar
+## 8. Carga inicial y operación no son lo mismo
+
+El snapshot cubre **374 días** y sus tres ciclos duran **51, 84 y 239 días**. No
+son quincenales, pese a que el PRD los llame así: D2 los partió por terciles de
+volumen SECOP. **El ciclo 3 son 17 quincenas.**
+
+| | Señales tras el prefiltro |
+|---|---|
+| Carga inicial (el snapshot, un año) | **7.628** |
+| Una quincena en operación | **~615** |
+
+La tasa real agregada es de 43,9 señales al día en los 18 municipios. En régimen
+normal **13 de los 18 no llegan a 20 señales por quincena**; solo Barranquilla
+(204), Armenia (92), Pereira (61), Cartagena (50) e Ibagué (48) pasan de 40.
+
+Dos consecuencias, y la segunda es la que importa:
+
+- Dimensionar el troceo con las cifras del snapshot sobredimensiona el sistema
+  por un factor de 12.
+- **H5 no se puede extrapolar con los totales del snapshot.** Multiplicar el
+  costo de un ciclo del MVP por 1.103 municipios sobreestima el régimen
+  permanente en un orden de magnitud. Para el pendiente B4 hay que usar la tasa
+  diaria por 14, no los totales. Medido: el Clasificador gasta ~282 tokens de
+  entrada y ~111 de salida por señal.
+
+## 9. Tres cosas que cortan una llamada sin avisar
 
 **El techo de tokens depende del agente, no es único.** `cliente.techo_de()` da
 4096 al Clasificador (`gpt-5.4-mini`, apenas razona) y **16384** al
@@ -253,17 +278,19 @@ categorías— y **la llamada volvió vacía y sin error**, que es la forma más
 difícil de diagnosticar. Si añades un agente sobre un modelo de razonamiento,
 mételo en `AGENTES_QUE_RAZONAN`.
 
-**El Clasificador también se trunca, y falla distinto.** Con 40 señales de
-Barranquilla produjo 6 insights y 31 descartes, y el JSON llegó cortado a
-media cadena: `ValidationError: Invalid JSON: EOF while parsing a string`. No es
-el techo de razonamiento sino el de texto — un descarte por señal ocupa sitio.
-Hasta que se suba, **los lotes grandes fallan**. No está arreglado.
+**El Clasificador se truncaba, y fallaba distinto** (pendiente B5, cerrado). Su
+techo era de texto, no de razonamiento: a ~111 tokens de salida por señal, 40
+señales daban 4.243 y el corte estaba en 4.096, así que el JSON llegaba cortado
+a media cadena. Ahora el techo es 16.384 y `Config.senales_por_lote` trocea de
+50 en 50. **No subas el lote por velocidad**: con 100 señales cabe de sobra pero
+4 de 7 insights salieron sin categorizar. El límite práctico es la calidad, no
+los tokens, y se degrada en silencio — el JSON sigue siendo válido.
 
 **El Clasificador no es reproducible entre corridas.** El mismo lote de 20
 señales de Carepa dio 3 insights una vez y 6 otra. Importa para H4 y para
 cualquier medición de prompts: `comparar_prompts.py` mide una muestra de uno.
 
-## 9. Al cambiar el prompt de un agente
+## 10. Al cambiar el prompt de un agente
 
 No lo afines a ojo. Crea una versión nueva en `agentes/prompts/`, córrela contra
 la anterior sobre el mismo lote con `comparar_prompts.py` y reporta las métricas

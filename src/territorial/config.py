@@ -33,9 +33,15 @@ class Config(BaseSettings):
     modelo_clasificador: str = "gpt-5.4-mini"
     modelo_correlacionador: str = "gpt-5"
     modelo_sintetizador: str = "gpt-5"
-    # Los modelos de razonamiento gastan tokens de pensamiento antes de
-    # responder. Un techo bajo los corta sin que lleguen a emitir texto.
-    max_tokens_salida: int = 4096
+    # El Clasificador gasta ~111 tokens de salida por señal (medido sobre
+    # Barranquilla). Con 4096 se cortaba a las 37 señales y devolvía el JSON
+    # truncado, que era el pendiente B5.
+    max_tokens_salida: int = 16384
+    # Señales por llamada al Clasificador. **No lo sube quien quiera más
+    # velocidad.** A 100 señales el JSON cabe de sobra pero la calidad cae: 4 de
+    # 7 insights salieron con categoría `otro`, o sea sin categorizar. A 40 no
+    # pasaba. 50 es el punto probado entre coste por llamada y calidad.
+    senales_por_lote: int = 50
     # El Correlacionador y el Sintetizador corren sobre gpt-5, donde razonar es
     # la función y no el desperdicio (D6.2). Con 4096 el Correlacionador se
     # cortó en seco en Barranquilla: 6 insights sobre 5 categorías y la llamada
