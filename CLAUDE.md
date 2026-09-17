@@ -105,20 +105,20 @@ una llamada a LLM no vive en `reglas/`.
 
 ## 4. Estado real por módulo
 
-Diagnóstico verificado sobre el árbol de trabajo el 2026-09-17. Las 91 pruebas
-de `tests/` pasan (reglas, scoring y correlacionador).
+Diagnóstico verificado sobre el árbol de trabajo el 2026-09-17. Las 102 pruebas
+de `tests/` pasan (reglas, scoring, correlacionador y persistencia).
 
 | Módulo | Estado | Detalle |
 |---|---|---|
 | **M1** Ingesta por API (Agente Fuentes) | ✅ Funciona | Carga los 18 municipios y las 20.030 señales; `data/territorial.db` poblada. Conectores vivos diferidos a Fase 0 |
 | **Prefiltro** (apoya M2 y M5) | 🟡 Implementado, sin validar | Reduce 61,2%. El diccionario de obra produce entre 13% y 90% según el municipio — rango demasiado ancho para confiar en él (**pendiente A2**) |
-| **M2** Clasificación | 🟡 Funciona, no alcanza el criterio, y no guarda | Salida estructurada con `responses.parse` y esquema pydantic; prompt en **v4**. Reducción medida 43,5%–49,0%, pero **CA-M2.1 exige 85% combinado** (**pendiente B2**). Además: **no persiste nada** —hay 0 insights en la base—, se **trunca** con lotes grandes y **varía entre corridas idénticas**. Ver §8 |
+| **M2** Clasificación | 🟡 Funciona y persiste; no alcanza el criterio | Salida estructurada con `responses.parse` y prompt **v4**. Ya guarda en la base, válidos y rechazados. **CA-M2.1 exige ≥85%** y sobre Carepa dio 84,1% — cerca, pero de un municipio (**B2**). Se **trunca** con lotes grandes (**B5**) y **varía entre corridas idénticas** (**A6**). Ver §8 |
 | **M3** Validación determinista | ✅ Funciona | 7 reglas R1–R7. Tasa de rechazo 0,0% tras corregir el falso positivo de puntuación de SECOP. **Muestra pequeña: insuficiente para concluir sobre H4** |
 | **M4** Correlación | 🟡 Funciona; CA-M4.3 sin ejercitar | Prompt v1, salida estructurada. CA-M4.1, CA-M4.2 y CA-M4.4 verificados contra el tenant. **La evidencia la une el código, no el modelo** (ver el encabezado de `agentes/correlacionador.py`). CA-M4.3 (bucle de aprendizaje) está implementado pero **no se puede probar**: no hay ni una calificación en la base |
 | **M5** Scoring y priorización | ✅ Funciona con pesos provisionales | F1–F6 de D4, normalización por cohorte, winsorizado de F4, redistribución por cobertura, top 3 y desglose. Los 3 ciclos puntúan y persisten. Los **pesos definitivos** los decide Gerencia General (**pendiente A1/4**); rigen los provisionales de D4 |
 | **M6** Síntesis y distribución | ⬜ Sin código | Canal de notificación sin decidir (**pendiente 11.4/3**); §2.2 excluye Teams |
 | **M7** Calificación | ⬜ Sin código | Depende del aplicativo web |
-| **M8** Trazabilidad y observabilidad | 🟡 Parcial | Linaje de dataset listo en `almacen/`. Langfuse 4.15.4 y langgraph 1.2.11 están **instalados pero sin cablear**: no hay `grafo/` ni trazas por agente |
+| **M8** Trazabilidad y observabilidad | 🟡 Parcial | Linaje de dataset y **trazas por agente** (CA-M8.2: modelo, tokens, duración por corrida). Falta Langfuse y el checkpointing de CA-M8.4: langfuse 4.15.4 y langgraph 1.2.11 están instalados pero **sin cablear**, no hay `grafo/` |
 | **M9** Aplicativo web | ⬜ Sin código | Django **no está instalado** ni tiene versión fijada. Playwright está por verificar: descarga binarios sin firmar que la política de esta máquina bloquea |
 
 ### Pendientes que frenan el avance
@@ -162,10 +162,16 @@ Microsoft Store y no sirve.
 
 ```powershell
 $py = "$env:LOCALAPPDATA\venvs\territorial\Scripts\python.exe"
-& $py scripts\cargar_snapshot.py     # ingesta
-& $py scripts\verificar_llm.py       # comprueba la conexión al tenant
-& $py -m pytest -q                   # pruebas
+& $py scripts\cargar_snapshot.py                        # M1 ingesta
+& $py scripts\correr_ciclo.py --ciclo 1 --municipio 05147   # M2→M3→M4, gasta tokens
+& $py scripts\calcular_scores.py --ciclo 1              # M5, no gasta tokens
+& $py scripts\verificar_llm.py                          # conexión al tenant
+& $py -m pytest -q                                      # pruebas
 ```
+
+`correr_ciclo.py` sin `--municipio` procesa los 18, que son 18 llamadas al
+Clasificador más las del Correlacionador. **Prueba siempre primero con uno.**
+`--seco` corre y revierte.
 
 Scripts de calibración: `medir_prefiltro.py`, `probar_clasificador.py`
 (prefiltro → Clasificador → Validador en miniatura) y `comparar_prompts.py`,

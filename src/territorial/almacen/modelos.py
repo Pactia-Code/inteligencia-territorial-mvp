@@ -141,12 +141,32 @@ class Insight(Base):
     contexto_no_verificado: Mapped[bool] = mapped_column(default=False)
     creado_en: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=ahora)
 
+    # --- Qué agente lo produjo (M2 o M4) ---
+    origen: Mapped[str] = mapped_column(String(20), default="clasificador", index=True)
+    # Versión del prompt que lo generó. Linaje de D7.
+    version_prompt: Mapped[str | None] = mapped_column(String(20))
+
+    # --- Solo para los consolidados por el Correlacionador ---
+    # De qué insights salió. **Es la trazabilidad de CA-M4.4 en la base**: sin
+    # esto, un consolidado no se puede deshacer hasta sus insights de origen.
+    ids_insight_origen: Mapped[list] = mapped_column(JSON, default=list)
+    por_que_convergen: Mapped[str | None] = mapped_column(Text)
+    confianza: Mapped[str | None] = mapped_column(String(10))
+
     calificaciones: Mapped[list[Calificacion]] = relationship(back_populates="insight")
 
     __table_args__ = (
         CheckConstraint(
             "estado_validacion IN ('pendiente', 'validado', 'rechazado')",
             name="ck_estado_validacion",
+        ),
+        CheckConstraint(
+            "origen IN ('clasificador', 'correlacionador')",
+            name="ck_origen_insight",
+        ),
+        CheckConstraint(
+            "confianza IS NULL OR confianza IN ('alta', 'media', 'baja')",
+            name="ck_confianza",
         ),
     )
 
