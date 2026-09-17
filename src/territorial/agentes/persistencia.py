@@ -134,6 +134,7 @@ def guardar_traza(
     tokens_entrada: int,
     tokens_salida: int,
     duracion_ms: int,
+    tokens_cache_lectura: int = 0,
     hash_input: str | None = None,
     hash_output: str | None = None,
 ) -> TrazaAgente:
@@ -148,6 +149,7 @@ def guardar_traza(
         modelo=modelo,
         tokens_entrada=tokens_entrada,
         tokens_salida=tokens_salida,
+        tokens_cache_lectura=tokens_cache_lectura,
         duracion_ms=duracion_ms,
         hash_input=hash_input,
         hash_output=hash_output,

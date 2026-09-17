@@ -219,6 +219,7 @@ def procesar_municipio(
             modelo=despliegue_de("clasificador", cfg),
             tokens_entrada=res.tokens_entrada,
             tokens_salida=res.tokens_salida,
+            tokens_cache_lectura=res.tokens_cache_lectura,
             duracion_ms=res.duracion_ms,
             hash_input=hash_clasificador(entradas),
         )
@@ -317,6 +318,7 @@ def procesar_municipio(
             modelo=despliegue_de("correlacionador", cfg),
             tokens_entrada=corr.tokens_entrada,
             tokens_salida=corr.tokens_salida,
+            tokens_cache_lectura=corr.tokens_cache_lectura,
             duracion_ms=corr.duracion_ms,
         )
 

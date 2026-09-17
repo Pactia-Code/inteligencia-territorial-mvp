@@ -28,7 +28,7 @@ from pathlib import Path
 
 from pydantic import BaseModel, Field
 
-from territorial.agentes.cliente import cliente_compartido, despliegue_de
+from territorial.agentes.cliente import cliente_compartido, desglosar_uso, despliegue_de
 from territorial.config import Config, obtener_config
 
 PROMPTS = Path(__file__).parent / "prompts"
@@ -98,6 +98,10 @@ class ResultadoLote:
     descartes: list[dict] = field(default_factory=list)
     tokens_entrada: int = 0
     tokens_salida: int = 0
+    # Para el pendiente B4. El razonamiento ya va dentro de tokens_salida; se
+    # desglosa aparte solo para saber cuánto de la factura es pensar.
+    tokens_razonamiento: int = 0
+    tokens_cache_lectura: int = 0
     duracion_ms: int = 0
     error: str | None = None
     # CA-M2.5 exige saber qué se descartó y por qué. Una señal que no aparece
@@ -169,12 +173,14 @@ def clasificar_lote(
 
     duracion = int((time.perf_counter() - inicio) * 1000)
     salida = respuesta.output_parsed
-    uso = respuesta.usage
+    uso = desglosar_uso(respuesta.usage)
 
     if salida is None:
         return ResultadoLote(
-            tokens_entrada=uso.input_tokens,
-            tokens_salida=uso.output_tokens,
+            tokens_entrada=uso["entrada"],
+            tokens_salida=uso["salida"],
+            tokens_razonamiento=uso["razonamiento"],
+            tokens_cache_lectura=uso["cache_lectura"],
             duracion_ms=duracion,
             error="el modelo no devolvio salida estructurada (posible corte por max_output_tokens)",
             version_prompt=version,
@@ -227,8 +233,10 @@ def clasificar_lote(
     return ResultadoLote(
         insights=insights,
         descartes=descartes,
-        tokens_entrada=uso.input_tokens,
-        tokens_salida=uso.output_tokens,
+        tokens_entrada=uso["entrada"],
+        tokens_salida=uso["salida"],
+        tokens_razonamiento=uso["razonamiento"],
+        tokens_cache_lectura=uso["cache_lectura"],
         duracion_ms=duracion,
         sin_contabilizar=sin_contabilizar,
         version_prompt=version,

@@ -47,7 +47,12 @@ from pathlib import Path
 
 from pydantic import BaseModel, Field
 
-from territorial.agentes.cliente import cliente_compartido, despliegue_de, techo_de
+from territorial.agentes.cliente import (
+    cliente_compartido,
+    desglosar_uso,
+    despliegue_de,
+    techo_de,
+)
 from territorial.config import Config, obtener_config
 
 PROMPTS = Path(__file__).parent / "prompts"
@@ -170,6 +175,8 @@ class ResultadoCorrelacion:
     senales_perdidas: list[int] = field(default_factory=list)
     tokens_entrada: int = 0
     tokens_salida: int = 0
+    tokens_razonamiento: int = 0
+    tokens_cache_lectura: int = 0
     duracion_ms: int = 0
     error: str | None = None
     version_prompt: str = VERSION_PROMPT
@@ -413,21 +420,25 @@ def correlacionar(
 
     duracion = int((time.perf_counter() - inicio) * 1000)
     salida = respuesta.output_parsed
-    uso = respuesta.usage
+    uso = desglosar_uso(respuesta.usage)
 
     if salida is None:
         return ResultadoCorrelacion(
             sueltos=sorted(i.id for i in insights),
-            tokens_entrada=uso.input_tokens,
-            tokens_salida=uso.output_tokens,
+            tokens_entrada=uso["entrada"],
+            tokens_salida=uso["salida"],
+            tokens_razonamiento=uso["razonamiento"],
+            tokens_cache_lectura=uso["cache_lectura"],
             duracion_ms=duracion,
             error="el modelo no devolvio salida estructurada (posible corte por max_output_tokens)",
             version_prompt=version,
         )
 
     resultado = ensamblar(salida.convergencias, insights)
-    resultado.tokens_entrada = uso.input_tokens
-    resultado.tokens_salida = uso.output_tokens
+    resultado.tokens_entrada = uso["entrada"]
+    resultado.tokens_salida = uso["salida"]
+    resultado.tokens_razonamiento = uso["razonamiento"]
+    resultado.tokens_cache_lectura = uso["cache_lectura"]
     resultado.duracion_ms = duracion
     resultado.version_prompt = version
     return resultado

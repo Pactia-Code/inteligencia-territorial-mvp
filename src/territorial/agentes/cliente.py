@@ -110,6 +110,29 @@ def techo_de(agente: str, config: Config | None = None) -> int:
     return cfg.max_tokens_salida
 
 
+def desglosar_uso(uso) -> dict:
+    """Saca del `usage` lo que hace falta para estimar costo (pendiente B4).
+
+    Dos cosas que no son obvias y cambian la cifra:
+
+    · **Los tokens de razonamiento ya vienen dentro de `output_tokens`.** Medido
+      contra el tenant: una respuesta de 178 de salida traía 128 de
+      razonamiento. No hay que sumarlos aparte, y D6.2 se cumple con solo usar
+      `output_tokens` en vez de contar el texto visible.
+    · **`cached_tokens` se factura distinto** que la entrada normal. Las
+      instrucciones del Clasificador son estables entre llamadas, así que es la
+      palanca de ahorro que B4 pide verificar.
+    """
+    detalle_sal = getattr(uso, "output_tokens_details", None)
+    detalle_ent = getattr(uso, "input_tokens_details", None)
+    return {
+        "entrada": uso.input_tokens,
+        "salida": uso.output_tokens,
+        "razonamiento": getattr(detalle_sal, "reasoning_tokens", 0) or 0,
+        "cache_lectura": getattr(detalle_ent, "cached_tokens", 0) or 0,
+    }
+
+
 def texto_de(respuesta) -> str:
     """Extrae el texto de una respuesta de la Responses API.
 
