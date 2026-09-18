@@ -123,7 +123,11 @@ de `tests/` pasan (reglas, scoring, correlacionador, persistencia y troceo).
 
 ### Pendientes que frenan el avance
 
-- **B2** — el Clasificador no alcanza CA-M2.1. No es un ajuste fino.
+- **B2** — CA-M2.1 **medido una sola vez**: 94,6% sobre Barranquilla en el ciclo
+  2, por encima del 85% exigido. El «falta descartar otro 61,4%» que decía antes
+  este pendiente salía de lotes de 20-25 señales y **no se sostuvo** al procesar
+  el volumen real. Sigue abierto porque un municipio-ciclo no es el ciclo: falta
+  correr los 18 y medir el agregado.
 - **A4** — tras cuatro versiones del prompt, el Clasificador sigue partiendo un
   mismo frente de obra en varios insights (cuatro de pavimentación en Carepa).
   Infla el conteo y degrada el informe.
@@ -216,7 +220,9 @@ modelo y las migraciones se desincronizaron.
   sintetizador `gpt-5`. El criterio salió de una medición de tokens, no de una
   preferencia.
 - Un `max_output_tokens` bajo **corta a los modelos de razonamiento antes de que
-  emitan texto, y la llamada vuelve vacía sin error.** El techo queda en 4096.
+  emitan texto, y la llamada vuelve vacía sin error.** El techo está en **16384**
+  para todos los agentes (`max_tokens_salida` y `max_tokens_salida_razonamiento`
+  en `config.py`). Empezó en 4096 y hubo que subirlo dos veces: ver §9.
 
 ---
 
@@ -273,13 +279,21 @@ Dos consecuencias, y la segunda es la que importa:
 
 ## 9. Tres cosas que cortan una llamada sin avisar
 
-**El techo de tokens depende del agente, no es único.** `cliente.techo_de()` da
-4096 al Clasificador (`gpt-5.4-mini`, apenas razona) y **16384** al
-Correlacionador y al Sintetizador (`gpt-5`, donde razonar es la función). Con
-4096, el Correlacionador se cortó en seco en Barranquilla —6 insights sobre 5
-categorías— y **la llamada volvió vacía y sin error**, que es la forma más
-difícil de diagnosticar. Si añades un agente sobre un modelo de razonamiento,
-mételo en `AGENTES_QUE_RAZONAN`.
+**El techo de tokens puede depender del agente, aunque hoy no difiera.**
+`cliente.techo_de()` devuelve `max_tokens_salida_razonamiento` para los agentes
+de `AGENTES_QUE_RAZONAN` (Correlacionador y Sintetizador) y `max_tokens_salida`
+para el resto. **Ambos valen 16384 hoy**, así que la función no cambia nada: se
+conserva como el punto donde separarlos si vuelven a divergir. Si añades un
+agente sobre un modelo de razonamiento, mételo en ese conjunto.
+
+Con el techo en 4096 el Correlacionador se cortó en seco en Barranquilla —6
+insights sobre 5 categorías— y **la llamada volvió vacía y sin error**, que es
+la forma más difícil de diagnosticar.
+
+*Detalle menor pendiente:* el Clasificador llama a `cfg.max_tokens_salida`
+directamente en vez de a `techo_de("clasificador")`. Hoy da el mismo número, así
+que no cambia nada; si algún día los valores divergen, ese es el sitio que se
+queda atrás.
 
 **El Clasificador se truncaba, y fallaba distinto** (pendiente B5, cerrado). Su
 techo era de texto, no de razonamiento: a ~111 tokens de salida por señal, 40
