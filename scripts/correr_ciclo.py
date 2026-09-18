@@ -1,10 +1,15 @@
 """Corre un ciclo completo y persiste el resultado (B6).
 
     prefiltro → Clasificador → Validador → persistir
-              → Correlacionador → persistir
+              → Correlacionador → persistir → Scoring
 
-El scoring va aparte, en `calcular_scores.py`, porque no gasta tokens y se
-recalcula cada vez que cambien los pesos.
+El scoring se encadena **siempre**, también con `--municipio`. Es seguro porque
+cada ejecución inserta una corrida nueva y ninguna pisa a otra, y sale
+`completa` aunque se pida un solo municipio porque el scoring puntúa la cohorte
+entera: lee `senal_cruda`, no insights.
+
+`calcular_scores.py` sigue existiendo para repuntuar sin gastar tokens, que es
+lo que hace falta cada vez que cambian los pesos.
 
 Uso:
     & $py scripts\\correr_ciclo.py --ciclo 1 --municipio 05147   # uno, barato

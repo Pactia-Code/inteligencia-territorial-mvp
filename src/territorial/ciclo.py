@@ -49,6 +49,9 @@ from territorial.reglas.normalizacion import normalizar
 from territorial.reglas.prefiltro import clasificar as prefiltrar
 from territorial.reglas.validador import Senal as SenalValidador
 from territorial.reglas.validador import validar
+from territorial.scoring.agregacion import entradas_del_ciclo
+from territorial.scoring.persistencia import guardar as guardar_scores
+from territorial.scoring.ranking import puntuar_ciclo
 
 FUENTE_CONTRATOS = "SECOP II"
 FUENTE_CONTEXTO = "Bing"
@@ -82,6 +85,10 @@ class ResumenMunicipio:
 class ResumenCiclo:
     id_ciclo: int
     municipios: list[ResumenMunicipio] = field(default_factory=list)
+    # La corrida de scoring que se insertó al final. Es de donde saldrá
+    # `informe.id_corrida` cuando M6 publique.
+    corrida: object | None = None
+    error_scoring: str | None = None
 
     @property
     def tokens_entrada(self) -> int:
@@ -122,6 +129,14 @@ class ResumenCiclo:
         )
         if self.con_error:
             lineas.append(f"Municipios con error: {len(self.con_error)}")
+        if self.corrida is not None:
+            lineas.append(
+                f"Scoring: corrida {self.corrida.id} ({self.corrida.tipo_corrida}), "
+                f"versión {self.corrida.version_scoring}, "
+                f"corte {self.corrida.fecha_corte_cohorte or 'sin determinar'}"
+            )
+        if self.error_scoring:
+            lineas.append(f"Scoring FALLÓ: {self.error_scoring}")
         return "\n".join(lineas)
 
 
@@ -345,7 +360,23 @@ def procesar_ciclo(
     solo: list[str] | None = None,
     config: Config | None = None,
 ) -> ResumenCiclo:
-    """Corre la cadena sobre todos los municipios del ciclo."""
+    """Corre la cadena sobre los municipios del ciclo y puntúa al final.
+
+    **El scoring se encadena siempre**, sin ramas por `solo`. Es seguro
+    precisamente por las corridas append-only: cada ejecución inserta una
+    corrida nueva y ninguna pisa a otra.
+
+    Y sale `completa` aunque se haya pedido un solo municipio, lo cual **es
+    correcto y no un descuido**: el scoring no lee insights, lee `senal_cruda`,
+    `municipio.elic` y —solo para F6— calificaciones. Así que puntúa siempre la
+    cohorte entera y sus cifras no dependen de a quién se acabe de clasificar.
+    Restringir la cohorte a lo reprocesado sería peor: normalizar min-max sobre
+    un municipio da 0,5 a todo el mundo, que no significa nada.
+
+    `tipo_corrida` marcará `parcial` el día que alguien puntúe un subconjunto
+    de verdad. La guarda vive en `scoring/persistencia.py`, así que ese día no
+    hay que acordarse de nada.
+    """
     cfg = config or obtener_config()
     consulta = select(Municipio).order_by(Municipio.divipola)
     if solo:
@@ -365,4 +396,15 @@ def procesar_ciclo(
                     error=f"{type(exc).__name__}: {exc}",
                 )
             )
+
+    # --- M5, determinista y sin tokens ---
+    try:
+        entradas = entradas_del_ciclo(sesion_bd, id_ciclo, cfg)
+        corrida = guardar_scores(sesion_bd, puntuar_ciclo(entradas, id_ciclo, cfg))
+        resumen.corrida = corrida
+    except Exception as exc:  # noqa: BLE001
+        # Puntuar va después de gastar tokens en M2 y M4. Perder esa salida
+        # porque el scoring falló sería el peor cambio posible.
+        resumen.error_scoring = f"{type(exc).__name__}: {exc}"
+
     return resumen

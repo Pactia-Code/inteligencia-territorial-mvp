@@ -367,3 +367,56 @@ def test_el_estado_del_informe_solo_admite_publicado_o_archivado(bd):
     bd.add(Informe(id_ciclo=CICLO, id_corrida=corrida.id, uri_html="x", estado="loquesea"))
     with pytest.raises(IntegrityError):
         bd.commit()
+
+
+# --------------------------------------------------------------------------
+# El orquestador encadena el scoring — la mentira original de ciclo.py
+# --------------------------------------------------------------------------
+
+
+def test_procesar_ciclo_encadena_el_scoring(bd, monkeypatch):
+    """El docstring de `ciclo.py` decía «→ M5 Scoring» y no lo hacía.
+
+    Se sustituyen las piezas de scoring por dobles para no depender de que haya
+    señales cargadas: lo que se verifica es el cableado, no el cálculo.
+    """
+    from territorial import ciclo as mod
+
+    llamadas = {}
+
+    def fake_entradas(sesion, id_ciclo, cfg=None):
+        llamadas["entradas"] = id_ciclo
+        return ["lo que sea"]
+
+    def fake_puntuar(entradas, id_ciclo, cfg=None, cortes_por_fuente=None):
+        llamadas["puntuar"] = id_ciclo
+        return cohorte_completa()
+
+    monkeypatch.setattr(mod, "entradas_del_ciclo", fake_entradas)
+    monkeypatch.setattr(mod, "puntuar_ciclo", fake_puntuar)
+
+    # Sin municipios que procesar: solo interesa la cola de la función.
+    resumen = mod.procesar_ciclo(bd, CICLO, solo=["00000"])
+    bd.commit()
+
+    assert llamadas == {"entradas": CICLO, "puntuar": CICLO}
+    assert resumen.error_scoring is None
+    assert resumen.corrida is not None
+    assert bd.query(CorridaScoring).count() == 1
+
+
+def test_si_el_scoring_falla_no_se_pierde_lo_que_costo_tokens(bd, monkeypatch):
+    """Puntuar va después de gastar en M2 y M4. Que un fallo ahí tirara el
+    resultado de los agentes sería el peor cambio posible."""
+    from territorial import ciclo as mod
+
+    def revienta(*_a, **_k):
+        raise RuntimeError("scoring roto")
+
+    monkeypatch.setattr(mod, "entradas_del_ciclo", revienta)
+
+    resumen = mod.procesar_ciclo(bd, CICLO, solo=["00000"])
+
+    assert resumen.corrida is None
+    assert "scoring roto" in resumen.error_scoring
+    assert bd.query(CorridaScoring).count() == 0
