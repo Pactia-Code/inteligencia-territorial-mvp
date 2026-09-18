@@ -13,6 +13,12 @@ grafo; hasta entonces un bucle explícito se lee mejor y se depura antes.
 Un municipio que falla no aborta el ciclo, igual que CA-M1.4 exige para las
 fuentes: se registra el error y se sigue. Un ciclo de 18 municipios que se cae
 en el tercero no deja nada utilizable.
+
+**Se confirma municipio a municipio, no al final.** Un ciclo completo tarda
+alrededor de una hora y cuesta tokens; si todo fuera en una sola transacción,
+morir en el minuto 50 perdería los 50 minutos pagados. LangGraph daría
+checkpointing (CA-M8.4) pero **no está cableado**, así que el punto de guardado
+es el commit por municipio: lo procesado queda en la base pase lo que pase.
 """
 
 from __future__ import annotations
@@ -462,7 +468,12 @@ def procesar_ciclo(
                     id_prompt_correlacionador=pr.id,
                 )
             )
+            # Punto de guardado: lo que costó tokens queda en la base antes de
+            # seguir. Sin esto, una caída en el municipio 17 tira los 16
+            # anteriores.
+            sesion_bd.commit()
         except Exception as exc:  # noqa: BLE001 — un municipio no tumba el ciclo
+            sesion_bd.rollback()
             resumen.municipios.append(
                 ResumenMunicipio(
                     divipola=municipio.divipola,
@@ -470,20 +481,25 @@ def procesar_ciclo(
                     error=f"{type(exc).__name__}: {exc}",
                 )
             )
+            # El rollback deshizo también la corrida si el fallo fue en el
+            # primer municipio: se vuelve a adjuntar para no perder el hilo.
+            sesion_bd.add(corrida)
+            sesion_bd.commit()
 
     corrida.senales_procesadas = sum(m.enviadas for m in resumen.municipios)
     corrida.tokens_entrada = resumen.tokens_entrada
     corrida.tokens_salida = resumen.tokens_salida
-    sesion_bd.flush()
+    sesion_bd.commit()
 
     # --- M5, determinista y sin tokens ---
     try:
         entradas = entradas_del_ciclo(sesion_bd, id_ciclo, cfg)
         cortes = cortes_por_fuente(sesion_bd, id_ciclo, cfg)
-        corrida = guardar_scores(
+        corrida_s = guardar_scores(
             sesion_bd, puntuar_ciclo(entradas, id_ciclo, cfg, cortes)
         )
-        resumen.corrida = corrida
+        sesion_bd.commit()
+        resumen.corrida = corrida_s
     except Exception as exc:  # noqa: BLE001
         # Puntuar va después de gastar tokens en M2 y M4. Perder esa salida
         # porque el scoring falló sería el peor cambio posible.
