@@ -21,7 +21,13 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
 )
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
+from sqlalchemy.orm import (
+    DeclarativeBase,
+    Mapped,
+    mapped_column,
+    relationship,
+    validates,
+)
 
 
 def ahora() -> datetime:
@@ -205,13 +211,108 @@ class Calificacion(Base):
     )
 
 
+class CorridaScoring(Base):
+    """Una ejecución del scoring. **Nada se sobrescribe: cada corrida es una fila.**
+
+    El score se normaliza min-max dentro de la cohorte, así que **solo es
+    comparable contra los de su propia corrida**. Mientras el score vivió como
+    atributo de `(ciclo, municipio)`, cualquier recálculo pisaba el ranking
+    anterior en su sitio: un informe publicado empezaba a mostrar un orden
+    distinto del que las gerencias calificaron, y no quedaba forma de
+    reconstruir el original. Eso rompe H4, que es bloqueante.
+
+    El score deja de ser un atributo del municipio y pasa a ser **un hecho de
+    una corrida**.
+    """
+
+    __tablename__ = "corrida_scoring"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    id_ciclo: Mapped[int] = mapped_column(ForeignKey("ciclo.id"), index=True)
+    fecha_corrida: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=ahora)
+
+    # `completa` si la cohorte cubrió todos los municipios objetivo.
+    tipo_corrida: Mapped[str] = mapped_column(String(10), default="completa", index=True)
+
+    # Ventana del ciclo, declarada por configuración (D2).
+    ventana_desde: Mapped[date | None] = mapped_column(Date)
+    ventana_hasta: Mapped[date | None] = mapped_column(Date)
+
+    # Hasta dónde llega la comparabilidad del conjunto: el **mínimo** de la
+    # última fecha observada por municipio. Se computa **solo con SECOP II**,
+    # que es de donde salen F1, F2 y F3.
+    #
+    # Se eligió el criterio conservador porque los dos errores posibles no
+    # cuestan lo mismo: decir enero cuando hay noticias hasta junio hace
+    # desconfiar de una corrida buena —molesto y recuperable—, mientras que
+    # decir junio cuando la contratación se corta en enero hace comparar dos
+    # corridas como equivalentes sin que nada en la auditoría lo delate.
+    #
+    # Se computa sobre los municipios **que tienen fecha**, no sobre todos.
+    # Propagar la ausencia al conjunto haría que el ciclo 3 saliera siempre
+    # NULL por Barranquilla, Armenia y Cartagena, que no están ciegos: tienen
+    # noticias hasta agosto, julio y junio, lo que no tienen es contratación.
+    # Sería el mismo error que el defecto de F5 (pendiente A7), tratar la
+    # ausencia de SECOP como ausencia de datos, y dejaría inútil en un tercio
+    # de los ciclos un campo cuyo trabajo es auditar.
+    #
+    # **NULL es un valor legítimo, no un pendiente**, y queda reservado para el
+    # caso real de que **ningún** municipio tenga fecha, más las corridas
+    # migradas, anteriores a que el campo existiera. Ningún lector debe
+    # interpretarlo como «sin restricción de comparabilidad»: es lo contrario.
+    # Una corrida sin corte conocido es la **menos** comparable de todas.
+    fecha_corte_cohorte: Mapped[date | None] = mapped_column(Date)
+    # Los de la cohorte que no aportaron ni una fecha de SECOP. La
+    # incertidumbre queda declarada como lista explícita en vez de aniquilar
+    # el campo de arriba: leído después, dice «estos 15 son comparables hasta
+    # enero; estos 3 no aportaron contratación», que es la verdad completa.
+    municipios_sin_fecha: Mapped[list] = mapped_column(JSON, default=list)
+    # {fuente: fecha} — el corte de cada fuente por separado. Responde sola la
+    # pregunta "¿por qué esta corrida dice enero si hay noticias de junio?".
+    corte_por_fuente: Mapped[dict] = mapped_column(JSON, default=dict)
+
+    # Las **dos** listas, completas. `tipo_corrida` se decide comparándolas, y
+    # guardar solo la cohorte haría imposible auditar una corrida vieja después
+    # de que alguien añada un municipio: la marca dejaría de ser reverificable.
+    municipios_objetivo: Mapped[list] = mapped_column(JSON, default=list)
+    municipios_en_cohorte: Mapped[list] = mapped_column(JSON, default=list)
+
+    # "v1+a3f9c1d2": versión del algoritmo + huella de los pesos. La constante
+    # se sube a mano cuando cambia la fórmula; el hash se mueve solo cuando
+    # cambian los pesos. Hacen falta las dos: el arreglo de F5 (pendiente A7)
+    # cambia el algoritmo sin tocar un solo peso.
+    #
+    # **No se puede agrupar por igualdad de esta cadena** asumiendo «mismo
+    # algoritmo y mismos pesos». Las corridas migradas llevan `v1+migrado`, que
+    # no coincide con ningún `v1+<hash>` aunque el algoritmo sí sea el mismo:
+    # de ellas simplemente no se sabe con qué pesos corrieron.
+    version_scoring: Mapped[str | None] = mapped_column(String(40), index=True)
+    # Los pesos **verbatim**, no solo su hash. Un hash dice que algo cambió,
+    # no qué cambió, y calibrar el umbral con la curva de scores exige leerlos
+    # sin arqueología.
+    pesos: Mapped[dict] = mapped_column(JSON, default=dict)
+
+    scores: Mapped[list[ScoreMunicipio]] = relationship(back_populates="corrida")
+
+    __table_args__ = (
+        CheckConstraint(
+            "tipo_corrida IN ('completa', 'parcial')", name="ck_tipo_corrida"
+        ),
+    )
+
+
 class ScoreMunicipio(Base):
-    """Score por municipio y ciclo, con el desglose que exige CA-M5.5."""
+    """Score de un municipio **en una corrida**, con el desglose de CA-M5.5.
+
+    No lleva `id_ciclo`: el ciclo es de la corrida. Denormalizarlo permitiría
+    que una fila discrepara de su propia corrida, y no hay consulta que lo
+    necesite sin pasar por ella.
+    """
 
     __tablename__ = "score_municipio"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    id_ciclo: Mapped[int] = mapped_column(ForeignKey("ciclo.id"), index=True)
+    id_corrida: Mapped[int] = mapped_column(ForeignKey("corrida_scoring.id"), index=True)
     divipola: Mapped[str] = mapped_column(ForeignKey("municipio.divipola"), index=True)
     score: Mapped[float] = mapped_column(Float)
     ranking: Mapped[int | None] = mapped_column(Integer)
@@ -220,9 +321,13 @@ class ScoreMunicipio(Base):
     dias_cubiertos: Mapped[int | None] = mapped_column(Integer)
     dias_ventana: Mapped[int | None] = mapped_column(Integer)
     sin_cobertura: Mapped[bool] = mapped_column(default=False)
+    # La de **este** municipio, no la de la cohorte. Solo SECOP II.
+    ultima_fecha_captura: Mapped[date | None] = mapped_column(Date)
+
+    corrida: Mapped[CorridaScoring] = relationship(back_populates="scores")
 
     __table_args__ = (
-        UniqueConstraint("id_ciclo", "divipola", name="uq_score_ciclo_municipio"),
+        UniqueConstraint("id_corrida", "divipola", name="uq_score_corrida_municipio"),
     )
 
 
@@ -248,14 +353,54 @@ class Seguimiento(Base):
 
 
 class Informe(Base):
+    """Un informe publicado, atado a la corrida de scoring que lo sustenta.
+
+    **`id_corrida` se fija al publicar y no se reescribe.** El informe y su top
+    3 leen siempre su propia corrida, nunca «la más reciente»: si leyeran la
+    última, un recálculo posterior cambiaría el ranking que las gerencias ya
+    calificaron, y las calificaciones quedarían colgando de un orden que nadie
+    puede reconstruir.
+
+    Corregir un informe no es editarlo: el viejo pasa a `archivado` y el
+    corregido entra como fila nueva con su propia corrida. Ambos quedan
+    consultables, y la divergencia entre los dos es auditable.
+    """
+
     __tablename__ = "informe"
 
     id: Mapped[int] = mapped_column(primary_key=True)
     id_ciclo: Mapped[int] = mapped_column(ForeignKey("ciclo.id"), index=True)
+    # Nullable solo porque M6 todavía no existe; al publicar es obligatoria.
+    id_corrida: Mapped[int | None] = mapped_column(
+        ForeignKey("corrida_scoring.id"), index=True
+    )
     uri_html: Mapped[str] = mapped_column(Text)
     infografias: Mapped[list] = mapped_column(JSON, default=list)  # [{divipola, uri}]
     estado: Mapped[str] = mapped_column(String(20), default="publicado")
     fecha_publicacion: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=ahora)
+
+    __table_args__ = (
+        CheckConstraint(
+            "estado IN ('publicado', 'archivado')", name="ck_estado_informe"
+        ),
+    )
+
+    @validates("id_corrida")
+    def _congelar_corrida(self, _clave: str, valor: int | None) -> int | None:
+        """Impide reapuntar un informe a otra corrida.
+
+        Se aplica en la capa ORM y no con un trigger porque la regla 1 de D8
+        exige que todo pase por SQLAlchemy, y un trigger divergiría entre
+        SQLite y PostgreSQL. **Limitación conocida:** un `UPDATE` crudo lo
+        saltaría; el proyecto no emite SQL crudo.
+        """
+        actual = getattr(self, "id_corrida", None)
+        if actual is not None and valor != actual:
+            raise ValueError(
+                f"informe {self.id}: id_corrida es inmutable (era {actual}, se intentó "
+                f"{valor}). Para corregir un informe, archívalo y publica uno nuevo."
+            )
+        return valor
 
 
 class TrazaAgente(Base):
