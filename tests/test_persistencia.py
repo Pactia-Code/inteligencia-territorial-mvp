@@ -26,6 +26,7 @@ from territorial.agentes.persistencia import (
     ORIGEN_CORRELACIONADOR,
     crear_corrida,
     guardar_correlaciones,
+    guardar_descartes,
     guardar_insights,
     guardar_traza,
 )
@@ -33,6 +34,7 @@ from territorial.almacen.modelos import (
     Base,
     Ciclo,
     CorridaAgentes,
+    Descarte,
     Insight,
     Municipio,
     SenalCruda,
@@ -365,3 +367,80 @@ def test_el_troceo_ignora_mayusculas_y_acentos_al_agrupar():
 
 def test_un_lote_vacio_no_produce_lotes():
     assert _en_lotes([], 25) == []
+
+
+# --------------------------------------------------------------------------
+# CA-M2.5 — qué se descartó y por qué
+# --------------------------------------------------------------------------
+
+
+def senal_en_bd(bd, id_: int) -> SenalCruda:
+    s = SenalCruda(
+        id=id_, id_ciclo=CICLO, divipola=DIVIPOLA, fuente="SECOP II",
+        contenido="x", hash_dedup=f"h{id_}", datos={"objeto": "x"},
+    )
+    bd.add(s)
+    bd.flush()
+    return s
+
+
+def test_los_descartes_declarados_se_guardan_con_su_motivo(bd, corrida):
+    for i in (1, 2):
+        senal_en_bd(bd, i)
+    n = guardar_descartes(
+        bd,
+        [{"id_senal": 1, "motivo": "suministro"}, {"id_senal": 2, "motivo": "personal"}],
+        [],
+        corrida.id,
+    )
+    bd.commit()
+
+    assert n == 2
+    filas = {d.id_senal: d for d in bd.scalars(select(Descarte)).all()}
+    assert filas[1].motivo == "suministro"
+    assert all(d.declarado for d in filas.values())
+
+
+def test_las_senales_sin_contabilizar_tambien_se_registran(bd, corrida):
+    """Una señal que desaparece sin motivo es peor que una descartada con uno
+    malo. Dejarla fuera del registro sería no cumplir CA-M2.5."""
+    for i in (1, 2):
+        senal_en_bd(bd, i)
+    guardar_descartes(bd, [{"id_senal": 1, "motivo": "suministro"}], [2], corrida.id)
+    bd.commit()
+
+    perdida = bd.scalars(select(Descarte).where(Descarte.id_senal == 2)).one()
+    assert not perdida.declarado
+    assert "no la mencionó" in perdida.motivo
+
+
+def test_una_senal_no_se_registra_dos_veces_en_la_misma_pasada(bd, corrida):
+    senal_en_bd(bd, 1)
+    n = guardar_descartes(
+        bd,
+        [{"id_senal": 1, "motivo": "suministro"}, {"id_senal": 1, "motivo": "otro"}],
+        [1],
+        corrida.id,
+    )
+    bd.commit()
+    assert n == 1
+    assert bd.query(Descarte).count() == 1
+
+
+def test_dos_pasadas_pueden_descartar_la_misma_senal(bd, corrida):
+    """Comparar qué descartó cada pasada es parte de medir A6."""
+    senal_en_bd(bd, 1)
+    guardar_descartes(bd, [{"id_senal": 1, "motivo": "suministro"}], [], corrida.id)
+    otra = crear_corrida(bd, CICLO, [DIVIPOLA], "v4", "v1")
+    guardar_descartes(bd, [{"id_senal": 1, "motivo": "estudio"}], [], otra.id)
+    bd.commit()
+
+    motivos = sorted(d.motivo for d in bd.scalars(select(Descarte)).all())
+    assert motivos == ["estudio", "suministro"]
+
+
+def test_un_motivo_vacio_no_deja_el_registro_mudo(bd, corrida):
+    senal_en_bd(bd, 1)
+    guardar_descartes(bd, [{"id_senal": 1, "motivo": "  "}], [], corrida.id)
+    bd.commit()
+    assert bd.scalars(select(Descarte)).one().motivo == "sin motivo declarado"

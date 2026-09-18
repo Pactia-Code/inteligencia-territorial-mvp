@@ -237,6 +237,36 @@ class Insight(Base):
     )
 
 
+class Descarte(Base):
+    """Una señal que el Clasificador no convirtió en insight (CA-M2.5).
+
+    El criterio exige **registrar en la traza qué se descartó y por qué**. El
+    agente producía `descartes` con su motivo y `ciclo.py` los tiraba: la tasa
+    de reducción de CA-M2.1 no era auditable, porque solo quedaba el numerador
+    —los insights— y el denominador se perdía con el proceso.
+
+    Cuelga de la corrida, no del par (ciclo, municipio): dos pasadas descartan
+    cosas distintas, y comparar qué descartó cada una es parte de medir A6.
+    """
+
+    __tablename__ = "descarte"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    id_corrida: Mapped[int] = mapped_column(ForeignKey("corrida_agentes.id"), index=True)
+    id_senal: Mapped[int] = mapped_column(ForeignKey("senal_cruda.id"), index=True)
+    motivo: Mapped[str] = mapped_column(Text)
+    # False cuando el modelo **no mencionó** la señal: ni insight ni descarte.
+    # Es `sin_contabilizar`, y se guarda porque una señal que desaparece sin
+    # motivo es peor que una descartada con uno malo — CA-M2.5 no se cumple
+    # dejándola fuera del registro.
+    declarado: Mapped[bool] = mapped_column(default=True, index=True)
+    creado_en: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=ahora)
+
+    __table_args__ = (
+        UniqueConstraint("id_corrida", "id_senal", name="uq_descarte_corrida_senal"),
+    )
+
+
 class Usuario(Base):
     __tablename__ = "usuario"
 

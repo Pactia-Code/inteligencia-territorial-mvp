@@ -24,7 +24,13 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from territorial.agentes.correlacionador import ResultadoCorrelacion
-from territorial.almacen.modelos import CorridaAgentes, Insight, Municipio, TrazaAgente
+from territorial.almacen.modelos import (
+    CorridaAgentes,
+    Descarte,
+    Insight,
+    Municipio,
+    TrazaAgente,
+)
 
 log = logging.getLogger(__name__)
 
@@ -178,3 +184,56 @@ def guardar_traza(
     )
     sesion_bd.add(traza)
     return traza
+
+
+def guardar_descartes(
+    sesion_bd: Session,
+    descartes: list[dict],
+    sin_contabilizar: list[int],
+    id_corrida: int,
+) -> int:
+    """Registra qué se descartó y por qué. Es CA-M2.5.
+
+    `descartes` son los que el modelo declaró, con su motivo.
+    `sin_contabilizar` son las señales que no aparecieron ni en un insight ni
+    en un descarte: se guardan igual, marcadas `declarado=False`. Una señal que
+    desaparece sin motivo es peor que una descartada con uno malo, y dejarla
+    fuera del registro sería no cumplir el criterio.
+
+    Sin esto, la tasa de reducción de CA-M2.1 no es auditable: queda el
+    numerador y se pierde el denominador.
+    """
+    vistas: set[int] = set()
+    filas = 0
+
+    for d in descartes:
+        id_senal = d.get("id_senal")
+        if id_senal is None or id_senal in vistas:
+            continue
+        vistas.add(id_senal)
+        sesion_bd.add(
+            Descarte(
+                id_corrida=id_corrida,
+                id_senal=id_senal,
+                motivo=(d.get("motivo") or "").strip() or "sin motivo declarado",
+                declarado=True,
+            )
+        )
+        filas += 1
+
+    for id_senal in sin_contabilizar:
+        if id_senal in vistas:
+            continue
+        vistas.add(id_senal)
+        sesion_bd.add(
+            Descarte(
+                id_corrida=id_corrida,
+                id_senal=id_senal,
+                motivo="el modelo no la mencionó ni en insights ni en descartes",
+                declarado=False,
+            )
+        )
+        filas += 1
+
+    sesion_bd.flush()
+    return filas

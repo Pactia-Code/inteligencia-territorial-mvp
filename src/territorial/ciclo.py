@@ -44,6 +44,7 @@ from territorial.agentes.correlacionador import (
 from territorial.agentes.persistencia import (
     crear_corrida,
     guardar_correlaciones,
+    guardar_descartes,
     guardar_insights,
     guardar_traza,
 )
@@ -79,6 +80,7 @@ class ResumenMunicipio:
     validados: int = 0
     rechazados: int = 0
     correlacionados: int = 0
+    descartes: int = 0
     tokens_entrada: int = 0
     tokens_salida: int = 0
     error: str | None = None
@@ -129,7 +131,8 @@ class ResumenCiclo:
             lineas.append(
                 f"  {m.divipola} {m.nombre:<22} "
                 f"{m.crudas:>5} crudas → {m.enviadas:>4} enviadas en {m.lotes} lotes → "
-                f"{m.validados:>2} válidos, {m.correlacionados} correlacionados"
+                f"{m.validados:>2} válidos, {m.correlacionados} correlacionados, "
+                f"{m.descartes} descartes"
             )
         lineas.append("")
         lineas.append(
@@ -229,6 +232,8 @@ def procesar_municipio(
     # --- M2, lote a lote ---
     lote_plano: list[SenalCruda] = []
     insights_crudos: list[dict] = []
+    descartes_crudos: list[dict] = []
+    sin_contabilizar: list[int] = []
     fallos: list[str] = []
 
     for lote in lotes:
@@ -267,6 +272,8 @@ def procesar_municipio(
 
         lote_plano.extend(lote)
         insights_crudos.extend(res.insights)
+        descartes_crudos.extend(res.descartes)
+        sin_contabilizar.extend(res.sin_contabilizar)
 
     if fallos and not insights_crudos:
         resumen.error = f"todos los lotes fallaron; el primero: {fallos[0]}"
@@ -308,6 +315,10 @@ def procesar_municipio(
     # --- Persistir M2 + M3 ---
     filas = guardar_insights(
         sesion_bd, juzgados, corrida.id, municipio.divipola, VERSION_CLASIFICADOR
+    )
+    # CA-M2.5: sin esto la tasa de reducción de CA-M2.1 no es auditable.
+    resumen.descartes = guardar_descartes(
+        sesion_bd, descartes_crudos, sin_contabilizar, corrida.id
     )
 
     # El agente numera el lote de 1 en adelante; la base asigna otros ids. El
