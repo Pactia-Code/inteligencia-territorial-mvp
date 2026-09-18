@@ -32,6 +32,9 @@ from territorial.agentes.clasificador import (
 from territorial.agentes.clasificador import (
     hash_entrada as hash_clasificador,
 )
+from territorial.agentes.clasificador import (
+    instrucciones as prompt_clasificador,
+)
 from territorial.agentes.cliente import despliegue_de
 from territorial.agentes.correlacionador import (
     VERSION_PROMPT as VERSION_CORRELACIONADOR,
@@ -41,6 +44,10 @@ from territorial.agentes.correlacionador import (
     InsightValidado,
     correlacionar,
 )
+from territorial.agentes.correlacionador import (
+    instrucciones as prompt_correlacionador,
+)
+from territorial.agentes.linaje import registrar_prompt
 from territorial.agentes.persistencia import (
     crear_corrida,
     guardar_correlaciones,
@@ -199,6 +206,8 @@ def procesar_municipio(
     corrida: CorridaAgentes,
     tamano_lote: int | None = None,
     config: Config | None = None,
+    id_prompt_clasificador: int | None = None,
+    id_prompt_correlacionador: int | None = None,
 ) -> ResumenMunicipio:
     """Corre la cadena completa sobre un municipio y persiste el resultado.
 
@@ -314,7 +323,8 @@ def procesar_municipio(
 
     # --- Persistir M2 + M3 ---
     filas = guardar_insights(
-        sesion_bd, juzgados, corrida.id, municipio.divipola, VERSION_CLASIFICADOR
+        sesion_bd, juzgados, corrida.id, municipio.divipola, VERSION_CLASIFICADOR,
+        id_prompt=id_prompt_clasificador,
     )
     # CA-M2.5: sin esto la tasa de reducción de CA-M2.1 no es auditable.
     resumen.descartes = guardar_descartes(
@@ -377,7 +387,10 @@ def procesar_municipio(
         resumen.error = f"CA-M4.4 rota, señales perdidas: {corr.senales_perdidas}"
         return resumen
 
-    guardar_correlaciones(sesion_bd, corr, corrida.id, municipio.divipola, mapa_ids)
+    guardar_correlaciones(
+        sesion_bd, corr, corrida.id, municipio.divipola, mapa_ids,
+        id_prompt=id_prompt_correlacionador,
+    )
     resumen.correlacionados = len(corr.correlacionados)
 
     return resumen
@@ -425,11 +438,29 @@ def procesar_ciclo(
         version_correlacionador=VERSION_CORRELACIONADOR,
     )
 
+    # D7: se archivan los prompts y se anclan por hash antes de usarlos. Si
+    # alguno cambió de contenido sin cambiar de versión, esto falla aquí y no
+    # a mitad del ciclo con la mitad de los tokens gastados.
+    pc = registrar_prompt(
+        sesion_bd, "clasificador", VERSION_CLASIFICADOR, prompt_clasificador(), config=cfg
+    )
+    pr = registrar_prompt(
+        sesion_bd,
+        "correlacionador",
+        VERSION_CORRELACIONADOR,
+        prompt_correlacionador(),
+        config=cfg,
+    )
+
     resumen = ResumenCiclo(id_ciclo=id_ciclo, corrida_agentes=corrida)
     for municipio in municipios:
         try:
             resumen.municipios.append(
-                procesar_municipio(sesion_bd, municipio, corrida, tamano_lote, cfg)
+                procesar_municipio(
+                    sesion_bd, municipio, corrida, tamano_lote, cfg,
+                    id_prompt_clasificador=pc.id,
+                    id_prompt_correlacionador=pr.id,
+                )
             )
         except Exception as exc:  # noqa: BLE001 — un municipio no tumba el ciclo
             resumen.municipios.append(

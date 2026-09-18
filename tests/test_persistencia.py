@@ -21,6 +21,7 @@ from territorial.agentes.correlacionador import (
     InsightCorrelacionado,
     ResultadoCorrelacion,
 )
+from territorial.agentes.linaje import PromptDivergente, registrar_prompt
 from territorial.agentes.persistencia import (
     ORIGEN_CLASIFICADOR,
     ORIGEN_CORRELACIONADOR,
@@ -39,6 +40,7 @@ from territorial.almacen.modelos import (
     Municipio,
     SenalCruda,
     TrazaAgente,
+    VersionPrompt,
 )
 from territorial.ciclo import _en_lotes
 
@@ -444,3 +446,68 @@ def test_un_motivo_vacio_no_deja_el_registro_mudo(bd, corrida):
     guardar_descartes(bd, [{"id_senal": 1, "motivo": "  "}], [], corrida.id)
     bd.commit()
     assert bd.scalars(select(Descarte)).one().motivo == "sin motivo declarado"
+
+
+# --------------------------------------------------------------------------
+# D7 — linaje de prompts por contenido
+# --------------------------------------------------------------------------
+
+
+class AlmacenFalso:
+    """Almacén en memoria, para no escribir en disco durante las pruebas."""
+
+    def __init__(self):
+        self.objetos: dict[str, str] = {}
+
+    def escribir_texto(self, ruta: str, texto: str) -> str:
+        self.objetos[ruta] = texto
+        return f"mem://{ruta}"
+
+
+def test_registrar_un_prompt_lo_archiva_y_lo_ancla_por_hash(bd):
+    alm = AlmacenFalso()
+    fila = registrar_prompt(bd, "clasificador", "v4", "contenido del prompt", almacen=alm)
+    bd.commit()
+
+    assert fila.agente == "clasificador"
+    assert len(fila.hash_sha256) == 64
+    assert fila.uri_blob == "mem://prompts/clasificador_v4.md"
+    assert alm.objetos["prompts/clasificador_v4.md"] == "contenido del prompt"
+
+
+def test_registrar_dos_veces_el_mismo_prompt_no_duplica(bd):
+    alm = AlmacenFalso()
+    a = registrar_prompt(bd, "clasificador", "v4", "mismo texto", almacen=alm)
+    b = registrar_prompt(bd, "clasificador", "v4", "mismo texto", almacen=alm)
+    bd.commit()
+    assert a.id == b.id
+    assert bd.query(VersionPrompt).count() == 1
+
+
+def test_editar_un_prompt_sin_cambiar_su_version_falla(bd):
+    """El punto entero del hash.
+
+    Si se dejara pasar, la fila diría v4 para dos contenidos distintos y el
+    linaje mentiría en silencio — peor que no tenerlo.
+    """
+    alm = AlmacenFalso()
+    registrar_prompt(bd, "clasificador", "v4", "texto original", almacen=alm)
+    bd.commit()
+
+    with pytest.raises(PromptDivergente, match="otro contenido"):
+        registrar_prompt(bd, "clasificador", "v4", "texto EDITADO", almacen=alm)
+
+
+def test_un_insight_apunta_al_prompt_bajo_el_que_nacio(bd, corrida):
+    alm = AlmacenFalso()
+    prompt = registrar_prompt(bd, "clasificador", "v4", "contenido", almacen=alm)
+    filas = guardar_insights(
+        bd, [insight_dict("obra_vial", [1])], corrida.id, DIVIPOLA, "v4",
+        id_prompt=prompt.id,
+    )
+    bd.commit()
+
+    assert filas[0].id_prompt == prompt.id
+    # Y se puede navegar del insight al contenido exacto que lo produjo.
+    registrada = bd.get(VersionPrompt, filas[0].id_prompt)
+    assert alm.objetos[registrada.uri_blob.removeprefix("mem://")] == "contenido"

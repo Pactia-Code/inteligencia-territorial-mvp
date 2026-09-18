@@ -208,8 +208,16 @@ class Insight(Base):
 
     # --- Qué agente lo produjo (M2 o M4) ---
     origen: Mapped[str] = mapped_column(String(20), default="clasificador", index=True)
-    # Versión del prompt que lo generó. Linaje de D7.
+    # Versión del prompt que lo generó. La **etiqueta**.
     version_prompt: Mapped[str | None] = mapped_column(String(20))
+    # La fila de linaje, anclada por hash del contenido (D7). La etiqueta sola
+    # no ancla nada: editar `clasificador_v4.md` sin renombrarlo dejaría todos
+    # los insights diciendo v4 para dos contenidos distintos, y con dos pasadas
+    # del mismo ciclo no habría forma de descartar que el prompt cambió entre
+    # una y otra — que es justo lo que A6 necesita poder descartar.
+    id_prompt: Mapped[int | None] = mapped_column(
+        ForeignKey("prompt_version.id"), index=True
+    )
 
     # --- Solo para los consolidados por el Correlacionador ---
     # De qué insights salió. **Es la trazabilidad de CA-M4.4 en la base**: sin

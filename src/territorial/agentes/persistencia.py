@@ -83,6 +83,7 @@ def guardar_insights(
     id_corrida: int,
     divipola: str,
     version_prompt: str,
+    id_prompt: int | None = None,
 ) -> list[Insight]:
     """Persiste la salida del Clasificador ya validada por M3.
 
@@ -103,6 +104,7 @@ def guardar_insights(
             motivo_rechazo=ins.get("motivo_rechazo"),
             origen=ORIGEN_CLASIFICADOR,
             version_prompt=version_prompt,
+            id_prompt=id_prompt,
         )
         sesion_bd.add(fila)
         filas.append(fila)
@@ -120,6 +122,7 @@ def guardar_correlaciones(
     id_corrida: int,
     divipola: str,
     mapa_ids: dict[int, int],
+    id_prompt: int | None = None,
 ) -> list[Insight]:
     """Persiste los consolidados de M4.
 
@@ -143,6 +146,7 @@ def guardar_correlaciones(
             estado_validacion="validado",
             origen=ORIGEN_CORRELACIONADOR,
             version_prompt=resultado.version_prompt,
+            id_prompt=id_prompt,
             ids_insight_origen=origenes,
             por_que_convergen=c.por_que_convergen,
             confianza=c.confianza,
