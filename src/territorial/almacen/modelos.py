@@ -267,8 +267,14 @@ class CorridaScoring(Base):
     # el campo de arriba: leído después, dice «estos 15 son comparables hasta
     # enero; estos 3 no aportaron contratación», que es la verdad completa.
     municipios_sin_fecha: Mapped[list] = mapped_column(JSON, default=list)
-    # {fuente: fecha} — el corte de cada fuente por separado. Responde sola la
-    # pregunta "¿por qué esta corrida dice enero si hay noticias de junio?".
+    # {fuente: {corte, municipios_con_fecha}} — el corte de cada fuente por
+    # separado, con el mismo criterio de mínimo. Responde sola la pregunta
+    # "¿por qué esta corrida dice enero si hay noticias de junio?", y el conteo
+    # evita leer igual un corte apoyado en un municipio que en dieciocho.
+    #
+    # **Informativo: no alimenta ningún factor.** Medido sobre el snapshot, RSS
+    # no es uniformemente más fresco que SECOP — en los ciclos 1 y 2 corta
+    # antes y solo llega a 11 y 14 de los 18 municipios.
     corte_por_fuente: Mapped[dict] = mapped_column(JSON, default=dict)
 
     # Las **dos** listas, completas. `tipo_corrida` se decide comparándolas, y

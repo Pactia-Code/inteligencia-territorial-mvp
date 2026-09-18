@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from datetime import date
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from territorial.almacen.modelos import Calificacion, Insight, Municipio, SenalCruda
@@ -55,6 +55,75 @@ def _area_elic(elic: dict | None) -> float | None:
         if area is not None:
             return float(area)
     return None
+
+
+def cortes_por_fuente(
+    sesion_bd: Session,
+    id_ciclo: int,
+    config: Config | None = None,
+) -> dict[str, dict]:
+    """Hasta cuándo llega cada fuente en la cohorte, por separado.
+
+    **Es informativo y no alimenta ningún factor.** `Cobertura.ultima_fecha`
+    sigue siendo solo SECOP II y sigue siendo lo único que entra en F1–F3;
+    esta función se limita a añadir la foto por fuente.
+
+    Existe porque `fecha_corte_cohorte` se computa solo con SECOP, y eso
+    provoca una pregunta legítima al leer una corrida meses después: «¿por qué
+    dice enero si hay noticias de junio?». Medido sobre el snapshot, el corte
+    difiere entre SECOP y el resto de fuentes en 2 de los 3 ciclos — casi cinco
+    meses en el ciclo 3.
+
+    Mismo criterio que `fecha_corte_cohorte`: por cada fuente, el **mínimo** de
+    la última fecha de cada municipio, sobre los que tienen fecha. Se guarda
+    también cuántos la tienen, para que un corte apoyado en un solo municipio
+    no se lea igual que uno apoyado en dieciocho.
+
+    Bing aparece con corte `None`: llega sin fecha por definición (D1), y verlo
+    explícito vale más que omitirlo.
+    """
+    cfg = config or obtener_config()
+    ventanas = cfg.ventanas_ciclo
+    if id_ciclo not in ventanas:
+        raise ValueError(f"ciclo {id_ciclo} fuera de las ventanas de D2: {sorted(ventanas)}")
+    desde, hasta = ventanas[id_ciclo]
+
+    # Última fecha de cada (fuente, municipio). Son pocas filas: 4 fuentes por
+    # 18 municipios como mucho.
+    filas = sesion_bd.execute(
+        select(
+            SenalCruda.fuente,
+            SenalCruda.divipola,
+            func.max(SenalCruda.fecha_publicacion),
+        )
+        .where(
+            SenalCruda.id_ciclo == id_ciclo,
+            SenalCruda.fecha_publicacion >= desde,
+            SenalCruda.fecha_publicacion < hasta,
+        )
+        .group_by(SenalCruda.fuente, SenalCruda.divipola)
+    ).all()
+
+    fuentes_presentes = set(
+        sesion_bd.scalars(
+            select(SenalCruda.fuente).where(SenalCruda.id_ciclo == id_ciclo).distinct()
+        ).all()
+    )
+
+    ultimas: dict[str, list[date]] = {f: [] for f in fuentes_presentes}
+    for fuente, _divipola, ultima in filas:
+        if ultima is not None:
+            ultimas.setdefault(fuente, []).append(
+                ultima if isinstance(ultima, date) else date.fromisoformat(str(ultima)[:10])
+            )
+
+    return {
+        fuente: {
+            "corte": min(fechas).isoformat() if fechas else None,
+            "municipios_con_fecha": len(fechas),
+        }
+        for fuente, fechas in sorted(ultimas.items())
+    }
 
 
 def entradas_del_ciclo(

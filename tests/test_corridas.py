@@ -420,3 +420,60 @@ def test_si_el_scoring_falla_no_se_pierde_lo_que_costo_tokens(bd, monkeypatch):
     assert resumen.corrida is None
     assert "scoring roto" in resumen.error_scoring
     assert bd.query(CorridaScoring).count() == 0
+
+
+# --------------------------------------------------------------------------
+# corte_por_fuente — informativo, no alimenta factores
+# --------------------------------------------------------------------------
+
+
+def test_el_corte_por_fuente_se_persiste_tal_cual(bd):
+    cortes = {
+        "SECOP II": {"corte": "2025-11-21", "municipios_con_fecha": 18},
+        "RSS": {"corte": "2025-10-26", "municipios_con_fecha": 14},
+        "Bing": {"corte": None, "municipios_con_fecha": 0},
+    }
+    base = cohorte_completa()
+    corrida = guardar(
+        bd,
+        ResultadoCiclo(
+            id_ciclo=CICLO,
+            scores=base.scores,
+            juego_pesos=base.juego_pesos,
+            corte_por_fuente=cortes,
+        ),
+    )
+    bd.commit()
+    assert corrida.corte_por_fuente == cortes
+
+
+def test_el_corte_por_fuente_no_altera_el_corte_de_cohorte(bd):
+    """Es informativo. Que RSS llegue más lejos no mueve la comparabilidad,
+    que se mide sobre SECOP porque de ahí salen F1, F2 y F3."""
+    base = cohorte_completa(
+        {
+            "05001": date(2025, 11, 21),
+            "08001": date(2026, 1, 15),
+            "11001": date(2026, 1, 20),
+        }
+    )
+    corrida = guardar(
+        bd,
+        ResultadoCiclo(
+            id_ciclo=CICLO,
+            scores=base.scores,
+            juego_pesos=base.juego_pesos,
+            corte_por_fuente={"RSS": {"corte": "2026-08-01", "municipios_con_fecha": 3}},
+        ),
+    )
+    bd.commit()
+
+    # El corte sigue siendo el mínimo de SECOP, no el de RSS.
+    assert corrida.fecha_corte_cohorte == date(2025, 11, 21)
+    assert corrida.corte_por_fuente["RSS"]["corte"] == "2026-08-01"
+
+
+def test_sin_cortes_por_fuente_el_campo_queda_vacio_no_nulo(bd):
+    corrida = guardar(bd, cohorte_completa())
+    bd.commit()
+    assert corrida.corte_por_fuente == {}

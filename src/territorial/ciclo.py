@@ -49,7 +49,7 @@ from territorial.reglas.normalizacion import normalizar
 from territorial.reglas.prefiltro import clasificar as prefiltrar
 from territorial.reglas.validador import Senal as SenalValidador
 from territorial.reglas.validador import validar
-from territorial.scoring.agregacion import entradas_del_ciclo
+from territorial.scoring.agregacion import cortes_por_fuente, entradas_del_ciclo
 from territorial.scoring.persistencia import guardar as guardar_scores
 from territorial.scoring.ranking import puntuar_ciclo
 
@@ -400,7 +400,10 @@ def procesar_ciclo(
     # --- M5, determinista y sin tokens ---
     try:
         entradas = entradas_del_ciclo(sesion_bd, id_ciclo, cfg)
-        corrida = guardar_scores(sesion_bd, puntuar_ciclo(entradas, id_ciclo, cfg))
+        cortes = cortes_por_fuente(sesion_bd, id_ciclo, cfg)
+        corrida = guardar_scores(
+            sesion_bd, puntuar_ciclo(entradas, id_ciclo, cfg, cortes)
+        )
         resumen.corrida = corrida
     except Exception as exc:  # noqa: BLE001
         # Puntuar va después de gastar tokens en M2 y M4. Perder esa salida

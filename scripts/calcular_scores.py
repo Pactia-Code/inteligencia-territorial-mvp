@@ -19,7 +19,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 from territorial.almacen.modelos import Municipio  # noqa: E402
 from territorial.almacen.sesion import sesion  # noqa: E402
 from territorial.config import obtener_config  # noqa: E402
-from territorial.scoring.agregacion import entradas_del_ciclo  # noqa: E402
+from territorial.scoring.agregacion import (  # noqa: E402
+    cortes_por_fuente,
+    entradas_del_ciclo,
+)
 from territorial.scoring.persistencia import guardar  # noqa: E402
 from territorial.scoring.ranking import puntuar_ciclo  # noqa: E402
 
@@ -41,7 +44,8 @@ def main() -> int:
 
         for id_ciclo in ciclos:
             entradas = entradas_del_ciclo(s, id_ciclo, cfg)
-            resultado = puntuar_ciclo(entradas, id_ciclo, cfg)
+            cortes = cortes_por_fuente(s, id_ciclo, cfg)
+            resultado = puntuar_ciclo(entradas, id_ciclo, cfg, cortes)
 
             print()
             print("=" * 78)
@@ -84,6 +88,11 @@ def main() -> int:
                     print(f"  corte de cohorte: {corrida.fecha_corte_cohorte} (solo SECOP II)")
                 else:
                     print("  corte de cohorte: sin determinar — ningún municipio aportó fecha")
+                for fuente, info in sorted(corrida.corte_por_fuente.items()):
+                    print(
+                        f"    {fuente:10} corte {info['corte'] or 'sin fecha':10} "
+                        f"({info['municipios_con_fecha']} municipios)"
+                    )
                 if corrida.municipios_sin_fecha:
                     print(
                         f"  sin fecha de SECOP: {len(corrida.municipios_sin_fecha)} "
