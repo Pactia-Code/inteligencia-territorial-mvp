@@ -28,9 +28,15 @@ from territorial.scoring.ranking import ResultadoCiclo
 
 log = logging.getLogger(__name__)
 
-# Se sube a mano cuando cambia la fórmula, no los pesos. El arreglo de F5
-# (pendiente A7) cambia el algoritmo sin tocar un solo peso y sube a "v2".
-VERSION_ALGORITMO = "v1"
+# Se sube a mano cuando cambia la fórmula, no los pesos.
+#
+#   v1  Como se corrió hasta el 2026-09-18.
+#   v2  Arreglo de F5 (pendiente A7): la densidad mediática se divide por la
+#       ventana del ciclo y no por los días cubiertos, que salían solo de
+#       SECOP. Ni un peso cambió, así que la huella no se movió: **de no
+#       subirla a mano, dos algoritmos distintos habrían quedado
+#       indistinguibles**, que es justo lo que este campo existe para evitar.
+VERSION_ALGORITMO = "v2"
 
 
 def huella_pesos(pesos: dict[str, float]) -> str:

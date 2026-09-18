@@ -181,10 +181,24 @@ def f4_dinamica_licencias(e: EntradaMunicipio) -> ValorFactor:
 
 
 def f5_densidad_mediatica(e: EntradaMunicipio) -> ValorFactor:
-    """Noticias por día cubierto. Tasa, no conteo."""
-    dias = e.cobertura.dias_cubiertos
+    """Noticias por día de la **ventana del ciclo**. Tasa, no conteo.
+
+    El divisor es la ventana y no los días cubiertos (pendiente A7). Los días
+    cubiertos salen **solo de fechas de SECOP II**, así que dividir por ellos
+    anulaba la densidad mediática de un municipio por no haber contratado obra
+    — dos fuentes independientes. En el ciclo 3, Barranquilla con 47 noticias,
+    Armenia con 17 y Cartagena con 2 quedaban sin F5 por eso, y contradecía el
+    principio de D4 que este mismo módulo cita: *ausencia de dato no es
+    ausencia de actividad*.
+
+    La ventana es determinista, se conoce de antemano y **nunca es cero**, así
+    que además desaparece el caso borde. Dividir por días cubiertos por RSS lo
+    habría movido, no eliminado: Cartagena tiene 2 noticias que pueden caer el
+    mismo día.
+    """
+    dias = e.cobertura.dias_ventana
     if dias <= 0:
-        return _no_disponible("F5", "sin días cubiertos en el ciclo")
+        return _no_disponible("F5", "la ventana del ciclo es de cero días")
     return ValorFactor("F5", e.n_noticias / dias)
 
 

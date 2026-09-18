@@ -28,7 +28,7 @@ from territorial.almacen.modelos import (
     Municipio,
 )
 from territorial.almacen.modelos import ScoreMunicipio as FilaScore
-from territorial.scoring.persistencia import guardar
+from territorial.scoring.persistencia import VERSION_ALGORITMO, guardar
 from territorial.scoring.pesos import JuegoDePesos
 from territorial.scoring.ranking import Aporte, ResultadoCiclo, ScoreMunicipio
 
@@ -273,8 +273,9 @@ def test_cada_fila_guarda_su_propia_ultima_fecha(bd):
 def test_la_version_lleva_algoritmo_y_huella_de_pesos(bd):
     corrida = guardar(bd, cohorte_completa())
     bd.commit()
-    assert corrida.version_scoring.startswith("v1+")
-    assert len(corrida.version_scoring) > 3
+    algoritmo, _, huella = corrida.version_scoring.partition("+")
+    assert algoritmo == VERSION_ALGORITMO
+    assert len(huella) == 8
 
 
 def test_pesos_distintos_dan_versiones_distintas(bd):

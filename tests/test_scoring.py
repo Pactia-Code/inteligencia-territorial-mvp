@@ -124,14 +124,33 @@ def test_f4_pasa_por_encima_del_piso():
     assert f.crudo == pytest.approx(-28.47)
 
 
-def test_f5_es_una_tasa_por_dia_cubierto():
+def test_f5_es_una_tasa_sobre_la_ventana_del_ciclo():
+    """El divisor es la ventana, no los días cubiertos (A7).
+
+    Dos municipios con la misma ventana y el mismo número de noticias dan lo
+    mismo, aunque uno haya contratado obra y el otro no: son fuentes
+    independientes.
+    """
     a = fx.f5_densidad_mediatica(
         EntradaMunicipio("A", 1, cobertura(10, VENTANA), n_noticias=5)
     )
     b = fx.f5_densidad_mediatica(
-        EntradaMunicipio("B", 1, cobertura(20, VENTANA), n_noticias=10)
+        EntradaMunicipio("B", 1, cobertura(40, VENTANA), n_noticias=5)
     )
-    assert a.crudo == b.crudo == 0.5
+    assert a.crudo == b.crudo == 5 / VENTANA
+
+
+def test_f5_sobrevive_a_un_municipio_sin_una_sola_senal_de_secop():
+    """El caso de Barranquilla en el ciclo 3: 47 noticias y 0 días cubiertos.
+
+    Con el divisor viejo quedaba sin F5 por no haber contratado obra, que es
+    el defecto A7 y contradice el principio de D4 que el módulo cita.
+    """
+    f = fx.f5_densidad_mediatica(
+        EntradaMunicipio("08001", 3, cobertura(0, 239), n_noticias=47)
+    )
+    assert f.disponible
+    assert f.crudo == pytest.approx(47 / 239)
 
 
 def test_f6_pondera_por_gerencia_no_por_volumen_de_calificaciones():
@@ -389,8 +408,13 @@ def test_entradas_de_otro_ciclo_se_rechazan():
 
 
 def test_municipio_sin_ningun_factor_puntuable_no_revienta():
-    """Sale con score cero, pero con el motivo escrito en cada factor."""
-    mudo = entrada("05001", cobertura=cobertura(0), n_secop=0)
+    """Sale con score cero, pero con el motivo escrito en cada factor.
+
+    Tras A7 hace falta también una ventana de cero días para llegar aquí: con
+    ventana positiva, F5 siempre se puede calcular aunque no haya ni una
+    noticia, porque el divisor ya no depende de SECOP.
+    """
+    mudo = entrada("05001", cobertura=cobertura(0, dias_ventana=0), n_secop=0)
     r = puntuar_ciclo([mudo, *cohorte_basica()], id_ciclo=1)
     s = next(x for x in r.scores if x.divipola == "05001")
     assert s.score == 0.0
