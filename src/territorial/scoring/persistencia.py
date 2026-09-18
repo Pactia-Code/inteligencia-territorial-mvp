@@ -114,6 +114,12 @@ def guardar(sesion_bd: Session, resultado: ResultadoCiclo) -> CorridaScoring:
                     "motivo_no_priorizable": s.motivo_no_priorizable,
                     "aportes": [a.a_dict() for a in s.aportes],
                 },
+                # Mismo dato que `aportes[].crudo`, en plano. Se escriben aquí,
+                # juntos y desde la misma fuente, para que no puedan
+                # desincronizarse sin tocar esta función.
+                valores_crudos={
+                    a.codigo: a.crudo for a in s.aportes if a.crudo is not None
+                },
                 dias_cubiertos=s.dias_cubiertos,
                 dias_ventana=s.dias_ventana,
                 sin_cobertura=s.sin_cobertura,

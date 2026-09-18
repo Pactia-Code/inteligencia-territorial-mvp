@@ -418,10 +418,32 @@ class ScoreMunicipio(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     id_corrida: Mapped[int] = mapped_column(ForeignKey("corrida_scoring.id"), index=True)
     divipola: Mapped[str] = mapped_column(ForeignKey("municipio.divipola"), index=True)
+
+    # **El score es ORDINAL dentro de su corrida, no una magnitud.** Sale de
+    # normalizar min-max contra la cohorte, así que un 0,80 significa «de los
+    # puntuados en esta corrida, está arriba» y **nada más**: no es comparable
+    # con el 0,80 de otro ciclo ni de otra corrida. Sirve para ordenar y para
+    # elegir el top 3, que es para lo que lo usa CA-M5.4.
+    #
+    # La escala absoluta no se ancló porque habría que inventar los topes sin
+    # datos (decisión de Analítica, pendiente A5). Para construirla en la
+    # semana 8 con 3 ciclos de evidencia están los valores crudos de abajo.
     score: Mapped[float] = mapped_column(Float)
     ranking: Mapped[int | None] = mapped_column(Integer)
     # {factor: {valor, peso, aporte, sin_cobertura}} — Addendum 01, D4.
     factores: Mapped[dict] = mapped_column(JSON, default=dict)
+    # {F1: 0.4762, F2: 2765698367.1, ...} — los factores **sin normalizar**.
+    #
+    # **Es el mismo dato que `factores["aportes"][i]["crudo"]`**, en plano. Se
+    # duplica a propósito: construir una escala absoluta desde un array anidado
+    # obliga a un script, y desde una columna plana es un `SELECT`. La
+    # comparación entre corridas —que es el punto entero de guardarlos— pasa de
+    # programa a consulta.
+    #
+    # Los escribe `scoring/persistencia.guardar()` en el mismo sitio y a partir
+    # de la misma fuente, así que no pueden desincronizarse sin tocar esa
+    # función. **Si alguien cambia uno, tiene que cambiar el otro.**
+    valores_crudos: Mapped[dict] = mapped_column(JSON, default=dict)
     dias_cubiertos: Mapped[int | None] = mapped_column(Integer)
     dias_ventana: Mapped[int | None] = mapped_column(Integer)
     sin_cobertura: Mapped[bool] = mapped_column(default=False)

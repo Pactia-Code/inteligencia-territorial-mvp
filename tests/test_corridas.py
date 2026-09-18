@@ -478,3 +478,58 @@ def test_sin_cortes_por_fuente_el_campo_queda_vacio_no_nulo(bd):
     corrida = guardar(bd, cohorte_completa())
     bd.commit()
     assert corrida.corte_por_fuente == {}
+
+
+# --------------------------------------------------------------------------
+# A5 — valores crudos, para construir la escala absoluta en la semana 8
+# --------------------------------------------------------------------------
+
+
+def test_los_valores_crudos_se_guardan_en_plano(bd):
+    guardar(bd, cohorte_completa())
+    bd.commit()
+    fila = bd.scalars(select(FilaScore)).first()
+    assert fila.valores_crudos == {"F1": 1.0}
+
+
+def test_la_columna_plana_y_el_array_anidado_son_el_mismo_dato(bd):
+    """Se duplican a propósito, y por eso hay que comprobar que no divergen.
+
+    La columna plana existe para que construir la escala absoluta sea un SELECT
+    en vez de un script. Si alguien cambia uno de los dos caminos sin el otro,
+    esta prueba falla.
+    """
+    guardar(bd, cohorte_completa())
+    bd.commit()
+
+    for fila in bd.scalars(select(FilaScore)).all():
+        desde_anidado = {
+            a["codigo"]: a["crudo"]
+            for a in fila.factores["aportes"]
+            if a["crudo"] is not None
+        }
+        assert fila.valores_crudos == desde_anidado
+
+
+def test_un_factor_sin_valor_no_ensucia_la_columna_plana(bd):
+    """Un factor no disponible tiene `crudo=None`: no entra."""
+    base = cohorte_completa()
+    sin_dato = Aporte(
+        codigo="F4", descripcion="d", crudo=None, normalizado=None,
+        peso=0.0, aporte=0.0, sin_cobertura=True, motivo="sin ELIC",
+    )
+    scores = [
+        ScoreMunicipio(
+            divipola=s.divipola, id_ciclo=CICLO, score=s.score,
+            aportes=[*s.aportes, sin_dato], dias_cubiertos=51, dias_ventana=51,
+            sin_cobertura=False, ranking=s.ranking,
+            ultima_fecha_captura=s.ultima_fecha_captura,
+        )
+        for s in base.scores
+    ]
+    guardar(bd, resultado(scores))
+    bd.commit()
+
+    fila = bd.scalars(select(FilaScore)).first()
+    assert "F4" not in fila.valores_crudos
+    assert fila.valores_crudos == {"F1": 1.0}

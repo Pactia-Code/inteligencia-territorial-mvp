@@ -99,6 +99,12 @@ prompt sobre el mismo lote.
 & $py -m alembic check                                # ¿esquema y modelos concuerdan?
 ```
 
+**`alembic check` después de cada `upgrade`, siempre.** El `Running upgrade` del
+log no prueba que la migración terminara: ya ocurrió una que lo imprimió y falló
+después, dejando la base en la revisión anterior. `check` compara el esquema
+real contra los modelos y es lo único que lo detecta. Detalle en
+[CLAUDE.md](CLAUDE.md) §6.1.
+
 ## Estructura
 
 ```
@@ -152,19 +158,19 @@ puede provenir del LLM** (CA-M6.3). Todas se componen desde el almacén de datos
 
 ## Estado
 
-Verificado sobre el código el 2026-09-18. Las 106 pruebas de `tests/` pasan.
+Verificado sobre el código el 2026-09-18. Las 139 pruebas de `tests/` pasan.
 El detalle por criterio de aceptación está en [CLAUDE.md](CLAUDE.md) §4.
 
 | Módulo | Estado |
 |---|---|
 | Ingesta del snapshot (M1) | ✅ Funcionando |
-| Clasificador (M2) | 🟡 Funciona, persiste y trocea — **CA-M2.5 sin cumplir**: los descartes no se guardan |
+| Clasificador (M2) | 🟡 Funciona, persiste, trocea y registra descartes (CA-M2.5) — sigue **variando entre corridas** (A6) |
 | Validador determinista (M3) | ✅ Funcionando — R1 a R7 |
 | Correlacionador (M4) | 🟡 Funciona — CA-M4.3 sin poder probarse: no hay calificaciones |
 | Scoring por reglas (M5) | 🟡 Funciona sobre **5 de 6 factores** — F6 nunca se activa sin calificaciones |
 | Sintetizador (M6) | ⬜ Sin código |
 | Calificación y aplicativo web (M7, M9) | ⬜ Sin código |
-| Trazabilidad (M8) | 🟡 Parcial — linaje de dataset y trazas por agente; falta el linaje de prompts y Langfuse |
+| Trazabilidad (M8) | 🟡 Parcial — linaje de dataset, de prompts (D7) y trazas por agente; falta Langfuse y CA-M8.4 |
 | Esquema con Alembic | ✅ 2 migraciones, sin deriva |
 
 **M7 es el cuello de botella oculto.** Sin él no hay calificaciones, y sin

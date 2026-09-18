@@ -1,7 +1,7 @@
 # CLAUDE.md — MVP Inteligencia Territorial (Pactia)
 
 Guía de trabajo para agentes sobre este repositorio.
-**Actualizado:** 2026-09-17
+**Actualizado:** 2026-09-18
 
 ---
 
@@ -105,20 +105,25 @@ una llamada a LLM no vive en `reglas/`.
 
 ## 4. Estado real por módulo
 
-Diagnóstico verificado sobre el árbol de trabajo el 2026-09-17. Las 106 pruebas
-de `tests/` pasan (reglas, scoring, correlacionador, persistencia y troceo).
+Diagnóstico verificado sobre el árbol de trabajo el 2026-09-18. Las 139 pruebas
+de `tests/` pasan.
+
+**Nada se sobrescribe.** Insights, descartes y scores cuelgan de una *corrida*
+—`corrida_agentes` y `corrida_scoring`— y cada ejecución inserta una nueva. Dos
+pasadas del mismo ciclo conviven, que es lo que A6 necesita para medirse y lo
+que impide que un reproceso borre lo que las gerencias calificaron.
 
 | Módulo | Estado | Detalle |
 |---|---|---|
 | **M1** Ingesta por API (Agente Fuentes) | ✅ Funciona | Carga los 18 municipios y las 20.030 señales; `data/territorial.db` poblada. Conectores vivos diferidos a Fase 0 |
 | **Prefiltro** (apoya M2 y M5) | 🟡 Implementado, sin validar | Reduce 61,2%. El diccionario de obra produce entre 13% y 90% según el municipio — rango demasiado ancho para confiar en él (**pendiente A2**) |
-| **M2** Clasificación | 🟡 Funciona, persiste y trocea | Prompt **v4**, salida estructurada. Guarda válidos y rechazados. Procesa **todas** las señales en lotes de 50. Primera medición sobre un municipio completo (Barranquilla c2, 284 señales): **94,6% de reducción**, por encima del 85% de CA-M2.1 — falta medirlo en los 18. Sigue **variando entre corridas idénticas** (**A6**). Ver §8 y §9 |
+| **M2** Clasificación | 🟡 Funciona, persiste, trocea y registra descartes | Prompt **v4**, salida estructurada. Guarda válidos y rechazados. Procesa **todas** las señales en lotes de 50. Primera medición sobre un municipio completo (Barranquilla c2, 284 señales): **94,6% de reducción**, por encima del 85% de CA-M2.1 — falta medirlo en los 18. Sigue **variando entre corridas idénticas** (**A6**). Ver §8 y §9 |
 | **M3** Validación determinista | ✅ Funciona | 7 reglas R1–R7. Tasa de rechazo 0,0% tras corregir el falso positivo de puntuación de SECOP. **Muestra pequeña: insuficiente para concluir sobre H4** |
 | **M4** Correlación | 🟡 Funciona; CA-M4.3 sin ejercitar | Prompt v1, salida estructurada. CA-M4.1, CA-M4.2 y CA-M4.4 verificados contra el tenant. **La evidencia la une el código, no el modelo** (ver el encabezado de `agentes/correlacionador.py`). CA-M4.3 (bucle de aprendizaje) está implementado pero **no se puede probar**: no hay ni una calificación en la base |
 | **M5** Scoring y priorización | ✅ Funciona con pesos provisionales | F1–F6 de D4, normalización por cohorte, winsorizado de F4, redistribución por cobertura, top 3 y desglose. Los 3 ciclos puntúan y persisten. Los **pesos definitivos** los decide Gerencia General (**pendiente A1/4**); rigen los provisionales de D4 |
 | **M6** Síntesis y distribución | ⬜ Sin código | Canal de notificación sin decidir (**pendiente 11.4/3**); §2.2 excluye Teams |
 | **M7** Calificación | ⬜ Sin código | Depende del aplicativo web |
-| **M8** Trazabilidad y observabilidad | 🟡 Parcial | Linaje de dataset y **trazas por agente** (CA-M8.2: modelo, tokens, duración por corrida). Falta Langfuse y el checkpointing de CA-M8.4: langfuse 4.15.4 y langgraph 1.2.11 están instalados pero **sin cablear**, no hay `grafo/` |
+| **M8** Trazabilidad y observabilidad | 🟡 Parcial | Linaje de dataset, **de prompts por contenido** (D7) y trazas por agente (CA-M8.2). Falta Langfuse y el checkpointing de CA-M8.4: instalados pero **sin cablear**, no hay `grafo/` |
 | **M9** Aplicativo web | ⬜ Sin código | Django **no está instalado** ni tiene versión fijada. Playwright está por verificar: descarga binarios sin firmar que la política de esta máquina bloquea |
 
 ### Pendientes que frenan el avance
@@ -208,6 +213,25 @@ Cuatro cosas que ahorran un rato:
 
 Corre `alembic check` antes de abrir una PR que toque `modelos.py`: falla si el
 modelo y las migraciones se desincronizaron.
+
+### El `upgrade` no prueba nada. `alembic check` sí
+
+**Corre `alembic check` después de cada `upgrade`.** No es redundante: es la
+verificación real.
+
+El 2026-09-18 una migración imprimió `Running upgrade ... -> a6ac249fcec9` y
+**falló a continuación**, dejando la base en la revisión anterior. La causa fue
+un `create_foreign_key(None, ...)` que autogenerate rinde sin nombre y que en
+modo batch revienta; el error salió por stderr y un `grep` del comando se lo
+comió. El log decía que había subido y no había subido.
+
+`alembic check` compara el esquema real contra los modelos, así que contradice
+al `upgrade` cuando el `upgrade` miente. Fue lo único que lo detectó.
+
+Y **nombra siempre las claves foráneas** en las migraciones. Autogenerate las
+deja sin nombre y avisa en un `UserWarning` fácil de pasar por alto; en SQLite,
+donde todo pasa por modo batch, sin nombre no funcionan.
+
 
 **Ni la ingesta ni la capa determinista necesitan la clave** — solo los agentes.
 `.env` nunca se sube a git; `.env.example` sí.
