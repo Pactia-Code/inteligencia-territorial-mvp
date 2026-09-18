@@ -74,9 +74,21 @@ def main() -> int:
                 print(sc.explicar())
 
             if not args.seco:
-                n = guardar(s, resultado)
+                corrida = guardar(s, resultado)
                 print()
-                print(f"Guardados {n} scores del ciclo {id_ciclo}.")
+                print(
+                    f"Corrida {corrida.id} ({corrida.tipo_corrida}) del ciclo {id_ciclo}: "
+                    f"{len(resultado.scores)} scores, version {corrida.version_scoring}."
+                )
+                if corrida.fecha_corte_cohorte:
+                    print(f"  corte de cohorte: {corrida.fecha_corte_cohorte} (solo SECOP II)")
+                else:
+                    print("  corte de cohorte: sin determinar — ningún municipio aportó fecha")
+                if corrida.municipios_sin_fecha:
+                    print(
+                        f"  sin fecha de SECOP: {len(corrida.municipios_sin_fecha)} "
+                        f"municipios {corrida.municipios_sin_fecha}"
+                    )
 
     if args.seco:
         print()

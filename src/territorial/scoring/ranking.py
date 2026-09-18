@@ -45,7 +45,8 @@ y queda para confirmar con Analítica junto al pendiente A1.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from datetime import date
 
 from territorial.config import Config, obtener_config
 from territorial.reglas.cobertura import redistribuir_pesos
@@ -102,6 +103,9 @@ class ScoreMunicipio:
     # No entra al top 3 por apoyarse en muy pocos datos. Sigue en el ranking.
     no_priorizable: bool = False
     motivo_no_priorizable: str = ""
+    # Última fecha observada de **este** municipio, no de la cohorte. Solo
+    # SECOP II: es `Cobertura.ultima_fecha`, la misma que alimenta F1-F3.
+    ultima_fecha_captura: date | None = None
     ranking: int | None = None
 
     @property
@@ -144,6 +148,13 @@ class ResultadoCiclo:
     id_ciclo: int
     scores: list[ScoreMunicipio]  # ordenados, mejor primero
     juego_pesos: JuegoDePesos
+    # Ventana del ciclo, declarada por configuración (D2).
+    ventana_desde: date | None = None
+    ventana_hasta: date | None = None
+    # {fuente: última fecha observada}. Va aparte de `fecha_corte_cohorte`
+    # porque responde sola por qué una corrida dice enero si hay noticias de
+    # junio. No alimenta ningún factor.
+    corte_por_fuente: dict = field(default_factory=dict)
 
     @property
     def top(self) -> list[ScoreMunicipio]:
@@ -254,6 +265,7 @@ def puntuar_ciclo(
     entradas: list[EntradaMunicipio],
     id_ciclo: int,
     config: Config | None = None,
+    cortes_por_fuente: dict | None = None,
 ) -> ResultadoCiclo:
     """Puntúa y ordena los municipios de un ciclo.
 
@@ -263,8 +275,9 @@ def puntuar_ciclo(
     cfg = config or obtener_config()
     juego = del_ciclo(id_ciclo, cfg)
 
+    ventana = cfg.ventanas_ciclo.get(id_ciclo, (None, None))
     if not entradas:
-        return ResultadoCiclo(id_ciclo, [], juego)
+        return ResultadoCiclo(id_ciclo, [], juego, ventana[0], ventana[1])
 
     ajenas = {e.divipola for e in entradas if e.id_ciclo != id_ciclo}
     if ajenas:
@@ -286,6 +299,7 @@ def puntuar_ciclo(
                 dias_cubiertos=e.cobertura.dias_cubiertos,
                 dias_ventana=e.cobertura.dias_ventana,
                 sin_cobertura=e.cobertura.sin_cobertura(cfg.umbral_cobertura),
+                ultima_fecha_captura=e.cobertura.ultima_fecha,
                 fraccion_informada=informada,
                 no_priorizable=flojo,
                 motivo_no_priorizable=(
@@ -311,6 +325,7 @@ def puntuar_ciclo(
             dias_cubiertos=s.dias_cubiertos,
             dias_ventana=s.dias_ventana,
             sin_cobertura=s.sin_cobertura,
+            ultima_fecha_captura=s.ultima_fecha_captura,
             fraccion_informada=s.fraccion_informada,
             no_priorizable=s.no_priorizable,
             motivo_no_priorizable=s.motivo_no_priorizable,
@@ -319,4 +334,11 @@ def puntuar_ciclo(
         for i, s in enumerate(scores, start=1)
     ]
 
-    return ResultadoCiclo(id_ciclo, ordenados, juego)
+    return ResultadoCiclo(
+        id_ciclo,
+        ordenados,
+        juego,
+        ventana_desde=ventana[0],
+        ventana_hasta=ventana[1],
+        corte_por_fuente=cortes_por_fuente or {},
+    )
