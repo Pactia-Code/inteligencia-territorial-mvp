@@ -1,68 +1,92 @@
-"""Guarda en la base lo que producen los agentes (B6).
+"""Guarda en la base lo que producen los agentes (B6, CA-M8.2).
 
-Hasta ahora M2 y M4 solo corrían en scripts de prueba y su salida se perdía al
-terminar el proceso. Sin esto no hay ciclo completo: M4 no tiene entrada
-estable, M7 no tiene qué calificar y F6 del scoring nunca tendrá datos.
+**Nada se sobrescribe.** Cada pasada de la cadena inserta una `CorridaAgentes`
+y los insights cuelgan de ella. Aquí vivía `_borrar_previos`, que borraba los
+insights de la pasada anterior por `(ciclo, municipio, origen)`: dos pasadas del
+mismo ciclo no podían compararse, y desde que M7 exista habría borrado los
+insights que las gerencias calificaron. **Esa función ya no existe**, no está
+desactivada: un `DELETE` dormido vuelve.
 
-Dos decisiones:
+`tipo_corrida` se decide **aquí** y no en el llamador, igual que en el scoring:
+el invariante vive donde vive el dato, así que cualquier punto de entrada futuro
+queda protegido sin tener que acordarse.
 
-**Se guardan también los insights rechazados por el validador.** Podría
-parecer basura, pero su proporción *es* la tasa de alucinación medida
-(CA-M3.3), y de ella depende H4. Si solo se guardara lo válido, el numerador
-existiría y el denominador no.
-
-**Reescribir un municipio borra lo suyo antes de insertar.** El Clasificador no
-es reproducible —el mismo lote da 3 insights una vez y 6 otra, pendiente A6—,
-así que no hay clave natural con la que hacer un upsert honesto. Se borra y se
-reinserta el par (ciclo, municipio, origen), que deja la base en un estado
-consistente en vez de acumular corridas superpuestas.
+**Se guardan también los insights rechazados por el validador.** Su proporción
+*es* la tasa de alucinación medida (CA-M3.3), y de ella depende H4. Si solo se
+guardara lo válido, el numerador existiría y el denominador no.
 """
 
 from __future__ import annotations
 
-from sqlalchemy import delete, select
+import logging
+
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from territorial.agentes.correlacionador import ResultadoCorrelacion
-from territorial.almacen.modelos import Insight, TrazaAgente
+from territorial.almacen.modelos import CorridaAgentes, Insight, Municipio, TrazaAgente
+
+log = logging.getLogger(__name__)
 
 ORIGEN_CLASIFICADOR = "clasificador"
 ORIGEN_CORRELACIONADOR = "correlacionador"
 
 
-def _borrar_previos(sesion_bd: Session, id_ciclo: int, divipola: str, origen: str) -> int:
-    existentes = sesion_bd.scalars(
-        select(Insight.id).where(
-            Insight.id_ciclo == id_ciclo,
-            Insight.divipola == divipola,
-            Insight.origen == origen,
+def crear_corrida(
+    sesion_bd: Session,
+    id_ciclo: int,
+    cohorte: list[str],
+    version_clasificador: str | None = None,
+    version_correlacionador: str | None = None,
+) -> CorridaAgentes:
+    """Abre una pasada. Se crea **antes** del bucle: los insights la necesitan.
+
+    `cohorte` son los municipios que se van a procesar, no los que acabaron
+    bien. Un municipio que falle sigue perteneciendo a la pasada — excluirlo
+    haría que la corrida pareciera más completa de lo que fue.
+    """
+    objetivo = sorted(d for (d,) in sesion_bd.execute(select(Municipio.divipola)).all())
+    cohorte = sorted(set(cohorte))
+    completa = set(cohorte) >= set(objetivo)
+
+    corrida = CorridaAgentes(
+        id_ciclo=id_ciclo,
+        tipo_corrida="completa" if completa else "parcial",
+        municipios_objetivo=objetivo,
+        municipios_en_cohorte=cohorte,
+        version_clasificador=version_clasificador,
+        version_correlacionador=version_correlacionador,
+    )
+    sesion_bd.add(corrida)
+    sesion_bd.flush()
+
+    if not completa:
+        faltan = sorted(set(objetivo) - set(cohorte))
+        log.warning(
+            "Corrida de agentes %s del ciclo %s es PARCIAL: %d de %d municipios. "
+            "Quedan fuera %d: %s. Los insights de esos municipios siguen "
+            "colgando de su pasada anterior, no de esta.",
+            corrida.id, id_ciclo, len(cohorte), len(objetivo), len(faltan), faltan,
         )
-    ).all()
-    if not existentes:
-        return 0
-    sesion_bd.execute(delete(Insight).where(Insight.id.in_(existentes)))
-    return len(existentes)
+    return corrida
 
 
 def guardar_insights(
     sesion_bd: Session,
     insights: list[dict],
-    id_ciclo: int,
+    id_corrida: int,
     divipola: str,
     version_prompt: str,
 ) -> list[Insight]:
     """Persiste la salida del Clasificador ya validada por M3.
 
-    Cada dict trae lo del Clasificador más `estado_validacion` y
-    `motivo_rechazo`, que los pone el validador. Devuelve las filas con su id
-    asignado, que es lo que el Correlacionador necesita para referenciarlas.
+    Devuelve las filas con su id asignado, que es lo que el Correlacionador
+    necesita para referenciarlas.
     """
-    _borrar_previos(sesion_bd, id_ciclo, divipola, ORIGEN_CLASIFICADOR)
-
     filas: list[Insight] = []
     for ins in insights:
         fila = Insight(
-            id_ciclo=id_ciclo,
+            id_corrida=id_corrida,
             divipola=divipola,
             categoria=ins.get("categoria", "otro"),
             resumen=ins.get("resumen", ""),
@@ -87,7 +111,7 @@ def guardar_insights(
 def guardar_correlaciones(
     sesion_bd: Session,
     resultado: ResultadoCorrelacion,
-    id_ciclo: int,
+    id_corrida: int,
     divipola: str,
     mapa_ids: dict[int, int],
 ) -> list[Insight]:
@@ -97,13 +121,11 @@ def guardar_correlaciones(
     Sin esa traducción, `ids_insight_origen` apuntaría a números de lote que no
     significan nada fuera del proceso, y CA-M4.4 quedaría en nada.
     """
-    _borrar_previos(sesion_bd, id_ciclo, divipola, ORIGEN_CORRELACIONADOR)
-
     filas: list[Insight] = []
     for c in resultado.correlacionados:
         origenes = sorted(mapa_ids[i] for i in c.ids_insight if i in mapa_ids)
         fila = Insight(
-            id_ciclo=id_ciclo,
+            id_corrida=id_corrida,
             divipola=divipola,
             categoria="+".join(c.categorias)[:60],
             resumen=c.resumen,

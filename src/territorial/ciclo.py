@@ -34,16 +34,26 @@ from territorial.agentes.clasificador import (
 )
 from territorial.agentes.cliente import despliegue_de
 from territorial.agentes.correlacionador import (
+    VERSION_PROMPT as VERSION_CORRELACIONADOR,
+)
+from territorial.agentes.correlacionador import (
     CalificacionPrevia,
     InsightValidado,
     correlacionar,
 )
 from territorial.agentes.persistencia import (
+    crear_corrida,
     guardar_correlaciones,
     guardar_insights,
     guardar_traza,
 )
-from territorial.almacen.modelos import Calificacion, Insight, Municipio, SenalCruda
+from territorial.almacen.modelos import (
+    Calificacion,
+    CorridaAgentes,
+    Insight,
+    Municipio,
+    SenalCruda,
+)
 from territorial.config import Config, obtener_config
 from territorial.reglas.normalizacion import normalizar
 from territorial.reglas.prefiltro import clasificar as prefiltrar
@@ -85,6 +95,8 @@ class ResumenMunicipio:
 class ResumenCiclo:
     id_ciclo: int
     municipios: list[ResumenMunicipio] = field(default_factory=list)
+    # La pasada de agentes de la que cuelgan los insights.
+    corrida_agentes: object | None = None
     # La corrida de scoring que se insertó al final. Es de donde saldrá
     # `informe.id_corrida` cuando M6 publique.
     corrida: object | None = None
@@ -129,6 +141,11 @@ class ResumenCiclo:
         )
         if self.con_error:
             lineas.append(f"Municipios con error: {len(self.con_error)}")
+        if self.corrida_agentes is not None:
+            lineas.append(
+                f"Agentes: corrida {self.corrida_agentes.id} "
+                f"({self.corrida_agentes.tipo_corrida})"
+            )
         if self.corrida is not None:
             lineas.append(
                 f"Scoring: corrida {self.corrida.id} ({self.corrida.tipo_corrida}), "
@@ -147,9 +164,10 @@ def _calificaciones_previas(
     if id_ciclo <= 1:
         return []
     filas = sesion_bd.execute(
-        select(Insight.categoria, Calificacion.valor, Insight.id_ciclo)
+        select(Insight.categoria, Calificacion.valor, CorridaAgentes.id_ciclo)
         .join(Calificacion, Calificacion.id_insight == Insight.id)
-        .where(Insight.divipola == divipola, Insight.id_ciclo < id_ciclo)
+        .join(CorridaAgentes, CorridaAgentes.id == Insight.id_corrida)
+        .where(Insight.divipola == divipola, CorridaAgentes.id_ciclo < id_ciclo)
     ).all()
     return [CalificacionPrevia(categoria=c, valor=float(v), id_ciclo=ci) for c, v, ci in filas]
 
@@ -175,7 +193,7 @@ def _en_lotes(senales: list[SenalCruda], tamano: int) -> list[list[SenalCruda]]:
 def procesar_municipio(
     sesion_bd: Session,
     municipio: Municipio,
-    id_ciclo: int,
+    corrida: CorridaAgentes,
     tamano_lote: int | None = None,
     config: Config | None = None,
 ) -> ResumenMunicipio:
@@ -186,6 +204,7 @@ def procesar_municipio(
     897 señales de Barranquilla en el ciclo 1 se clasificaban 25.
     """
     cfg = config or obtener_config()
+    id_ciclo = corrida.id_ciclo
     tamano = tamano_lote or cfg.senales_por_lote
     resumen = ResumenMunicipio(divipola=municipio.divipola, nombre=municipio.nombre)
 
@@ -288,7 +307,7 @@ def procesar_municipio(
 
     # --- Persistir M2 + M3 ---
     filas = guardar_insights(
-        sesion_bd, juzgados, id_ciclo, municipio.divipola, VERSION_CLASIFICADOR
+        sesion_bd, juzgados, corrida.id, municipio.divipola, VERSION_CLASIFICADOR
     )
 
     # El agente numera el lote de 1 en adelante; la base asigna otros ids. El
@@ -347,7 +366,7 @@ def procesar_municipio(
         resumen.error = f"CA-M4.4 rota, señales perdidas: {corr.senales_perdidas}"
         return resumen
 
-    guardar_correlaciones(sesion_bd, corr, id_ciclo, municipio.divipola, mapa_ids)
+    guardar_correlaciones(sesion_bd, corr, corrida.id, municipio.divipola, mapa_ids)
     resumen.correlacionados = len(corr.correlacionados)
 
     return resumen
@@ -381,12 +400,25 @@ def procesar_ciclo(
     consulta = select(Municipio).order_by(Municipio.divipola)
     if solo:
         consulta = consulta.where(Municipio.divipola.in_(solo))
+    municipios = sesion_bd.scalars(consulta).all()
 
-    resumen = ResumenCiclo(id_ciclo=id_ciclo)
-    for municipio in sesion_bd.scalars(consulta).all():
+    # La corrida se abre **antes** del bucle: los insights cuelgan de ella. La
+    # cohorte son los municipios que se van a procesar, no los que acaben bien;
+    # excluir a los que fallan haría parecer la pasada más completa de lo que
+    # fue. `tipo_corrida` lo decide `crear_corrida`, no este bucle.
+    corrida = crear_corrida(
+        sesion_bd,
+        id_ciclo,
+        [m.divipola for m in municipios],
+        version_clasificador=VERSION_CLASIFICADOR,
+        version_correlacionador=VERSION_CORRELACIONADOR,
+    )
+
+    resumen = ResumenCiclo(id_ciclo=id_ciclo, corrida_agentes=corrida)
+    for municipio in municipios:
         try:
             resumen.municipios.append(
-                procesar_municipio(sesion_bd, municipio, id_ciclo, tamano_lote, cfg)
+                procesar_municipio(sesion_bd, municipio, corrida, tamano_lote, cfg)
             )
         except Exception as exc:  # noqa: BLE001 — un municipio no tumba el ciclo
             resumen.municipios.append(
@@ -396,6 +428,11 @@ def procesar_ciclo(
                     error=f"{type(exc).__name__}: {exc}",
                 )
             )
+
+    corrida.senales_procesadas = sum(m.enviadas for m in resumen.municipios)
+    corrida.tokens_entrada = resumen.tokens_entrada
+    corrida.tokens_salida = resumen.tokens_salida
+    sesion_bd.flush()
 
     # --- M5, determinista y sin tokens ---
     try:

@@ -129,11 +129,70 @@ class SenalCruda(Base):
     )
 
 
-class Insight(Base):
-    __tablename__ = "insight"
+class CorridaAgentes(Base):
+    """Una pasada de la cadena de agentes. **Nada se sobrescribe.**
+
+    El hermano de `CorridaScoring` un nivel más abajo. Los insights vivían como
+    atributo de `(ciclo, municipio, origen)` y una segunda pasada **borraba** la
+    primera, así que dos pasadas del mismo ciclo no podían compararse — que es
+    justo lo que el pendiente A6 necesita medir.
+
+    Y tenía una segunda cara peor: `calificacion.id_insight` apunta a
+    `insight.id`. Mientras no hubiera calificaciones no mordía, pero desde que
+    exista M7 un reproceso habría borrado los insights que las gerencias
+    calificaron. Es el mismo agujero de H4 que se cerró para el ranking,
+    esperando a la semana 7 para aparecer.
+
+    Leer una calificación lleva ahora a su insight, y el insight a la corrida
+    bajo la que nació.
+    """
+
+    __tablename__ = "corrida_agentes"
 
     id: Mapped[int] = mapped_column(primary_key=True)
     id_ciclo: Mapped[int] = mapped_column(ForeignKey("ciclo.id"), index=True)
+    fecha_corrida: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=ahora)
+
+    # `completa` si la cohorte cubrió todos los municipios objetivo. Aquí sí se
+    # ejercita: el Clasificador se puede correr sobre un solo municipio.
+    tipo_corrida: Mapped[str] = mapped_column(String(10), default="completa", index=True)
+
+    # Las **dos** listas, como en `corrida_scoring`: `tipo_corrida` se decide
+    # comparándolas, y guardar solo la cohorte haría imposible auditar una
+    # corrida vieja después de que alguien añada un municipio.
+    municipios_objetivo: Mapped[list] = mapped_column(JSON, default=list)
+    municipios_en_cohorte: Mapped[list] = mapped_column(JSON, default=list)
+
+    # Versiones de prompt que corrieron. El linaje por contenido —hash y blob—
+    # llega con D7; esto es la etiqueta.
+    version_clasificador: Mapped[str | None] = mapped_column(String(20))
+    version_correlacionador: Mapped[str | None] = mapped_column(String(20))
+
+    # Para auditar CA-M2.1 sin recontar: cuántas señales entraron al agente.
+    senales_procesadas: Mapped[int] = mapped_column(Integer, default=0)
+    tokens_entrada: Mapped[int] = mapped_column(Integer, default=0)
+    tokens_salida: Mapped[int] = mapped_column(Integer, default=0)
+
+    insights: Mapped[list[Insight]] = relationship(back_populates="corrida")
+
+    __table_args__ = (
+        CheckConstraint(
+            "tipo_corrida IN ('completa', 'parcial')", name="ck_tipo_corrida_agentes"
+        ),
+    )
+
+
+class Insight(Base):
+    """Un insight **de una pasada**, no del par (ciclo, municipio).
+
+    No lleva `id_ciclo`: el ciclo es de la corrida. Denormalizarlo permitiría
+    que una fila discrepara de su propia pasada, igual que en `score_municipio`.
+    """
+
+    __tablename__ = "insight"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    id_corrida: Mapped[int] = mapped_column(ForeignKey("corrida_agentes.id"), index=True)
     divipola: Mapped[str] = mapped_column(ForeignKey("municipio.divipola"), index=True)
     categoria: Mapped[str] = mapped_column(String(60))
     resumen: Mapped[str] = mapped_column(Text)
@@ -159,6 +218,7 @@ class Insight(Base):
     por_que_convergen: Mapped[str | None] = mapped_column(Text)
     confianza: Mapped[str | None] = mapped_column(String(10))
 
+    corrida: Mapped[CorridaAgentes] = relationship(back_populates="insights")
     calificaciones: Mapped[list[Calificacion]] = relationship(back_populates="insight")
 
     __table_args__ = (

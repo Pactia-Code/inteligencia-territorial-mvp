@@ -14,7 +14,7 @@ from __future__ import annotations
 from datetime import date
 
 import pytest
-from sqlalchemy import create_engine, select
+from sqlalchemy import create_engine, event, select
 from sqlalchemy.orm import Session
 
 from territorial.agentes.correlacionador import (
@@ -24,6 +24,7 @@ from territorial.agentes.correlacionador import (
 from territorial.agentes.persistencia import (
     ORIGEN_CLASIFICADOR,
     ORIGEN_CORRELACIONADOR,
+    crear_corrida,
     guardar_correlaciones,
     guardar_insights,
     guardar_traza,
@@ -31,6 +32,7 @@ from territorial.agentes.persistencia import (
 from territorial.almacen.modelos import (
     Base,
     Ciclo,
+    CorridaAgentes,
     Insight,
     Municipio,
     SenalCruda,
@@ -44,14 +46,34 @@ CICLO = 1
 
 @pytest.fixture
 def bd():
-    """Base en memoria con el esquema de los modelos."""
+    """Base en memoria con el esquema de los modelos.
+
+    Con `foreign_keys=ON`: sin él, SQLite no aplica las claves foráneas y estas
+    pruebas pasarían aunque un insight apuntara a una corrida inexistente, que
+    es exactamente lo que hay que impedir.
+    """
     motor = create_engine("sqlite://")
+
+    @event.listens_for(motor, "connect")
+    def _fk(conexion, _record):
+        cur = conexion.cursor()
+        cur.execute("PRAGMA foreign_keys=ON")
+        cur.close()
+
     Base.metadata.create_all(motor)
     with Session(motor) as s:
         s.add(Municipio(divipola=DIVIPOLA, nombre="Carepa", departamento="Antioquia"))
         s.add(Ciclo(id=CICLO, fecha_desde=date(2025, 9, 1), fecha_hasta=date(2025, 10, 22)))
         s.commit()
         yield s
+
+
+@pytest.fixture
+def corrida(bd):
+    """Una pasada de agentes abierta, de la que colgar los insights."""
+    c = crear_corrida(bd, CICLO, [DIVIPOLA], "v4", "v1")
+    bd.commit()
+    return c
 
 
 def insight_dict(categoria: str, senales: list[int], estado: str = "validado") -> dict:
@@ -80,9 +102,9 @@ def insight_dict(categoria: str, senales: list[int], estado: str = "validado") -
 # --------------------------------------------------------------------------
 
 
-def test_se_guardan_los_insights_con_su_origen(bd):
+def test_se_guardan_los_insights_con_su_origen(bd, corrida):
     guardar_insights(
-        bd, [insight_dict("obra_vial", [1])], CICLO, DIVIPOLA, "v4"
+        bd, [insight_dict("obra_vial", [1])], corrida.id, DIVIPOLA, "v4"
     )
     bd.commit()
 
@@ -92,7 +114,7 @@ def test_se_guardan_los_insights_con_su_origen(bd):
     assert fila.ids_senal == [1]
 
 
-def test_los_rechazados_tambien_se_guardan(bd):
+def test_los_rechazados_tambien_se_guardan(bd, corrida):
     """Su proporción es la tasa de alucinación medida (CA-M3.3), de la que
     depende H4. Guardar solo lo válido dejaría el numerador sin denominador."""
     guardar_insights(
@@ -115,45 +137,45 @@ def test_los_rechazados_tambien_se_guardan(bd):
     assert rechazado.motivo_rechazo == "sin url"
 
 
-def test_reescribir_un_municipio_no_acumula_corridas(bd):
-    """El Clasificador no es reproducible (A6): sin esto, dos corridas dejarían
-    insights superpuestos de ambas y nadie sabría cuál es el bueno."""
-    guardar_insights(bd, [insight_dict("obra_vial", [1])], CICLO, DIVIPOLA, "v4")
+def test_dos_pasadas_del_mismo_municipio_conviven(bd, corrida):
+    """La propiedad que este cambio existe para dar.
+
+    Aquí vivía `_borrar_previos`, que borraba la pasada anterior. Sin esto, A6
+    no se puede medir: no hay comparación cuando la segunda borra a la primera.
+    """
+    guardar_insights(bd, [insight_dict("obra_vial", [1])], corrida.id, DIVIPOLA, "v4")
     bd.commit()
+
+    segunda = crear_corrida(bd, CICLO, [DIVIPOLA], "v4", "v1")
     guardar_insights(
         bd,
         [insight_dict("vivienda", [2]), insight_dict("equipamiento", [3])],
-        CICLO,
+        segunda.id,
         DIVIPOLA,
         "v4",
     )
     bd.commit()
 
-    filas = bd.scalars(select(Insight)).all()
-    assert len(filas) == 2
-    assert sorted(f.categoria for f in filas) == ["equipamiento", "vivienda"]
+    assert bd.query(CorridaAgentes).count() == 2
+    assert bd.query(Insight).count() == 3
+    primera = bd.scalars(select(Insight).where(Insight.id_corrida == corrida.id)).all()
+    assert [f.categoria for f in primera] == ["obra_vial"]
 
 
-def test_reescribir_un_municipio_no_toca_a_los_demas(bd):
-    bd.add(Municipio(divipola="08001", nombre="Barranquilla", departamento="Atlántico"))
-    bd.commit()
+def test_un_insight_no_puede_colgar_de_una_corrida_inexistente(bd):
+    """Con `foreign_keys=ON`; sin el PRAGMA esto pasaría en silencio."""
+    from sqlalchemy.exc import IntegrityError
 
-    guardar_insights(bd, [insight_dict("obra_vial", [1])], CICLO, DIVIPOLA, "v4")
-    guardar_insights(bd, [insight_dict("vivienda", [9])], CICLO, "08001", "v4")
-    bd.commit()
-
-    guardar_insights(bd, [insight_dict("equipamiento", [2])], CICLO, DIVIPOLA, "v4")
-    bd.commit()
-
-    otros = bd.scalars(select(Insight).where(Insight.divipola == "08001")).all()
-    assert len(otros) == 1
+    bd.add(Insight(id_corrida=9999, divipola=DIVIPOLA, categoria="x", resumen="y"))
+    with pytest.raises(IntegrityError):
+        bd.commit()
 
 
-def test_las_filas_salen_con_id_asignado(bd):
+def test_las_filas_salen_con_id_asignado(bd, corrida):
     """El Correlacionador necesita los ids reales, no los del lote."""
     filas = guardar_insights(
         bd, [insight_dict("obra_vial", [1]), insight_dict("vivienda", [2])],
-        CICLO, DIVIPOLA, "v4",
+        corrida.id, DIVIPOLA, "v4",
     )
     assert all(f.id is not None for f in filas)
 
@@ -181,15 +203,15 @@ def correlacion(ids_temporales: list[int]) -> ResultadoCorrelacion:
     )
 
 
-def test_el_consolidado_guarda_de_que_insights_salio(bd):
+def test_el_consolidado_guarda_de_que_insights_salio(bd, corrida):
     """CA-M4.4 fuera de memoria. Sin esto el linaje muere con el proceso."""
     filas = guardar_insights(
         bd, [insight_dict("obra_vial", [1]), insight_dict("servicios_publicos", [2])],
-        CICLO, DIVIPOLA, "v4",
+        corrida.id, DIVIPOLA, "v4",
     )
     mapa = {1: filas[0].id, 2: filas[1].id}
 
-    guardar_correlaciones(bd, correlacion([1, 2]), CICLO, DIVIPOLA, mapa)
+    guardar_correlaciones(bd, correlacion([1, 2]), corrida.id, DIVIPOLA, mapa)
     bd.commit()
 
     cons = bd.scalars(
@@ -200,15 +222,15 @@ def test_el_consolidado_guarda_de_que_insights_salio(bd):
     assert "corredor" in cons.por_que_convergen
 
 
-def test_los_ids_de_origen_son_los_de_la_base_no_los_del_lote(bd):
+def test_los_ids_de_origen_son_los_de_la_base_no_los_del_lote(bd, corrida):
     """El agente numera 1, 2, 3...; la base asigna otros. Guardar los del lote
     dejaría punteros que no significan nada fuera del proceso."""
     filas = guardar_insights(
         bd, [insight_dict("obra_vial", [1]), insight_dict("servicios_publicos", [2])],
-        CICLO, DIVIPOLA, "v4",
+        corrida.id, DIVIPOLA, "v4",
     )
     mapa = {1: filas[0].id, 2: filas[1].id}
-    guardar_correlaciones(bd, correlacion([1, 2]), CICLO, DIVIPOLA, mapa)
+    guardar_correlaciones(bd, correlacion([1, 2]), corrida.id, DIVIPOLA, mapa)
     bd.commit()
 
     cons = bd.scalars(
@@ -222,14 +244,14 @@ def test_los_ids_de_origen_son_los_de_la_base_no_los_del_lote(bd):
     assert all(o.origen == ORIGEN_CLASIFICADOR for o in origenes)
 
 
-def test_el_consolidado_nace_validado(bd):
+def test_el_consolidado_nace_validado(bd, corrida):
     """Su evidencia viene de insights que ya pasaron M3 y la copió el código."""
     filas = guardar_insights(
         bd, [insight_dict("obra_vial", [1]), insight_dict("servicios_publicos", [2])],
-        CICLO, DIVIPOLA, "v4",
+        corrida.id, DIVIPOLA, "v4",
     )
     guardar_correlaciones(
-        bd, correlacion([1, 2]), CICLO, DIVIPOLA, {1: filas[0].id, 2: filas[1].id}
+        bd, correlacion([1, 2]), corrida.id, DIVIPOLA, {1: filas[0].id, 2: filas[1].id}
     )
     bd.commit()
 
@@ -239,13 +261,13 @@ def test_el_consolidado_nace_validado(bd):
     assert cons.estado_validacion == "validado"
 
 
-def test_guardar_correlaciones_no_borra_los_insights_del_clasificador(bd):
+def test_guardar_correlaciones_no_borra_los_insights_del_clasificador(bd, corrida):
     filas = guardar_insights(
         bd, [insight_dict("obra_vial", [1]), insight_dict("servicios_publicos", [2])],
-        CICLO, DIVIPOLA, "v4",
+        corrida.id, DIVIPOLA, "v4",
     )
     guardar_correlaciones(
-        bd, correlacion([1, 2]), CICLO, DIVIPOLA, {1: filas[0].id, 2: filas[1].id}
+        bd, correlacion([1, 2]), corrida.id, DIVIPOLA, {1: filas[0].id, 2: filas[1].id}
     )
     bd.commit()
 

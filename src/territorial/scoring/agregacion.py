@@ -12,7 +12,13 @@ from datetime import date
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from territorial.almacen.modelos import Calificacion, Insight, Municipio, SenalCruda
+from territorial.almacen.modelos import (
+    Calificacion,
+    CorridaAgentes,
+    Insight,
+    Municipio,
+    SenalCruda,
+)
 from territorial.config import Config, obtener_config
 from territorial.reglas.cobertura import calcular
 from territorial.reglas.prefiltro import es_obra
@@ -200,7 +206,8 @@ def entradas_del_ciclo(
         filas = sesion_bd.execute(
             select(Insight.divipola, Calificacion.id_gerencia, Calificacion.valor)
             .join(Calificacion, Calificacion.id_insight == Insight.id)
-            .where(Insight.id_ciclo < id_ciclo)
+            .join(CorridaAgentes, CorridaAgentes.id == Insight.id_corrida)
+            .where(CorridaAgentes.id_ciclo < id_ciclo)
         ).all()
         for divipola, gerencia, valor in filas:
             calificaciones.setdefault(divipola, []).append((gerencia, float(valor)))

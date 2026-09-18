@@ -29,7 +29,11 @@ from pathlib import Path
 RAIZ = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(RAIZ / "src"))
 
-from territorial.almacen.modelos import Insight, TrazaAgente  # noqa: E402
+from territorial.almacen.modelos import (  # noqa: E402
+    CorridaAgentes,
+    Insight,
+    TrazaAgente,
+)
 from territorial.almacen.sesion import sesion  # noqa: E402
 from territorial.ciclo import procesar_ciclo  # noqa: E402
 from territorial.config import obtener_config  # noqa: E402
@@ -63,10 +67,20 @@ def main() -> int:
             return 1 if resumen.con_error else 0
 
         s.flush()
-        total = s.query(Insight).filter_by(id_ciclo=args.ciclo).count()
+        # El ciclo es de la corrida, no del insight: hay que pasar por ella.
+        total = (
+            s.query(Insight)
+            .join(CorridaAgentes, CorridaAgentes.id == Insight.id_corrida)
+            .filter(CorridaAgentes.id_ciclo == args.ciclo)
+            .count()
+        )
+        pasadas = s.query(CorridaAgentes).filter_by(id_ciclo=args.ciclo).count()
         trazas = s.query(TrazaAgente).filter_by(id_ciclo=args.ciclo).count()
         print()
-        print(f"En la base: {total} insights y {trazas} trazas para el ciclo {args.ciclo}.")
+        print(
+            f"En la base para el ciclo {args.ciclo}: {total} insights "
+            f"en {pasadas} pasadas, y {trazas} trazas."
+        )
 
     for m in resumen.con_error:
         print(f"  ERROR {m.divipola} {m.nombre}: {m.error}")
