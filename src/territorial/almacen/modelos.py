@@ -91,6 +91,56 @@ class Municipio(Base):
     )
 
 
+# --------------------------------------------------------------------------
+# Nomenclátor DIVIPOLA — tabla maestra de referencia
+# --------------------------------------------------------------------------
+
+
+class EntidadDivipola(Base):
+    """Las 1.135 entidades territoriales del nomenclátor, según TerriData.
+
+    **No amplía el universo del MVP.** Los 18 municipios que el experimento
+    procesa siguen en `municipio`, y esta tabla **no tiene ninguna relación con
+    ella** a propósito: el MVP valida el mecanismo, no la cobertura (PRD §7).
+    Una clave foránea entre las dos sugeriría lo contrario.
+
+    Se codifica igual que TerriData, para que un `join` futuro no necesite
+    traducir nada:
+
+        nacional      01001   Colombia
+        departamento  05000   código de departamento + '000'
+        municipio     05001
+
+    Cuatro rarezas del nomenclátor, escritas aquí porque van a confundir a
+    alguien que cuente filas y no le cuadren:
+
+    · **Son 1.102 municipios, no 1.103.** Falta San Andrés (88001); del
+      departamento 88 solo está Providencia (88564).
+    · **Bogotá aparece solo como municipio** (11001). No existe la fila 11000,
+      así que los departamentos son **32 y no 33**.
+    · **Las áreas no municipalizadas no están.**
+    · **63 nombres se repiten entre departamentos** y afectan a 144 municipios,
+      el 13%. Resolver por nombre suelto es inviable: el par (departamento,
+      municipio) es obligatorio. Hay cuatro «La Unión» y cuatro «Buenavista».
+    """
+
+    __tablename__ = "entidad_divipola"
+
+    codigo: Mapped[str] = mapped_column(String(5), primary_key=True)
+    nombre: Mapped[str] = mapped_column(String(120))
+    codigo_departamento: Mapped[str] = mapped_column(String(2), index=True)
+    nombre_departamento: Mapped[str] = mapped_column(String(80))
+    tipo: Mapped[str] = mapped_column(String(12))
+
+    __table_args__ = (
+        CheckConstraint("length(codigo) = 5", name="ck_entidad_divipola_5_chars"),
+        CheckConstraint(
+            "tipo IN ('nacional', 'departamento', 'municipio')",
+            name="ck_entidad_divipola_tipo",
+        ),
+    )
+
+
 class Ciclo(Base):
     __tablename__ = "ciclo"
 

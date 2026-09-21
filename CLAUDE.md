@@ -162,6 +162,36 @@ funcionaba mal, no tenía nada que cruzar. Si algo lleva a la semana 8, es esto.
 | **M8** Trazabilidad y observabilidad | 🟡 Parcial | Linaje de dataset, **de prompts por contenido** (D7) y trazas por agente (CA-M8.2). Falta Langfuse y el checkpointing de CA-M8.4: instalados pero **sin cablear**, no hay `grafo/` |
 | **M9** Aplicativo web | ⬜ Sin código | Django **no está instalado** ni tiene versión fijada. Playwright está por verificar: descarga binarios sin firmar que la política de esta máquina bloquea |
 
+### El nomenclátor DIVIPOLA: 1.135 entidades, y cuatro rarezas
+
+`entidad_divipola` es una **tabla maestra de referencia**. Se carga con
+`scripts/cargar_divipola.py`, es idempotente y **no amplía el universo del
+MVP**: los 18 municipios siguen en `municipio` y las dos tablas no están
+enlazadas a propósito. El MVP valida el mecanismo, no la cobertura (PRD §7).
+
+Códigos como los de TerriData, para que un `join` futuro no traduzca nada:
+nacional `01001`, departamento `dd000`, municipio `ddmmm`. Verificado contra el
+propio TerriData: su primer indicador tiene exactamente estas 1.135 entidades.
+
+Cuatro cosas que van a descuadrarle el conteo a alguien:
+
+- **Son 1.102 municipios, no 1.103.** Falta San Andrés (88001); del
+  departamento 88 solo está Providencia (88564).
+- **Bogotá aparece solo como municipio** (11001). No existe `11000`, así que los
+  departamentos son **32 y no 33**.
+- **Las áreas no municipalizadas no están.**
+- **63 nombres se repiten entre departamentos** y afectan a 144 municipios, el
+  **13%**. Hay cuatro «La Unión» y cuatro «Buenavista». El par (departamento,
+  municipio) es obligatorio; resolver por nombre suelto no es una opción.
+
+> **No midas la atribución cruzada (A3) buscando estos 1.102 nombres en texto
+> libre.** Son dos fenómenos distintos: A3 es contratación departamental
+> archivada en la capital y ejecutada fuera, no colisión de nombres. Con el 13%
+> de nombres ambiguos, «La Unión», «Buenavista» o «El Carmen» aparecerían por
+> razones ajenas al municipio y el número saldría inflado — pasaríamos de un
+> piso inútil por bajo (0,64%) a un techo inútil por alto. Esa medición
+> necesita diseño propio.
+
 ### Pendientes que frenan el avance
 
 - **B2** — CA-M2.1 **medido una sola vez**: 94,6% sobre Barranquilla en el ciclo
