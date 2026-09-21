@@ -70,6 +70,7 @@ from territorial.almacen.modelos import (
     SenalCruda,
 )
 from territorial.config import Config, obtener_config
+from territorial.reglas.contexto import contexto_de
 from territorial.reglas.normalizacion import normalizar
 from territorial.reglas.prefiltro import clasificar as prefiltrar
 from territorial.reglas.validador import Senal as SenalValidador
@@ -430,6 +431,9 @@ def procesar_municipio(
         municipio.departamento,
         contexto_bing=contexto,
         calificaciones=_calificaciones_previas(sesion_bd, municipio.divipola, id_ciclo),
+        # Bandas del contexto estructural (CA-M4.2). `None` si TerriData no
+        # está cargado: el agente se comporta entonces como con el prompt v1.
+        contexto=contexto_de(sesion_bd, municipio.divipola),
         config=cfg,
     )
     resumen.tokens_entrada += corr.tokens_entrada

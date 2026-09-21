@@ -192,6 +192,47 @@ Cuatro cosas que van a descuadrarle el conteo a alguien:
 > piso inútil por bajo (0,64%) a un techo inútil por alto. Esa medición
 > necesita diseño propio.
 
+### Contexto estructural: quién ve el número y quién ve el adjetivo
+
+`contexto_municipal` trae de TerriData seis indicadores de los 1.750, uno por
+municipio, para los 1.102. Se carga con `scripts/cargar_contexto.py`, que lee el
+zip de 3,31 GB **por streaming** y exporta un CSV pequeño a `data/` para no
+volver a tocarlo (`--desde-csv`).
+
+**Tres capas, tres responsabilidades. No las mezcles:**
+
+| Capa | Qué ve | Por qué |
+|---|---|---|
+| **Scoring** | **nada** | Son indicadores anuales: idénticos en los 3 ciclos. Es el defecto de F4, que era una constante con el 18% del peso |
+| **Correlacionador** | **bandas**: «déficit alto» | Una cifra real escrita por el modelo sigue siendo una cifra escrita por el modelo (CA-M6.3). El adjetivo lo calcula código |
+| **Informe** (M6) | **los números** | CA-M6.3 no prohíbe el número: prohíbe que lo escriba el modelo. Se componen por código y con su año a la vista |
+
+Las bandas son **nacionales sobre los 1.102**, nunca sobre los 18: un adjetivo
+que cambia según quién más corrió es tan poco comparable como un score que
+cambia según quién más corrió. Ver `reglas/contexto.py`.
+
+**Dos indicadores no se bandean por cuartil, y es una corrección medida.** Con
+cuartiles nacionales, población y valor agregado salían **«alto» para los 18 de
+18**: la mediana municipal colombiana son 14.353 habitantes y el menor de los 18
+es Carepa con 51.298, así que todos viven por encima del percentil 86. Se
+corrige sin tocar el principio —los cortes siguen siendo fijos y ajenos a la
+cohorte—: población va por **clases de tamaño de corte fijo** y valor agregado
+**per cápita**, igual que el avalúo va **por predio**.
+
+**La regla que hace segura la concesión de dejar que el modelo enuncie la
+banda:** el contexto explica una convergencia, **nunca la crea**. Es ejecutable,
+no declarativa — `scripts/comparar_correlacionador.py` **falla** si v2
+correlaciona más que v1, y falla si aparece en la salida una cifra que no estaba
+en los insights, incluidas las cifras reales de `contexto_municipal`.
+
+> **v2 no está vigente: no pasó esa compuerta** (pendiente A10). Mejora mucho lo
+> que venía a mejorar —las implicaciones con tipología pasan de 20 a 35— pero
+> sube de convergencias en 4 de 18 municipios. Falta descartar que sea varianza
+> entre corridas, porque **la reproducibilidad de M4 no está medida** y la del
+> Clasificador es mala (A6). `VERSION_PROMPT` sigue en `v1` y
+> `VERSIONES_CON_CONTEXTO` impide que el bloque llegue a un prompt que no lo
+> documenta: si vuelves a poner v2, el contexto viaja solo.
+
 ### Pendientes que frenan el avance
 
 - **B2** — CA-M2.1 **medido una sola vez**: 94,6% sobre Barranquilla en el ciclo

@@ -54,9 +54,20 @@ from territorial.agentes.cliente import (
     techo_de,
 )
 from territorial.config import Config, obtener_config
+from territorial.reglas.contexto import ContextoBandeado
 
 PROMPTS = Path(__file__).parent / "prompts"
+# **v1 sigue siendo la versión vigente.** v2 existe y funciona, pero no pasó su
+# compuerta: ver `scripts/comparar_correlacionador.py` y el pendiente A10. Se
+# conserva porque §10 lo pide —las versiones que no se promueven documentan una
+# hipótesis— y porque la medición que la frenó tiene un confundido sin resolver.
 VERSION_PROMPT = "v1"
+
+# Qué versiones entienden el bloque de contexto estructural. Mandar el bloque a
+# un prompt que no lo documenta es peor que no mandarlo: el modelo recibe datos
+# sin ninguna regla sobre qué puede hacer con ellos, y la regla «el contexto
+# explica, nunca crea» es justo lo que hay que sostener.
+VERSIONES_CON_CONTEXTO = frozenset({"v2"})
 
 CONFIANZAS = {"alta", "media", "baja"}
 
@@ -226,6 +237,7 @@ def _serializar(
     departamento: str,
     contexto_bing: list[str],
     calificaciones: list[CalificacionPrevia],
+    contexto: ContextoBandeado | None = None,
 ) -> str:
     lineas = [
         f"Municipio: {municipio} ({departamento})",
@@ -237,6 +249,12 @@ def _serializar(
         lineas.append(f"  resumen: {i.resumen.strip()}")
         if i.implicacion_inmobiliaria:
             lineas.append(f"  implicación: {i.implicacion_inmobiliaria.strip()}")
+        lineas.append("")
+
+    # Bandas, nunca cifras: lo calcula `reglas/contexto.py` y por eso puede
+    # enunciarse en la salida. Ver CA-M6.3 y el prompt v2.
+    if contexto is not None and contexto.hay_algo:
+        lineas.append(contexto.como_texto())
         lineas.append("")
 
     if contexto_bing:
@@ -377,6 +395,7 @@ def correlacionar(
     departamento: str,
     contexto_bing: list[str] | None = None,
     calificaciones: list[CalificacionPrevia] | None = None,
+    contexto: ContextoBandeado | None = None,
     config: Config | None = None,
     version: str = VERSION_PROMPT,
 ) -> ResultadoCorrelacion:
@@ -405,7 +424,9 @@ def correlacionar(
             model=modelo,
             instructions=instrucciones(version),
             input=_serializar(
-                insights, municipio, departamento, contexto_bing or [], calificaciones or []
+                insights, municipio, departamento, contexto_bing or [],
+                calificaciones or [],
+                contexto if version in VERSIONES_CON_CONTEXTO else None,
             ),
             text_format=SalidaCorrelacionador,
             max_output_tokens=techo_de("correlacionador", cfg),

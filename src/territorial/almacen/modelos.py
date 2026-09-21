@@ -141,6 +141,62 @@ class EntidadDivipola(Base):
     )
 
 
+class ContextoMunicipal(Base):
+    """Contexto estructural del municipio: DANE/TerriData, anual.
+
+    **No entra al scoring, y no es un descuido.** Todos estos indicadores son
+    anuales, así que dentro de los tres ciclos del MVP serían idénticos en los
+    tres — exactamente el defecto de F4, que era una constante ocupando el 18%
+    del peso y que hubo que corregir. El catastro es el más tentador y por eso
+    mismo el más peligroso. El score prioriza por lo que pasa en la ventana.
+
+    Donde sí entra es en el **Correlacionador**, y **bandeado, nunca crudo**:
+    lo que llega al prompt es «déficit alto», no un número. Ver
+    `reglas/contexto.py`. Un número real escrito por el modelo sigue siendo un
+    número escrito por el modelo, y CA-M6.3 lo prohíbe.
+
+    Las cifras **sí** van al informe, compuestas por código desde esta tabla y
+    con su año a la vista: un informe de 2026 que muestre déficit del censo
+    2018 necesita que el 2018 se lea, o alguien lo tomará por dato de hoy.
+
+    Dos cosas del origen que conviene saber antes de usar los campos:
+
+    · **El déficit es un PORCENTAJE de hogares, no un conteo.** TerriData lo
+      entrega como «Porcentaje (el valor está multiplicado por 100)». A nivel
+      municipal está congelado en el censo **2018**; solo Bogotá tiene 2024.
+    · **La población es la proyección DANE**, y la serie llega hasta **2070**.
+      Se fija el año a propósito en vez de tomar el último disponible, que
+      sería una proyección a 44 años vista.
+    """
+
+    __tablename__ = "contexto_municipal"
+
+    codigo_divipola: Mapped[str] = mapped_column(String(5), primary_key=True)
+
+    poblacion_total: Mapped[int | None] = mapped_column(Integer)
+    anio_poblacion: Mapped[int | None] = mapped_column(Integer)
+
+    # Miles de millones de pesos corrientes. Serie nueva (120210001), base 2015.
+    valor_agregado: Mapped[float | None] = mapped_column(Float)
+    anio_valor_agregado: Mapped[int | None] = mapped_column(Integer)
+
+    # Porcentaje de hogares, no conteo. Censo 2018.
+    deficit_cuantitativo: Mapped[float | None] = mapped_column(Float)
+    deficit_cualitativo: Mapped[float | None] = mapped_column(Float)
+    anio_deficit: Mapped[int | None] = mapped_column(Integer)
+
+    # Millones de pesos corrientes, y conteo de predios.
+    avaluo_catastral_urbano: Mapped[float | None] = mapped_column(Float)
+    predios_urbanos: Mapped[int | None] = mapped_column(Integer)
+    anio_catastro: Mapped[int | None] = mapped_column(Integer)
+
+    __table_args__ = (
+        CheckConstraint(
+            "length(codigo_divipola) = 5", name="ck_contexto_municipal_5_chars"
+        ),
+    )
+
+
 class Ciclo(Base):
     __tablename__ = "ciclo"
 
