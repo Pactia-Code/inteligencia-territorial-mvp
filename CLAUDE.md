@@ -41,6 +41,12 @@ Documentos de referencia, en orden de autoridad: [PRD](docs/prd.md) ·
 [Addendum 02 — Stack](docs/addendum-02-stack.md) ·
 [Arquitectura](docs/architecture.md) · [Pendientes](docs/pendientes.md)
 
+El resultado acumulado se va escribiendo en
+[docs/informe_resultados.md](docs/informe_resultados.md), organizado por H1–H5.
+Es un **documento de trabajo**: cada cifra lleva de dónde salió, y lo que no se
+ha medido está como sección vacía con la nota de qué falta. Al medir algo que
+toque una hipótesis, actualízalo ahí además de en `pendientes.md`.
+
 > El PRD principal v1.2 **no está en el repositorio** (pendiente 11.5). Varias
 > referencias citadas en otros documentos vienen de ahí y no se pueden
 > verificar. No inventes requisitos para cubrirlas.
