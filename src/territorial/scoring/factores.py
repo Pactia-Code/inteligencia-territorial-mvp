@@ -95,13 +95,26 @@ class EntradaMunicipio:
 
 @dataclass(frozen=True)
 class ValorFactor:
-    """Un factor de un municipio: lo crudo, lo normalizado y por qué."""
+    """Un factor de un municipio: lo crudo, lo normalizado y por qué.
+
+    `disponible` y `hay_dato` responden a dos preguntas distintas, y
+    confundirlas era el castigo doble que arregla la decisión 2 de Analítica:
+
+      disponible  ¿este factor puntúa? Si no, su peso se redistribuye.
+      hay_dato    ¿existe el dato subyacente? Es lo que mide la fracción
+                  informada: cuánto del peso nominal se apoya en algo real.
+
+    Casi siempre coinciden. Se separan cuando el dato existe pero la métrica
+    no es válida sobre él — hoy solo el piso de área de ELIC (ver
+    `_no_puntuable`).
+    """
 
     codigo: str
     crudo: float | None
     normalizado: float | None = None
     disponible: bool = True
     motivo: str = ""
+    hay_dato: bool = True
 
     @property
     def sin_cobertura(self) -> bool:
@@ -109,7 +122,27 @@ class ValorFactor:
 
 
 def _no_disponible(codigo: str, motivo: str) -> ValorFactor:
-    return ValorFactor(codigo=codigo, crudo=None, disponible=False, motivo=motivo)
+    """No hay dato. Ni puntúa ni cuenta como informado."""
+    return ValorFactor(
+        codigo=codigo, crudo=None, disponible=False, motivo=motivo, hay_dato=False
+    )
+
+
+def _no_puntuable(codigo: str, crudo: float, motivo: str) -> ValorFactor:
+    """El dato existe y se conserva, pero la métrica no es fiable sobre él.
+
+    No puntúa —su peso se redistribuye igual que un factor ausente— pero **sí
+    cuenta como informado**: el municipio no está a oscuras en esta dimensión,
+    solo tiene una base demasiado pequeña para que el porcentaje signifique
+    algo. Descontarlo de la fracción informada lo castigaba dos veces por el
+    mismo hecho.
+
+    El crudo se conserva a propósito: el informe puede decir «ELIC +273% sobre
+    4.239 m², bajo el piso» en vez de dejar el hueco de un dato que sí existe.
+    """
+    return ValorFactor(
+        codigo=codigo, crudo=crudo, disponible=False, motivo=motivo, hay_dato=True
+    )
 
 
 # --------------------------------------------------------------------------
@@ -174,8 +207,11 @@ def f4_dinamica_licencias(e: EntradaMunicipio) -> ValorFactor:
     if e.area_elic_m2 is None:
         return _no_disponible("F4", "ELIC sin área de referencia")
     if e.area_elic_m2 < PISO_AREA_ELIC_M2:
-        return _no_disponible(
-            "F4", f"área ELIC {e.area_elic_m2:,.0f} m² bajo el piso de {PISO_AREA_ELIC_M2:,.0f}"
+        # Dato real, métrica no fiable: no puntúa pero sí informa (decisión 2).
+        return _no_puntuable(
+            "F4",
+            e.variacion_elic_pct,
+            f"área ELIC {e.area_elic_m2:,.0f} m² bajo el piso de {PISO_AREA_ELIC_M2:,.0f}",
         )
     return ValorFactor("F4", e.variacion_elic_pct)
 

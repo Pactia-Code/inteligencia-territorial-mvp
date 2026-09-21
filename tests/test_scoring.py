@@ -114,6 +114,9 @@ def test_f4_se_anula_bajo_el_piso_de_area():
     )
     assert not f.disponible
     assert "piso" in f.motivo
+    # Decisión 2: el dato existe y se conserva. No puntúa, pero sí informa.
+    assert f.hay_dato
+    assert f.crudo == pytest.approx(430.63)
 
 
 def test_f4_pasa_por_encima_del_piso():
@@ -441,6 +444,71 @@ def test_la_fraccion_informada_refleja_cuantos_datos_sostienen_el_score():
     por_muni = {s.divipola: s for s in r.scores}
     assert por_muni["05001"].fraccion_informada == pytest.approx(1.0)
     assert por_muni["08001"].fraccion_informada == pytest.approx(0.70)
+
+
+# --------------------------------------------------------------------------
+# Decisión 2 de Analítica — el piso de ELIC castigaba dos veces
+# --------------------------------------------------------------------------
+
+
+def test_el_piso_de_elic_no_descuenta_de_la_fraccion_informada():
+    """Tener poca área no es lo mismo que no tener dato.
+
+    Carepa, Turbo y Chigorodó salían al 62% en los ciclos 2 y 3 porque el piso
+    de ELIC les quitaba F4 dos veces: del score, que es lo correcto, y de la
+    fracción informada, que no. El municipio sí sabe cuánto se licenció; lo que
+    no tiene es una base suficiente para que el porcentaje signifique algo.
+    """
+    comun = {"n_secop": 100, "n_obra": 40, "valor_obra": 1e6, "n_noticias": 4}
+    bajo_el_piso = entrada("05147", variacion_elic_pct=273.15, area_elic_m2=4239.0, **comun)
+    sin_elic = entrada("08001", variacion_elic_pct=None, area_elic_m2=None, **comun)
+    sobre_el_piso = entrada("11001", variacion_elic_pct=20.0, area_elic_m2=50_000.0, **comun)
+
+    r = puntuar_ciclo([bajo_el_piso, sin_elic, sobre_el_piso], id_ciclo=1)
+    por_muni = {s.divipola: s for s in r.scores}
+
+    assert por_muni["05147"].fraccion_informada == pytest.approx(1.0)
+    # El contraste es el punto: sin dato sí se descuenta el 30% de F4.
+    assert por_muni["08001"].fraccion_informada == pytest.approx(0.70)
+
+
+def test_el_piso_de_elic_sigue_sin_puntuar():
+    """La defensa de D4 queda intacta: informar no es puntuar.
+
+    Si el crudo bajo el piso llegara al score, volveríamos al problema que el
+    piso existe para evitar — tres municipios pequeños copando el top 3 por el
+    ruido de una sola licencia.
+    """
+    comun = {"n_secop": 100, "n_obra": 40, "valor_obra": 1e6, "n_noticias": 4}
+    r = puntuar_ciclo(
+        [
+            entrada("05147", variacion_elic_pct=273.15, area_elic_m2=4239.0, **comun),
+            entrada("11001", variacion_elic_pct=20.0, area_elic_m2=50_000.0, **comun),
+        ],
+        id_ciclo=1,
+    )
+    carepa = next(s for s in r.scores if s.divipola == "05147")
+    f4 = next(a for a in carepa.aportes if a.codigo == "F4")
+
+    assert f4.sin_cobertura
+    assert f4.aporte == 0.0
+    assert f4.hay_dato
+    assert f4.crudo == pytest.approx(273.15)
+    # Su 30% se redistribuyó, igual que un factor ausente.
+    assert sum(a.peso for a in carepa.aportes if not a.sin_cobertura) == pytest.approx(1.0)
+
+
+def test_el_crudo_bajo_el_piso_no_fija_la_escala_de_la_cohorte():
+    """+430,63% no puede aplastar a los demás por la puerta de atrás."""
+    cohorte = {
+        "05172": {"F4": fx._no_puntuable("F4", 430.63, "bajo el piso")},
+        "08001": {"F4": ValorFactor("F4", 10.0)},
+        "11001": {"F4": ValorFactor("F4", 20.0)},
+    }
+    n = fx.normalizar_cohorte(cohorte)
+    assert n["08001"]["F4"].normalizado == pytest.approx(0.0)
+    assert n["11001"]["F4"].normalizado == pytest.approx(1.0)
+    assert n["05172"]["F4"].normalizado is None
 
 
 def test_el_caso_armenia_no_puede_ganar_con_un_solo_factor():

@@ -73,6 +73,10 @@ class Aporte:
     aporte: float
     sin_cobertura: bool
     motivo: str
+    # ¿Existe el dato subyacente, aunque el factor no haya puntuado? Ver
+    # `factores.ValorFactor`: es lo que separa «no hay dato» de «el dato
+    # existe pero la métrica no es válida sobre él».
+    hay_dato: bool = True
 
     def a_dict(self) -> dict:
         """Forma que se guarda en `score_municipio.factores` (JSON portátil)."""
@@ -84,6 +88,7 @@ class Aporte:
             "peso": self.peso,
             "aporte": self.aporte,
             "sin_cobertura": self.sin_cobertura,
+            "hay_dato": self.hay_dato,
             "motivo": self.motivo,
         }
 
@@ -97,8 +102,10 @@ class ScoreMunicipio:
     dias_cubiertos: int
     dias_ventana: int
     sin_cobertura: bool
-    # Fracción del peso nominal del ciclo que sí tenía datos. Un municipio con
-    # 0,18 sacó su score de un solo factor: el resto se redistribuyó.
+    # Fracción del peso nominal del ciclo respaldada por datos reales. Un
+    # municipio con 0,18 está a oscuras en el 82% de las dimensiones. No es lo
+    # mismo que «fracción que puntuó»: un factor con dato pero métrica no
+    # fiable cuenta aquí y no en el score (ver `_aportes`).
     fraccion_informada: float = 1.0
     # No entra al top 3 por apoyarse en muy pocos datos. Sigue en el ranking.
     no_priorizable: bool = False
@@ -139,7 +146,9 @@ class ScoreMunicipio:
                 f"(norm {a.normalizado:.3f} × peso {a.peso:.0%})  crudo {a.crudo:,.4f}"
             )
         for a in self.factores_redistribuidos:
-            lineas.append(f"  {a.codigo}  sin cobertura — {a.motivo}")
+            etiqueta = "con dato, no puntúa" if a.hay_dato else "sin cobertura"
+            crudo = f"  crudo {a.crudo:,.4f}" if a.crudo is not None else ""
+            lineas.append(f"  {a.codigo}  {etiqueta} — {a.motivo}{crudo}")
         return "\n".join(lineas)
 
 
@@ -201,6 +210,19 @@ def _aportes(
     sin_cobertura = {c for c, f in relevantes.items() if not f.disponible}
     con_cobertura = set(relevantes) - sin_cobertura
 
+    # La fracción informada mide **dato**, no puntuación (decisión 2 de
+    # Analítica). Un factor con dato real cuenta aunque su métrica no sea
+    # fiable y su peso se redistribuya: castigarlo en el score y otra vez en
+    # la fracción era penalizar dos veces el mismo hecho.
+    #
+    # El único factor que hoy puede estar en ese estado es F4 bajo el piso de
+    # área, y su peso nominal (30% en el ciclo 1, 18% en los otros) está por
+    # debajo del umbral. Así que un municipio no puede volverse priorizable
+    # solo con factores que no puntúan.
+    nominal = sum(pesos.values())
+    con_dato = {c for c, f in relevantes.items() if f.disponible or f.hay_dato}
+    informada = sum(pesos[c] for c in con_dato) / nominal if nominal > 0 else 0.0
+
     if not con_cobertura:
         # Ningún factor puntuable. Score cero y el motivo queda escrito en cada
         # aporte, para que el informe pueda decir por qué y no parezca inactivo.
@@ -213,14 +235,12 @@ def _aportes(
                 peso=pesos[c],
                 aporte=0.0,
                 sin_cobertura=True,
+                hay_dato=f.hay_dato,
                 motivo=f.motivo,
             )
             for c, f in sorted(relevantes.items())
         ]
-        return 0.0, aportes, 0.0
-
-    nominal = sum(pesos.values())
-    informada = sum(pesos[c] for c in con_cobertura) / nominal if nominal > 0 else 0.0
+        return 0.0, aportes, informada
 
     efectivos = redistribuir_pesos(pesos, sin_cobertura)
 
@@ -237,6 +257,7 @@ def _aportes(
                     peso=0.0,  # se redistribuyó
                     aporte=0.0,
                     sin_cobertura=True,
+                    hay_dato=factor.hay_dato,
                     motivo=factor.motivo,
                 )
             )
