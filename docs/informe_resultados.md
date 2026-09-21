@@ -6,6 +6,8 @@ nota de qué falta y de qué depende.
 
 **Actualizado:** 2026-09-21 · **Fase -1** · decide el paso a Fase 0
 
+> Última medición incorporada: **reproducibilidad de M4** (corridas 11 y 12).
+
 ---
 
 ## Cómo leer las cifras
@@ -115,6 +117,10 @@ Y señal a señal `[pendientes A6]`:
 - **543 (19,5%)** aparecen dentro de un insight en una pasada y no en la otra.
 - **Entre el 25% y el 50%** del contenido del informe del top 3 depende de qué
   pasada se publicó, según se use el criterio laxo o el estricto.
+
+Y **lo mismo pasa un eslabón más adelante**: el Correlacionador, con el mismo
+prompt y los mismos insights, solo reproduce el **14,1%** de sus convergencias
+(A11). La inestabilidad se compone sobre dos agentes encadenados.
 
 **Consecuencia para H1:** el criterio «≥30% con promedio ≥4» hay que leerlo
 **con banda de error**, porque lo que se califica es una muestra. Si el
@@ -322,7 +328,7 @@ régimen permanente en un orden de magnitud.
 
 ## Hallazgos no previstos
 
-Cinco cosas que no estaban en ninguna hipótesis y que cambian cómo hay que leer
+Siete cosas que no estaban en ninguna hipótesis y que cambian cómo hay que leer
 el resto.
 
 ### 1. El Clasificador no es reproducible, y la causa no era la que se suponía
@@ -363,7 +369,65 @@ frontera definido**. ¿Un contrato de supervisión de diseños viales es señal 
 inversión inmobiliaria? Varios de esos casos están entre los 45 insights de las
 hojas de revisión.
 
-### 2. F4 era una constante ocupando el 18% del peso del score
+### 2. M4 tampoco es reproducible, y es peor que el Clasificador
+
+`[pendientes A11, control medido 2026-09-21]`
+
+Dos pasadas del Correlacionador con **el mismo prompt v1** sobre **los mismos
+322 insights validados** y los mismos 18 municipios (corridas 11 y 12):
+
+| | |
+|---|---|
+| Convergencias idénticas entre pasadas | **10 de 71** — 14,1% |
+| Insights que entran en una convergencia en una pasada y no en la otra | **85 de 322 — 26,4%** |
+| Municipios que se mueven | **14 de 18** |
+| Convergencias totales | 39 y 42 |
+| Implicaciones con tipología | 23 y 24 |
+
+**El Correlacionador es más inestable que el agente que lo alimenta**: 26,4%
+frente al 19,5% del Clasificador (A6). Y la inestabilidad **se compone** — un
+insight puede voltear en M2 y su convergencia volver a voltear en M4.
+
+Lo que **no** se mueve es igual de informativo: el conteo agregado y la calidad
+—medida como implicaciones que se mojan con una tipología— son casi idénticos.
+**Lo inestable es qué se agrupa con qué, no cuánto ni de qué calidad.** Contar
+convergencias lo habría dado por estable; se detectó comparando el conjunto de
+insights de cada convergencia, que es el mismo criterio con el que se midió A6.
+
+**Consecuencia:** como A6, toca **H1 y no H4**. Cada convergencia conserva su
+evidencia completa hasta la fuente y las dos pasadas conviven en el almacén. Lo
+que se amplía es la banda de error de lo que las gerencias leen, y ahora sobre
+**dos agentes encadenados**.
+
+### 3. Una compuerta automática sin piso de ruido no mide nada
+
+`[pendientes A10]`
+
+Se construyó una comprobación que **fallaba** —no reportaba— si el prompt v2 del
+Correlacionador producía más convergencias que v1 en algún municipio. La idea
+era impedir que el contexto estructural, que es constante en los tres ciclos,
+empezara a crear convergencias en vez de explicarlas: el defecto de F4 entrando
+por otra puerta.
+
+Falló. Y el control demostró que **habría suspendido a v1 contra sí mismo**.
+
+| | Convergencias | Tipología |
+|---|---|---|
+| v1, pasada 1 | 42 | 20 |
+| v1, pasada 2 | 39 | 23 |
+| v1, pasada 3 | 42 | 24 |
+| **v2** | **40** | **35** |
+
+Las 40 convergencias de v2 están **dentro** del rango de v1. Su tipología está
+**muy por encima**. El efecto que v2 buscaba es real; el que la compuerta midió
+era varianza.
+
+La lección es general y vale para la Fase 0: **antes de poner una compuerta
+sobre la salida de un agente, córrela contra sí misma.** Una comprobación que
+no conoce su piso de ruido no mide un efecto — mide varianza y le pone una
+etiqueta de aprobado o suspenso.
+
+### 4. F4 era una constante ocupando el 18% del peso del score
 
 `[pendientes A1/4, medido 2026-09-21]`
 
@@ -391,7 +455,7 @@ sustituye un factor estructural por otro.
 primera con un 1,0000 sacado de un único factor siendo la menos informada de las
 18. La patología no se arreglaba: se mudaba de F4 a F5. `[pendientes, variante C]`
 
-### 3. «Ausencia de SECOP» se ha leído como «ausencia de actividad» seis veces
+### 5. «Ausencia de SECOP» se ha leído como «ausencia de actividad» seis veces
 
 `[CLAUDE §7]` Está escrito en D4 y el sistema lo ha violado seis veces, siempre
 por el mismo motivo: SECOP es la fuente más rica, todo acaba calculándose desde
@@ -413,7 +477,7 @@ métrica del propio sistema dice que no sabe nada de Barranquilla.
 **Para la Fase 0 esto es un requisito de diseño, no una anécdota.** Seis
 repeticiones del mismo error no son seis descuidos.
 
-### 4. No hay categoría intermedia entre «entra al top 3» y «no se ve»
+### 6. No hay categoría intermedia entre «entra al top 3» y «no se ve»
 
 `[pendientes P1]` En el ciclo 3, cinco municipios quedan fuera del top 3 por
 fracción informada: Ibagué, Armenia, Barranquilla, Pereira y Cartagena
@@ -425,7 +489,7 @@ El sistema solo sabe decir «no hay suficiente información», y eso no es lo mi
 que «aquí hay algo, pero solo lo veo por un lado». **A decidir con el informe
 delante:** si hace falta una sección de vigilancia junto al top 3.
 
-### 5. Atribución cruzada: contratación departamental archivada en la capital
+### 7. Atribución cruzada: contratación departamental archivada en la capital
 
 `[pendientes A3, cerrado como fuera de alcance del MVP]`
 

@@ -225,13 +225,26 @@ no declarativa — `scripts/comparar_correlacionador.py` **falla** si v2
 correlaciona más que v1, y falla si aparece en la salida una cifra que no estaba
 en los insights, incluidas las cifras reales de `contexto_municipal`.
 
-> **v2 no está vigente: no pasó esa compuerta** (pendiente A10). Mejora mucho lo
-> que venía a mejorar —las implicaciones con tipología pasan de 20 a 35— pero
-> sube de convergencias en 4 de 18 municipios. Falta descartar que sea varianza
-> entre corridas, porque **la reproducibilidad de M4 no está medida** y la del
-> Clasificador es mala (A6). `VERSION_PROMPT` sigue en `v1` y
+> **v2 no está vigente, pero no por lo que parecía** (pendientes A10 y A11).
+> Falló una compuerta que exigía que v2 no correlacionara más que v1 en ningún
+> municipio. El **control v1 contra v1** (corridas 11 y 12) demostró que esa
+> compuerta **habría suspendido a v1 contra sí mismo**: el mismo prompt consigo
+> mismo sube de 39 a 42 convergencias y mueve 14 de 18 municipios. Contra ese
+> piso de ruido, las 40 convergencias de v2 están **dentro** del rango de v1 (42,
+> 39, 42) y su tipología de 35 está **muy por encima** (20, 23, 24). El efecto
+> que v2 buscaba es real; el que la compuerta midió era varianza.
+>
+> `VERSION_PROMPT` sigue en `v1` hasta que se rediseñe la compuerta y se decida.
 > `VERSIONES_CON_CONTEXTO` impide que el bloque llegue a un prompt que no lo
 > documenta: si vuelves a poner v2, el contexto viaja solo.
+
+**Y una lección sobre las compuertas automáticas.** Una comprobación que no
+conoce su piso de ruido no mide un efecto, mide varianza con una etiqueta de
+aprobado o suspenso. Antes de poner una compuerta sobre la salida de un agente,
+**córrela contra sí misma** y mira cuánto se mueve sin que nada cambie. La
+compuerta de cifras tuvo el mismo problema por otro lado: acusó a Carepa por
+«calles 76 y 80» porque capturaba el punto final de la frase en una orilla y no
+en la otra. Vive ahora en `reglas/cifras.py`, probada.
 
 ### Pendientes que frenan el avance
 
