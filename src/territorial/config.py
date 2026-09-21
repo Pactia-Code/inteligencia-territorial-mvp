@@ -83,11 +83,28 @@ class Config(BaseSettings):
     # los decide Gerencia General.
     ruta_pesos: Path = Path("config/pesos.json")
 
-    # Fracción mínima del peso nominal que debe tener datos para que un
-    # municipio pueda ocupar un puesto del top 3. Ver `ranking.py`: sin esto,
-    # redistribuir el peso de los factores ausentes premia al que no tiene
-    # datos. No es de D4 — es un hallazgo al correrlo sobre el snapshot.
-    umbral_informacion: float = Field(default=0.50, ge=0.0, le=1.0)
+    # Cuántos municipios muestra el informe. CA-M5.4 dice "top 3 fijo"; se
+    # amplió a 10 el 2026-09-21 por decisión de producto. El criterio es que el
+    # informe **muestre el score y en qué se apoya** y que quien lee juzgue, en
+    # vez de que el sistema decida de antemano quién merece verse.
+    tope_top: int = Field(default=10, ge=1)
+
+    # Fracción mínima del peso nominal respaldada por datos para que un
+    # municipio pueda ocupar un puesto del informe.
+    #
+    # **Apagado (0.0) desde el 2026-09-21, y es una decisión, no un descuido.**
+    # La guarda existía para que un municipio con un solo factor no encabezara
+    # el ciclo. Se sustituye por transparencia: el informe muestra el score
+    # **junto a los factores que lo sostienen y los que no**, así que un
+    # Ibagué con solo F4 y F5 se ve tal cual es sin necesidad de esconderlo.
+    # Exponer es mejor que excluir porque no obliga al sistema a decidir qué
+    # merece verse, y porque un municipio con 12 insights de prensa validados
+    # dejaba de existir para el lector (pendiente P1).
+    #
+    # El mecanismo se conserva entero: subirlo por encima de 0 lo reactiva, y
+    # hay pruebas que lo verifican. `fraccion_informada` se sigue calculando y
+    # persistiendo — es dato de auditoría, ya no un filtro.
+    umbral_informacion: float = Field(default=0.0, ge=0.0, le=1.0)
 
     @property
     def ventanas_ciclo(self) -> dict[int, tuple[date, date]]:

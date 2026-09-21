@@ -530,17 +530,45 @@ métrica del propio sistema dice que no sabe nada de Barranquilla.
 **Para la Fase 0 esto es un requisito de diseño, no una anécdota.** Seis
 repeticiones del mismo error no son seis descuidos.
 
-### 7. No hay categoría intermedia entre «entra al top 3» y «no se ve»
+### 7. El sistema decidía quién merecía verse, y se cambió por mostrarlo todo
 
-`[pendientes P1]` En el ciclo 3, cinco municipios quedan fuera del top 3 por
-fracción informada: Ibagué, Armenia, Barranquilla, Pereira y Cartagena
-`[BD, corrida 21]`. El umbral hace bien su trabajo —impedir que un score alto
-salga de un único factor— así que **esto no se arregla con pesos ni con
-umbrales**.
+`[pendientes P1, resuelto 2026-09-21]`
 
-El sistema solo sabe decir «no hay suficiente información», y eso no es lo mismo
-que «aquí hay algo, pero solo lo veo por un lado». **A decidir con el informe
-delante:** si hace falta una sección de vigilancia junto al top 3.
+En el ciclo 3, cinco municipios quedaban fuera del informe por fracción
+informada: Ibagué, Armenia, Barranquilla, Pereira y Cartagena. La guarda era
+correcta —impedía que un score alto saliera de un único factor— pero producía un
+efecto que nadie quería: **Barranquilla tiene 12 insights de prensa que pasaron
+el validador y no existía para el lector.** «No hay suficiente información» no es
+lo mismo que «aquí hay algo, pero solo lo veo por un lado».
+
+**No se arregló con umbrales, y se midió por qué no.** Las fracciones informadas
+del ciclo 3 son **20,10% o 77,80%, sin nada en medio**: cualquier umbral por
+debajo de 20,10% no dispara nunca —equivale a apagarlo, pareciendo una
+salvaguarda— y cualquiera por encima se comporta igual que el 50%. Ampliar a un
+top 10 tampoco servía: la exclusión era por información, no por puesto, así que
+se habrían publicado diez municipios **sin** el segundo mejor score del ciclo.
+
+**Se resolvió al revés: exponiendo en vez de excluyendo.** El informe muestra
+`tope_top` municipios —10— con su score **y los factores que lo sostienen**:
+
+```
+ 1. Ibagué         0.8560   apoyado en F4+F5
+ 2. Armenia        0.6399   apoyado en F4+F5
+ 3. Funza          0.5951   apoyado en F1+F2+F3+F4+F5
+ 4. Barranquilla   0.5696   apoyado en F4+F5
+ 5. Buenaventura   0.5458   apoyado en F1+F2+F3+F4+F5
+```
+
+Ibagué sigue primero, pero al lado se lee de qué está hecho ese primer puesto.
+**El sistema deja de decidir qué merece verse y pasa a decir en qué se apoya lo
+que muestra.** Es la misma información que la guarda usaba para excluir, puesta
+delante de quien lee en vez de aplicada por detrás.
+
+Lo que esto cuesta y conviene tener presente: el municipio que encabeza el ciclo
+3 lo hace con **0 de 239 días de contratación**. La transparencia lo hace
+legible, no lo hace desaparecer. Y **la carga de calificación se multiplica por
+tres** —de 3 a 10 municipios—, lo que presiona a H2, que es la hipótesis
+necesaria.
 
 ### 8. Atribución cruzada: contratación departamental archivada en la capital
 

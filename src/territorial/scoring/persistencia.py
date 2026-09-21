@@ -36,7 +36,12 @@ log = logging.getLogger(__name__)
 #       SECOP. Ni un peso cambió, así que la huella no se movió: **de no
 #       subirla a mano, dos algoritmos distintos habrían quedado
 #       indistinguibles**, que es justo lo que este campo existe para evitar.
-VERSION_ALGORITMO = "v2"
+#   v3  El umbral de información se apaga y el tope del informe pasa de 3 a 10
+#       (decisión de producto del 2026-09-21). **Ningún peso cambia, así que la
+#       huella no se mueve**: sin subir esto a mano, una corrida que muestra 3
+#       municipios filtrados y otra que muestra 10 sin filtrar quedarían
+#       indistinguibles. Es la misma razón por la que se subió a v2.
+VERSION_ALGORITMO = "v3"
 
 
 def huella_pesos(pesos: dict[str, float]) -> str:

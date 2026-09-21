@@ -341,11 +341,28 @@ def test_el_ranking_es_completo_y_ordenado():
     assert scores == sorted(scores, reverse=True)
 
 
-def test_top_es_fijo_de_tres():
-    """CA-M5.4 — top 3 fijo, no top N por umbral."""
-    r = puntuar_ciclo(cohorte_basica(), id_ciclo=1)
-    assert TOPE_TOP == 3
+def test_el_tope_del_informe_es_fijo_y_configurable():
+    """CA-M5.4 pedía 3; desde el 2026-09-21 son 10, y el tope no es un umbral.
+
+    Sigue siendo un número fijo de municipios y no un «todos los que pasen de
+    X», que es lo que CA-M5.4 quería evitar.
+    """
+    from territorial.config import Config
+
+    cohorte = cohorte_basica()
+    assert TOPE_TOP == 10
+    assert len(puntuar_ciclo(cohorte, id_ciclo=1).top) == min(10, len(cohorte))
+
+    r = puntuar_ciclo(cohorte, id_ciclo=1, config=Config(tope_top=3))
     assert len(r.top) == 3
+
+
+def test_la_corrida_recuerda_su_propio_tope():
+    """Una corrida tiene que explicarse meses después, aunque cambie el Config."""
+    from territorial.config import Config
+
+    r = puntuar_ciclo(cohorte_basica(), id_ciclo=1, config=Config(tope_top=2))
+    assert r.tope == 2
 
 
 def test_cada_municipio_del_top_puede_listar_que_lo_empujo():
@@ -511,11 +528,14 @@ def test_el_crudo_bajo_el_piso_no_fija_la_escala_de_la_cohorte():
     assert n["05172"]["F4"].normalizado is None
 
 
-def test_el_caso_armenia_no_puede_ganar_con_un_solo_factor():
-    """El hallazgo del ciclo 3: 0 días de cobertura y score perfecto.
+def test_el_caso_armenia_se_muestra_y_se_explica_en_vez_de_esconderse():
+    """El hallazgo del ciclo 3, y cómo se resolvió al final.
 
-    Armenia solo conserva F4, que pasa a valer el 100% del score. Sigue en el
-    ranking con su posición real, pero no ocupa un puesto del top 3.
+    Armenia tiene 0 días de cobertura y un score alto sacado de un factor. La
+    primera respuesta fue **excluirla** del informe. Desde el 2026-09-21 la
+    respuesta es **mostrarla con su desglose**: aparece, y a su lado se lee que
+    F1, F2 y F3 no tienen cobertura. Exponer en vez de excluir, porque el
+    sistema no tiene por qué decidir qué merece verse (pendiente P1).
     """
     armenia = EntradaMunicipio(
         divipola="63001",
@@ -537,14 +557,40 @@ def test_el_caso_armenia_no_puede_ganar_con_un_solo_factor():
     ]
     r = puntuar_ciclo([armenia, *solidos], id_ciclo=3)
     por_muni = {s.divipola: s for s in r.scores}
+    armenia_score = por_muni["63001"]
 
+    # Con la guarda apagada, aparece en el informe.
+    assert not armenia_score.no_priorizable
+    assert "63001" in {s.divipola for s in r.top}
+    # No se le puso cero: sigue puntuada y rankeada, como manda D4.
+    assert armenia_score.score > 0
+    assert armenia_score.ranking is not None
+
+    # Y lo que sostiene la decisión: su desglose dice de qué NO tiene datos.
+    sin_datos = {a.codigo for a in armenia_score.factores_redistribuidos}
+    assert {"F1", "F2", "F3"} <= sin_datos
+    assert all(a.motivo for a in armenia_score.factores_redistribuidos)
+    # La fracción informada se sigue calculando: es auditoría, ya no un filtro.
+    assert armenia_score.fraccion_informada < 0.5
+
+
+def test_la_guarda_sigue_entera_si_se_reactiva():
+    """Apagada no es lo mismo que borrada. Subir el umbral la devuelve."""
+    from territorial.config import Config
+
+    armenia = EntradaMunicipio(
+        "63001", 3, cobertura(0, 239), variacion_elic_pct=808.2, area_elic_m2=498_013.0
+    )
+    solido = EntradaMunicipio(
+        "25286", 3, cobertura(238, 239), n_secop=50, n_obra=25, valor_obra=1e6,
+        n_noticias=3, n_obra_previa=10, dias_cubiertos_previos=100,
+        variacion_elic_pct=20.0, area_elic_m2=50_000.0,
+    )
+    r = puntuar_ciclo([armenia, solido], id_ciclo=3,
+                      config=Config(umbral_informacion=0.50))
+    por_muni = {s.divipola: s for s in r.scores}
     assert por_muni["63001"].no_priorizable
     assert "63001" not in {s.divipola for s in r.top}
-    # No se le puso cero: sigue puntuado y rankeado, como manda D4.
-    assert por_muni["63001"].score > 0
-    assert por_muni["63001"].ranking is not None
-    # El top 3 se completa con los siguientes, no se queda corto.
-    assert len(r.top) == 3
 
 
 def test_el_excluido_dice_por_que():
@@ -557,11 +603,28 @@ def test_el_excluido_dice_por_que():
         n_noticias=3, n_obra_previa=10, dias_cubiertos_previos=100,
         variacion_elic_pct=20.0, area_elic_m2=50_000.0,
     )
-    r = puntuar_ciclo([armenia, otro], id_ciclo=3)
+    from territorial.config import Config
+
+    r = puntuar_ciclo([armenia, otro], id_ciclo=3,
+                      config=Config(umbral_informacion=0.50))
     excluidos = r.excluidos_del_top
     assert excluidos
-    assert "top 3" in excluidos[0].motivo_no_priorizable
-    assert "FUERA DEL TOP 3" in excluidos[0].explicar()
+    assert "peso nominal" in excluidos[0].motivo_no_priorizable
+    assert "FUERA DEL INFORME" in excluidos[0].explicar()
+
+
+def test_con_la_guarda_apagada_no_hay_excluidos():
+    """Es el comportamiento por defecto desde el 2026-09-21."""
+    armenia = EntradaMunicipio(
+        "63001", 3, cobertura(0, 239), variacion_elic_pct=808.2, area_elic_m2=498_013.0
+    )
+    otro = EntradaMunicipio(
+        "25286", 3, cobertura(238, 239), n_secop=50, n_obra=25, valor_obra=1e6,
+        n_noticias=3, n_obra_previa=10, dias_cubiertos_previos=100,
+        variacion_elic_pct=20.0, area_elic_m2=50_000.0,
+    )
+    r = puntuar_ciclo([armenia, otro], id_ciclo=3)
+    assert r.excluidos_del_top == []
 
 
 def test_el_umbral_es_configurable():
@@ -581,11 +644,18 @@ def test_el_umbral_es_configurable():
     assert not any(s.no_priorizable for s in r.scores)
 
 
-def test_los_ciclos_1_y_2_no_se_ven_afectados_por_la_guarda():
-    """Medido sobre el snapshot: allí la información va del 62% al 100%."""
-    r = puntuar_ciclo(cohorte_basica(), id_ciclo=1)
+def test_los_ciclos_1_y_2_nunca_se_vieron_afectados_por_la_guarda():
+    """Medido sobre el snapshot: allí la información va del 78% al 100%.
+
+    Se comprueba **con la guarda encendida**, porque el punto es que aun así no
+    excluía a nadie: el efecto solo estaba en el ciclo 3.
+    """
+    from territorial.config import Config
+
+    cohorte = cohorte_basica()
+    r = puntuar_ciclo(cohorte, id_ciclo=1, config=Config(umbral_informacion=0.50))
     assert not any(s.no_priorizable for s in r.scores)
-    assert len(r.top) == TOPE_TOP
+    assert len(r.top) == min(TOPE_TOP, len(cohorte))
 
 
 def test_el_tamano_no_decide_el_ranking():

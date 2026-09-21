@@ -416,19 +416,34 @@ pesos. Se normaliza **min-max dentro de la cohorte del ciclo**. El costo: los
 scores **no son comparables entre ciclos**, solo dentro de uno. Para el top 3
 por ciclo da igual; para una serie temporal del score, habría que rehacerlo.
 
-**El umbral de información del 50%** (`Config.umbral_informacion`). D4 manda
-redistribuir el peso de los factores sin cobertura para no castigar al
-municipio truncado. Sobre el snapshot aparece el efecto contrario: en el ciclo
-3, Armenia tiene **0 de 239 días cubiertos**, conserva solo F4, ese factor pasa
-a valer el 100% del score y Armenia sale **primera con un 1,0000 perfecto**.
-Ibagué igual, con 3 días. La redistribución acaba premiando al que no tiene
-datos, y encima con ELIC, que es constante en los 3 ciclos (D2/R3) y por tanto
-no aporta señal del ciclo.
+**El umbral de información, y por qué hoy está apagado.** D4 manda redistribuir
+el peso de los factores sin cobertura para no castigar al municipio truncado.
+Sobre el snapshot aparece el efecto contrario: en el ciclo 3, Ibagué tiene **3 de
+239 días cubiertos**, conserva solo F4 y F5, y sale **primero con 0,8560**.
+Armenia igual, con 0 días. La redistribución acaba premiando al que no tiene
+datos, y encima con ELIC, que es constante en los 3 ciclos.
 
-La guarda registra qué fracción del peso nominal tenía datos y, por debajo del
-umbral, el municipio **queda fuera del top 3 pero no fuera del ranking**: no se
-le pone cero, que es lo que D4 prohíbe. Con el umbral en `0.0` vuelve el
-comportamiento literal de D4, y hay una prueba que lo verifica.
+Durante unos días eso se resolvió **excluyéndolos** del informe por debajo del
+50% de peso respaldado. **Desde el 2026-09-21 se resuelve al revés: exponiendo.**
+`Config.umbral_informacion` está en **0** y el informe muestra el score **junto a
+los factores que lo sostienen y los que no** — Ibagué aparece primero y a su lado
+se lee «apoyado en F4+F5». Quien lee juzga; el sistema no decide quién merece
+verse.
+
+Lo que forzó el cambio fue un caso que la exclusión no sabía tratar:
+**Barranquilla tiene 12 insights de prensa que pasaron el validador** y quedaba
+invisible. Y bajar el umbral no servía: las fracciones informadas del ciclo 3 son
+**20,10% o 77,80%, sin nada en medio**, así que cualquier umbral por debajo de
+20,10% no dispara nunca y cualquiera por encima se comporta como el 50%. No había
+punto intermedio; la decisión era guarda o no guarda.
+
+**El mecanismo se conserva entero**: `fraccion_informada` se sigue calculando y
+persistiendo como auditoría, y subir el umbral lo reactiva. Hay pruebas de las
+dos cosas.
+
+**Y el tope del informe pasa de 3 a 10** (`Config.tope_top`). CA-M5.4 decía «top
+3 fijo»: es una desviación deliberada. Sigue siendo un número fijo y no un «todos
+los que pasen de X», que es lo que ese criterio quería evitar.
 
 **La fracción informada mide dato, no puntuación** (decisión 2 de Analítica,
 2026-09-21). `ValorFactor` separa `disponible` —¿el factor puntúa?— de

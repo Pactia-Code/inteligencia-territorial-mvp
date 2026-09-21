@@ -14,33 +14,44 @@ salen de aquí, y CA-M6.3 las exige así — ninguna cifra publicada puede venir
 del modelo.
 
 
-El umbral de información — añadido, no está en D4
---------------------------------------------------
+El umbral de información: por qué existió y por qué está apagado
+----------------------------------------------------------------
 D4 manda redistribuir el peso de los factores sin cobertura «proporcionalmente
 entre los factores restantes», para que un municipio truncado no se puntúe como
 cero. Corriéndolo sobre el snapshot aparece el efecto contrario:
 
-  Ciclo 3, Armenia:  0 de 239 días cubiertos. Pierde F1, F2, F3 y F6. Su único
-                     factor vivo es F4, que pasa a valer el 100% del score. Como
-                     su F4 es el máximo de la cohorte, normaliza a 1,0 y Armenia
-                     sale con **score perfecto y segundo puesto**.
-  Ciclo 3, Ibagué:   3 de 239 días. Mismo mecanismo, primer puesto.
+  Ciclo 3, Ibagué:   3 de 239 días cubiertos. Pierde F1, F2 y F3. Le quedan F4
+                     y F5, su peso se redistribuye entre esos dos y sale
+                     **primero del ciclo con 0,8560**. F4 es constante entre
+                     ciclos (D2/R3) y F5 cuenta noticias sin verificarlas.
+  Ciclo 3, Armenia:  0 de 239 días. Mismo mecanismo, segundo puesto.
 
 La redistribución, pensada para no castigar, acaba premiando al que no tiene
-datos. Y el factor que los sostiene es el peor posible para eso: ELIC es
-constante en los 3 ciclos (D2/R3), así que el informe estaría priorizando dos
-municipios por un número que no cambia de un ciclo a otro.
+datos. Durante unos días eso se resolvió **excluyéndolos**: por debajo del 50%
+del peso nominal respaldado por datos, el municipio quedaba fuera del informe
+aunque siguiera en el ranking.
 
-La guarda: se registra qué fracción del peso nominal tenía datos y, por debajo
-de `Config.umbral_informacion` (50% por defecto), el municipio **queda fuera del
-top 3 pero no fuera del ranking**. No se le pone cero —la regla de D4 se
-respeta—, simplemente no ocupa un puesto del informe, donde CA-M6.1 obliga a
-justificar la priorización con algo que aquí no existe.
+**Desde el 2026-09-21 se resuelve al revés: exponiendo en vez de excluyendo.**
+`Config.umbral_informacion` está en 0 y el informe muestra el score **junto a
+los factores que lo sostienen y los que no**. Ibagué aparece primero, y al lado
+se lee que F1, F2 y F3 no tienen cobertura y que su score sale de F4 y F5. Quien
+lee juzga.
 
-Los ciclos 1 y 2 no se ven afectados: allí la información va del 62% al 100%.
+El cambio vino de un caso que la exclusión no sabía tratar: Barranquilla tiene
+**12 insights de prensa que pasaron el validador** y quedaba invisible, porque
+el sistema solo sabía decir «top 3» o nada, y «no hay suficiente información» no
+es lo mismo que «aquí hay algo, pero solo lo veo por un lado» (pendiente P1).
+Bajar el umbral no servía: el dato tiene un hueco —las fracciones informadas son
+20,10% o 77,80%, sin nada en medio— así que cualquier umbral por debajo de 20,10%
+no dispara nunca y cualquiera por encima se comporta como el 50%. No había punto
+intermedio que ajustar; la decisión era tener guarda o no tenerla.
 
-**Esto es una decisión de implementación, no de D4.** El umbral es configurable
-y queda para confirmar con Analítica junto al pendiente A1.
+**El mecanismo se conserva entero.** `fraccion_informada` se sigue calculando y
+persistiendo como dato de auditoría, `no_priorizable` sigue existiendo, y subir
+el umbral por encima de 0 lo reactiva. Hay pruebas de las dos cosas.
+
+Y el tope del informe pasa de 3 a **`Config.tope_top`, 10 por defecto**. CA-M5.4
+decía «top 3 fijo»; es una desviación deliberada y queda anotada aquí.
 """
 
 from __future__ import annotations
@@ -58,7 +69,9 @@ from territorial.scoring.factores import (
 )
 from territorial.scoring.pesos import DESCRIPCIONES, JuegoDePesos, del_ciclo
 
-TOPE_TOP = 3  # CA-M5.4: top 3 fijo, no top N por umbral.
+# CA-M5.4 dice "top 3 fijo". Se amplía a 10 por decisión de producto del
+# 2026-09-21: `Config.tope_top` manda y esto es solo el valor por defecto.
+TOPE_TOP = 10
 
 
 @dataclass(frozen=True)
@@ -107,7 +120,11 @@ class ScoreMunicipio:
     # mismo que «fracción que puntuó»: un factor con dato pero métrica no
     # fiable cuenta aquí y no en el score (ver `_aportes`).
     fraccion_informada: float = 1.0
-    # No entra al top 3 por apoyarse en muy pocos datos. Sigue en el ranking.
+    # Se apoya en muy pocos datos. **Desde el 2026-09-21 no excluye de nada**:
+    # `Config.umbral_informacion` está en 0, así que esto siempre es False y se
+    # conserva como campo de auditoría y como interruptor si se quiere volver
+    # a filtrar. Lo que hace el informe en su lugar es mostrar el score junto a
+    # los factores que lo sostienen y los que no.
     no_priorizable: bool = False
     motivo_no_priorizable: str = ""
     # Última fecha observada de **este** municipio, no de la cohorte. Solo
@@ -139,7 +156,7 @@ class ScoreMunicipio:
         )
         lineas.append(f"  score informado por el {self.fraccion_informada:.0%} del peso nominal")
         if self.no_priorizable:
-            lineas.append(f"  FUERA DEL TOP 3 — {self.motivo_no_priorizable}")
+            lineas.append(f"  FUERA DEL INFORME — {self.motivo_no_priorizable}")
         for a in self.factores_que_empujaron:
             lineas.append(
                 f"  {a.codigo}  aporta {a.aporte:.4f}  "
@@ -164,21 +181,30 @@ class ResultadoCiclo:
     # porque responde sola por qué una corrida dice enero si hay noticias de
     # junio. No alimenta ningún factor.
     corte_por_fuente: dict = field(default_factory=dict)
+    # Cuántos municipios muestra el informe de esta corrida. Se guarda en el
+    # resultado y no se lee del Config al vuelo: una corrida tiene que poder
+    # explicarse a sí misma meses después, aunque la configuración haya cambiado.
+    tope: int = TOPE_TOP
 
     @property
     def top(self) -> list[ScoreMunicipio]:
-        """CA-M5.4 — top 3 fijo, saltando los no priorizables.
+        """Los municipios que muestra el informe, en orden de score.
 
-        Se respeta el orden del ranking; lo único que cambia es que un
-        municipio cuyo score se apoya en muy pocos datos cede el puesto al
-        siguiente. Sigue apareciendo en `scores` con su posición real.
+        CA-M5.4 pedía un top 3 fijo; desde el 2026-09-21 son `self.tope` —diez
+        por defecto— y **no se salta a nadie**, porque el umbral de información
+        está apagado. Si se reactivara, un municipio con muy pocos datos cedería
+        el puesto al siguiente y seguiría apareciendo en `scores` con su
+        posición real.
         """
-        return [s for s in self.scores if not s.no_priorizable][:TOPE_TOP]
+        return [s for s in self.scores if not s.no_priorizable][: self.tope]
 
     @property
     def excluidos_del_top(self) -> list[ScoreMunicipio]:
-        """Los que habrían entrado al top 3 y no entraron, con el motivo."""
-        umbral = TOPE_TOP + len([s for s in self.scores if s.no_priorizable])
+        """Los que habrían entrado al informe y no entraron, con el motivo.
+
+        Vacío mientras el umbral esté apagado, que es lo normal hoy.
+        """
+        umbral = self.tope + len([s for s in self.scores if s.no_priorizable])
         return [s for s in self.scores[:umbral] if s.no_priorizable]
 
     def __str__(self) -> str:
@@ -298,7 +324,8 @@ def puntuar_ciclo(
 
     ventana = cfg.ventanas_ciclo.get(id_ciclo, (None, None))
     if not entradas:
-        return ResultadoCiclo(id_ciclo, [], juego, ventana[0], ventana[1])
+        return ResultadoCiclo(id_ciclo, [], juego, ventana[0], ventana[1],
+                              tope=cfg.tope_top)
 
     ajenas = {e.divipola for e in entradas if e.id_ciclo != id_ciclo}
     if ajenas:
@@ -325,7 +352,7 @@ def puntuar_ciclo(
                 no_priorizable=flojo,
                 motivo_no_priorizable=(
                     f"solo el {informada:.0%} del peso nominal tenía datos, "
-                    f"por debajo del {cfg.umbral_informacion:.0%} exigido para el top 3"
+                    f"por debajo del {cfg.umbral_informacion:.0%} exigido"
                     if flojo
                     else ""
                 ),
@@ -362,4 +389,5 @@ def puntuar_ciclo(
         ventana_desde=ventana[0],
         ventana_hasta=ventana[1],
         corte_por_fuente=cortes_por_fuente or {},
+        tope=cfg.tope_top,
     )
