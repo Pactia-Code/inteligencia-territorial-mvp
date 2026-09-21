@@ -23,6 +23,7 @@ es el commit por municipio: lo procesado queda en la base pase lo que pase.
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field
 
 from sqlalchemy import select
@@ -77,7 +78,12 @@ from territorial.scoring.agregacion import cortes_por_fuente, entradas_del_ciclo
 from territorial.scoring.persistencia import guardar as guardar_scores
 from territorial.scoring.ranking import puntuar_ciclo
 
+log = logging.getLogger(__name__)
+
 FUENTE_CONTRATOS = "SECOP II"
+# RSS entra al Clasificador **sin prefiltro**. Bing no entra: D1 es explícito
+# en que no origina insights, y llega al Correlacionador como contexto.
+FUENTE_NOTICIAS = "RSS"
 FUENTE_CONTEXTO = "Bing"
 
 
@@ -88,6 +94,7 @@ class ResumenMunicipio:
     crudas: int = 0
     tras_prefiltro: int = 0
     enviadas: int = 0
+    enviadas_rss: int = 0
     lotes: int = 0
     insights: int = 0
     validados: int = 0
@@ -188,6 +195,25 @@ def _calificaciones_previas(
     return [CalificacionPrevia(categoria=c, valor=float(v), id_ciclo=ci) for c, v, ci in filas]
 
 
+def texto_de(senal: SenalCruda) -> str:
+    """El texto que se le entrega al Clasificador, según la fuente.
+
+    SECOP trae el objeto contractual en `datos["objeto"]`; RSS trae `titulo` y
+    `resumen`, y **no tiene `objeto`**. Leer solo `objeto` dejaba a las
+    noticias con cadena vacía, y el prefiltro las descartaba por «objeto
+    vacío» — una de las tres barreras que las excluían en silencio.
+    """
+    d = senal.datos or {}
+    if senal.fuente == FUENTE_NOTICIAS:
+        titulo = (d.get("titulo") or "").strip()
+        resumen = (d.get("resumen") or "").strip()
+        # El resumen de Google News repite el titular a menudo; no se duplica.
+        if resumen and resumen != titulo:
+            return f"{titulo}. {resumen}"
+        return titulo or senal.contenido or ""
+    return d.get("objeto") or senal.contenido or ""
+
+
 def _en_lotes(senales: list[SenalCruda], tamano: int) -> list[list[SenalCruda]]:
     """Trocea las señales de un municipio, agrupando las de objeto parecido.
 
@@ -202,7 +228,7 @@ def _en_lotes(senales: list[SenalCruda], tamano: int) -> list[list[SenalCruda]]:
     seguirán separándose. Agruparlos de verdad exigiría medir similitud, y eso
     es trabajo del pendiente A4.
     """
-    ordenadas = sorted(senales, key=lambda s: normalizar((s.datos or {}).get("objeto")))
+    ordenadas = sorted(senales, key=lambda s: normalizar(texto_de(s)))
     return [ordenadas[i : i + tamano] for i in range(0, len(ordenadas), tamano)]
 
 
@@ -233,16 +259,54 @@ def procesar_municipio(
     ).all()
     resumen.crudas = len(crudas)
 
+    # --- SECOP II: pasa por el prefiltro ---
     contratos = [s for s in crudas if s.fuente == FUENTE_CONTRATOS]
     pasan = [s for s in contratos if prefiltrar((s.datos or {}).get("objeto"))[0]]
     resumen.tras_prefiltro = len(pasan)
 
-    if not pasan:
+    # --- RSS: **sin filtro**, y en lotes propios ---
+    #
+    # El prefiltro no se aplica a las noticias por tres razones, en orden de
+    # peso (ver el pendiente del registro):
+    #
+    #   1. El diccionario descarta justo lo que hace valiosa a la fuente. Sobre
+    #      titulares dejaría pasar el 79%, pero lo que rechaza es «Tribunal
+    #      ordena destrabar la concertación ambiental del POT de Madrid» o
+    #      «servicios catastrales y asesoría predial» — eventos y anuncios de
+    #      desarrollo territorial, que es exactamente el papel que el PRD §2.3
+    #      le asigna a RSS y que SECOP no ve.
+    #   2. **No hay coste que ahorrar.** Las 336 señales del año son +7,9% sobre
+    #      lo que ya cuesta SECOP. Y para RSS el prefiltro tampoco cumple su
+    #      otra función: `es_obra` alimenta F1–F3, que son de SECOP; RSS solo
+    #      alimenta F5, que es un conteo y no usa el diccionario.
+    #   3. Inventar un segundo diccionario sin datos para calibrarlo, teniendo
+    #      A2 abierto justamente por un diccionario mal calibrado, sería repetir
+    #      el error a sabiendas — y con 336 señales no habría volumen para
+    #      detectar que se torció.
+    #
+    # Van en lotes propios porque el formato es otro: 232 caracteres de titular
+    # contra 458 de objeto contractual. Mezclarlos en un lote le pediría al
+    # prompt v4 —escrito para objetos contractuales— juzgar dos cosas distintas
+    # a la vez. Si trata mal los titulares será un hallazgo medido, y entonces
+    # un prompt propio se justificará con datos.
+    noticias = [s for s in crudas if s.fuente == FUENTE_NOTICIAS]
+
+    log.info(
+        "%s ciclo %s: %d crudas -> SECOP %d de las que pasan %d (%.0f%%), "
+        "RSS %d sin filtro, %s %d solo como contexto (D1)",
+        municipio.divipola, id_ciclo, len(crudas), len(contratos), len(pasan),
+        100 * len(pasan) / len(contratos) if contratos else 0,
+        len(noticias), FUENTE_CONTEXTO,
+        sum(1 for s in crudas if s.fuente == FUENTE_CONTEXTO),
+    )
+
+    if not pasan and not noticias:
         return resumen
 
-    lotes = _en_lotes(pasan, tamano)
+    lotes = _en_lotes(pasan, tamano) + _en_lotes(noticias, tamano)
     resumen.lotes = len(lotes)
-    resumen.enviadas = len(pasan)
+    resumen.enviadas = len(pasan) + len(noticias)
+    resumen.enviadas_rss = len(noticias)
 
     # --- M2, lote a lote ---
     lote_plano: list[SenalCruda] = []
@@ -257,7 +321,7 @@ def procesar_municipio(
                 id=s.id,
                 fuente=s.fuente,
                 fecha=s.fecha_publicacion,
-                contenido=(s.datos or {}).get("objeto") or s.contenido,
+                contenido=texto_de(s),
                 url=s.url,
             )
             for s in lote
@@ -307,7 +371,7 @@ def procesar_municipio(
             divipola=s.divipola,
             id_ciclo=s.id_ciclo,
             fuente=s.fuente,
-            contenido=(s.datos or {}).get("objeto") or s.contenido,
+            contenido=texto_de(s),
             url=s.url,
             fecha_publicacion=s.fecha_publicacion,
         )

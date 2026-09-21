@@ -37,6 +37,13 @@ log = logging.getLogger(__name__)
 ORIGEN_CLASIFICADOR = "clasificador"
 ORIGEN_CORRELACIONADOR = "correlacionador"
 
+# Qué cadena corre. Se sube a mano cuando cambia **qué señales entran** al
+# agente, aunque el prompt no se mueva.
+#
+#   p1  solo SECOP II, con prefiltro.
+#   p2  SECOP II + RSS sin filtro, en lotes separados.
+VERSION_PIPELINE = "p2"
+
 
 def crear_corrida(
     sesion_bd: Session,
@@ -62,6 +69,7 @@ def crear_corrida(
         municipios_en_cohorte=cohorte,
         version_clasificador=version_clasificador,
         version_correlacionador=version_correlacionador,
+        version_pipeline=VERSION_PIPELINE,
     )
     sesion_bd.add(corrida)
     sesion_bd.flush()

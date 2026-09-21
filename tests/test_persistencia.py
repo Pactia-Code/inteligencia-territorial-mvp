@@ -127,7 +127,7 @@ def test_los_rechazados_tambien_se_guardan(bd, corrida):
             insight_dict("obra_vial", [1], estado="validado"),
             insight_dict("vivienda", [2], estado="rechazado"),
         ],
-        CICLO,
+        corrida.id,
         DIVIPOLA,
         "v4",
     )
@@ -511,3 +511,77 @@ def test_un_insight_apunta_al_prompt_bajo_el_que_nacio(bd, corrida):
     # Y se puede navegar del insight al contenido exacto que lo produjo.
     registrada = bd.get(VersionPrompt, filas[0].id_prompt)
     assert alm.objetos[registrada.uri_blob.removeprefix("mem://")] == "contenido"
+
+
+# --------------------------------------------------------------------------
+# RSS entra al Clasificador; Bing no
+# --------------------------------------------------------------------------
+
+
+def senal_rss(id_: int, titulo: str, resumen: str = "") -> SenalCruda:
+    return SenalCruda(
+        id=id_, id_ciclo=CICLO, divipola=DIVIPOLA, fuente="RSS",
+        contenido=titulo, hash_dedup=f"r{id_}",
+        url="https://news.google.com/rss/articles/xyz",
+        datos={"titulo": titulo, "resumen": resumen, "link": "https://..."},
+    )
+
+
+def test_el_texto_de_una_noticia_sale_de_titulo_y_resumen():
+    """RSS no tiene `datos["objeto"]`. Leerlo devolvía cadena vacía y el
+    prefiltro la descartaba por «objeto vacío» — una de las tres barreras."""
+    from territorial.ciclo import texto_de
+
+    r = senal_rss(1, "Funza inicia obra en La Punta", "El municipio arranca la obra.")
+    assert texto_de(r) == "Funza inicia obra en La Punta. El municipio arranca la obra."
+
+
+def test_un_resumen_que_repite_el_titular_no_se_duplica():
+    """Google News repite el titular en el resumen muy a menudo."""
+    from territorial.ciclo import texto_de
+
+    r = senal_rss(1, "Funza inicia obra", "Funza inicia obra")
+    assert texto_de(r) == "Funza inicia obra"
+
+
+def test_el_texto_de_un_contrato_sigue_saliendo_del_objeto():
+    from territorial.ciclo import texto_de
+
+    c = senal_en_bd_sin_guardar(1, "RECONSTRUCCION DE VIAS URBANAS")
+    assert texto_de(c) == "RECONSTRUCCION DE VIAS URBANAS"
+
+
+def senal_en_bd_sin_guardar(id_: int, objeto: str) -> SenalCruda:
+    return SenalCruda(
+        id=id_, id_ciclo=CICLO, divipola=DIVIPOLA, fuente="SECOP II",
+        contenido=objeto, hash_dedup=f"h{id_}", datos={"objeto": objeto},
+    )
+
+
+def test_una_noticia_sin_termino_de_obra_igual_entra():
+    """El prefiltro NO se aplica a RSS.
+
+    «Tribunal ordena destrabar la concertación ambiental del POT» no casa con
+    ningún término del diccionario, y es exactamente el tipo de señal que el
+    PRD §2.3 le pide a esta fuente.
+    """
+    from territorial.reglas.prefiltro import clasificar
+
+    titular = "Tribunal ordena destrabar la concertacion ambiental del POT de Madrid"
+    # El diccionario la rechazaría...
+    assert not clasificar(titular)[0]
+    # ...pero la cadena ya no se lo pregunta: RSS va sin filtro.
+    from territorial.ciclo import FUENTE_CONTRATOS, FUENTE_NOTICIAS
+
+    assert FUENTE_NOTICIAS == "RSS"
+    assert FUENTE_CONTRATOS == "SECOP II"
+
+
+def test_la_version_de_pipeline_queda_registrada(bd):
+    """Dos pasadas con el mismo prompt no son comparables si cambió qué
+    señales entran. `version_clasificador` no lo distingue; esto sí."""
+    from territorial.agentes.persistencia import VERSION_PIPELINE
+
+    c = crear_corrida(bd, CICLO, [DIVIPOLA], "v4", "v1")
+    bd.commit()
+    assert c.version_pipeline == VERSION_PIPELINE == "p2"

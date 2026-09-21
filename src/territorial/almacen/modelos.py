@@ -164,9 +164,23 @@ class CorridaAgentes(Base):
     municipios_en_cohorte: Mapped[list] = mapped_column(JSON, default=list)
 
     # Versiones de prompt que corrieron. El linaje por contenido —hash y blob—
-    # llega con D7; esto es la etiqueta.
+    # está en `prompt_version` (D7); esto es la etiqueta.
     version_clasificador: Mapped[str | None] = mapped_column(String(20))
     version_correlacionador: Mapped[str | None] = mapped_column(String(20))
+
+    # Qué **cadena** corrió, que no es lo mismo que qué prompt. Dos pasadas con
+    # el mismo `version_clasificador` pueden no ser comparables si entre ellas
+    # cambió qué señales entran al agente.
+    #
+    #   p1  solo SECOP II, con prefiltro.
+    #   p2  SECOP II con prefiltro **+ RSS sin filtro**, en lotes separados.
+    #       RSS quedaba fuera por tres barreras —un filtro por fuente, la
+    #       lectura de `datos["objeto"]` que RSS no tiene, y el diccionario de
+    #       obra— y las 336 señales se perdían sin que ningún log lo dijera.
+    #
+    # Se sube a mano, como `VERSION_ALGORITMO` en el scoring y por lo mismo: el
+    # prompt no cambió, así que nada automático lo detectaría.
+    version_pipeline: Mapped[str | None] = mapped_column(String(20), index=True)
 
     # Para auditar CA-M2.1 sin recontar: cuántas señales entraron al agente.
     senales_procesadas: Mapped[int] = mapped_column(Integer, default=0)
