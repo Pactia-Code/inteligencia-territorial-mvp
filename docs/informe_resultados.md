@@ -140,7 +140,10 @@ no debe decidirse sobre márgenes estrechos en H1.**
 
 **Qué falta:**
 
-1. **M7 y M9**, igual que H1.
+1. **M7 y M9**, igual que H1. Deciden **Next.js sobre Vercel, sin
+   autenticación**: se pide el correo antes de calificar y se resuelve la
+   gerencia, que es el nivel al que `calificacion` atribuye y el que H2 necesita
+   (`[pendientes M9-fw]`).
 2. **El canal de notificación sigue sin decidir.** `[pendientes 11.4/3]` Se
    diseñó correo con enlace profundo; el PRD §2.2 excluye Teams.
 3. **El compromiso de las 7 gerencias de calificar 3 ciclos no está
@@ -151,6 +154,25 @@ no debe decidirse sobre márgenes estrechos en H1.**
 **Riesgo a señalar en la compuerta:** H2 es la única hipótesis necesaria cuyo
 resultado no depende del sistema. Conviene que la fecha en que se pide el
 compromiso no sea la misma semana en que se mide.
+
+### Cómo se calculará la tasa, y por qué importa decirlo
+
+`[pendientes M9-carga, decidido 2026-09-21]`
+
+El informe pasa a mostrar **10 municipios**, pero la calificación **pedida** es
+solo sobre los insights de los **3 primeros**. El resto queda calificable de
+forma opcional.
+
+**La tasa de respuesta se computa sobre la carga pedida, no sobre lo mostrado.**
+No es un tecnicismo: con 10 municipios × 7 gerencias, una tasa baja **no
+permitiría distinguir fatiga de desinterés**, que es justo la distinción que H2
+existe para dar. Si el denominador fuera lo mostrado, un 40% podría significar
+«no les interesa» o «era demasiado», y son dos conclusiones opuestas para la
+Fase 0: la primera cuestiona el producto, la segunda solo el formato.
+
+Lo calificado de forma opcional se cuenta **aparte**, y es señal de interés, no
+de cumplimiento. Al publicar el resultado de H2 hay que decir explícitamente cuál
+fue el denominador, o el número no será interpretable.
 
 ---
 
@@ -566,9 +588,20 @@ delante de quien lee en vez de aplicada por detrás.
 
 Lo que esto cuesta y conviene tener presente: el municipio que encabeza el ciclo
 3 lo hace con **0 de 239 días de contratación**. La transparencia lo hace
-legible, no lo hace desaparecer. Y **la carga de calificación se multiplica por
-tres** —de 3 a 10 municipios—, lo que presiona a H2, que es la hipótesis
-necesaria.
+legible, no lo hace desaparecer, y por eso **el orden de lectura es parte de la
+decisión**: la línea de fuentes —«licencias y prensa, sin contratación»— tiene
+que ir junto al nombre y al puesto, con el mismo peso visual. Si va como nota al
+pie, para cuando se lee el lector ya interpretó el puesto 1 como prioridad del
+ciclo, y el desglose deja de informar para pasar a justificar a posteriori
+(`[pendientes M6-orden]`).
+
+Y al usuario final no se le muestran códigos de factor sino **nombres de
+fuente**: F1, F2 y F3 son los tres SECOP, así que cinco factores colapsan en tres
+fuentes (`[pendientes M6-src]`).
+
+Sobre la carga: pasar de 3 a 10 municipios la multiplicaría por tres, así que
+**la calificación pedida se acota a los 3 primeros** y el resto queda opcional.
+Ver la nota de H2.
 
 ### 8. Atribución cruzada: contratación departamental archivada en la capital
 

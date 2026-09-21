@@ -23,6 +23,28 @@ Un solo lenguaje, un solo repositorio, un solo despliegue.
 | App web | Django + HTMX sobre la misma base | Next.js o Django — se elige Django |
 | Infografías | Jinja2 → HTML poblado desde SQL → Playwright → PNG | No especificado |
 
+> **Revisado el 2026-09-21: la app web pasa a Next.js.** D5 eligió Django
+> **antes de que el hosting fuera Vercel** y bajo el criterio de «un lenguaje, un
+> repositorio». En Vercel, Django va a contrapelo —sin disco persistente, WSGI
+> envuelto, arranques en frío— y Next.js es el camino natural. **Cambiar cuesta
+> cero hoy**: Django nunca se instaló ni tiene versión fijada.
+>
+> Lo que se pierde es real y conviene decirlo: **D5 deja de ser «un solo
+> lenguaje»**. El pipeline sigue en Python y la superficie pasa a TypeScript. El
+> resto de D5 —LangGraph, Langfuse, Blob, Postgres— no se toca.
+>
+> **Dos reglas que la desviación no puede romper**, y que hay que resolver al
+> construir M9:
+>
+> · **Alembic sigue siendo la única autoridad del esquema** (regla 2 de D8). La
+>   app de Next.js **no migra nada** y no lleva ORM con migraciones propias, o
+>   habría dos fuentes de verdad del esquema.
+> · **Todo acceso a datos pasa por SQLAlchemy** (regla 1 de D8). Una app en
+>   TypeScript leyendo Neon por su cuenta lo incumple. Queda abierto **cómo**:
+>   una API Python delgada por delante, o acotar la regla a las escrituras y al
+>   pipeline dejando que la superficie lea por una capa tipada. **Es decisión
+>   pendiente, no detalle de implementación.**
+
 **Por qué se descartaron las otras dos opciones evaluadas:** el stack nativo Microsoft (Fabric + Power Automate + Power BI) exige licencias, capacidad Fabric y permisos de tenant — dependencias de TI que el PRD ya arrastra como pendiente 3b y como riesgo alto no resuelto en §7. Managed Agents de Anthropic habría sido más rápido, pero cede las trazas a una plataforma en beta justo en el eje que el experimento mide (H4, bloqueante).
 
 ---

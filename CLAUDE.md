@@ -146,7 +146,7 @@ src/territorial/
 │   └── grafo/       EstadoCiclo y flujo LangGraph            [aún sin código]
 │
 ├── CAPA 3 — SUPERFICIE
-│   ├── web/         Django                                   [aún sin código]
+│   ├── web/         Next.js en Vercel (D5 revisado)          [aún sin código]
 │   ├── informes/    Jinja2 e infografías                     [aún sin código]
 │   └── notificacion/  Correo con enlace profundo             [aún sin código]
 │
@@ -204,7 +204,7 @@ funcionaba mal, no tenía nada que cruzar. Si algo lleva a la semana 8, es esto.
 | **M6** Síntesis y distribución | ⬜ Sin código | Canal de notificación sin decidir (**pendiente 11.4/3**); §2.2 excluye Teams |
 | **M7** Calificación | ⬜ Sin código | Depende del aplicativo web |
 | **M8** Trazabilidad y observabilidad | 🟡 Parcial | Linaje de dataset, **de prompts por contenido** (D7) y trazas por agente (CA-M8.2). Falta Langfuse y el checkpointing de CA-M8.4: instalados pero **sin cablear**, no hay `grafo/` |
-| **M9** Aplicativo web | ⬜ Sin código | Django **no está instalado** ni tiene versión fijada. Playwright está por verificar: descarga binarios sin firmar que la política de esta máquina bloquea |
+| **M9** Aplicativo web | ⬜ Sin código | **Next.js en Vercel**, no Django: D5 eligió Django antes de que el hosting fuera Vercel, y Django nunca se instaló (desviación registrada en Addendum 02). **Sin autenticación**: se pide el correo antes de calificar y se resuelve la gerencia, que es el nivel al que `calificacion` atribuye. Queda abierto **cómo lee los datos una app TypeScript sin romper la regla 1 de D8**. Playwright está por verificar: descarga binarios sin firmar que la política de esta máquina bloquea |
 
 ### El nomenclátor DIVIPOLA: 1.135 entidades, y cuatro rarezas
 
