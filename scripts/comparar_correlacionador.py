@@ -13,11 +13,18 @@ Sirve para dos cosas distintas con el mismo instrumento, que es el punto:
 
 **Con versiones distintas, dos comprobaciones no se reportan: fallan.**
 
-1. **La versión B no puede correlacionar MÁS que A.** La regla 1 del prompt v2
-   dice que el contexto explica una convergencia y nunca la crea. Si B encuentra
-   más, la regla se rompió y un dato constante —los indicadores son anuales,
-   idénticos en los tres ciclos— estaría decidiendo qué se publica. Es el
-   defecto de F4 entrando por la puerta de atrás.
+1. **La versión B no correlaciona más que A, sobre el AGREGADO y contra el piso
+   de ruido medido.** La regla 1 del prompt v2 dice que el contexto explica una
+   convergencia y nunca la crea; si B se sale del ruido hacia arriba, la regla
+   se rompió y un dato constante —los indicadores son anuales, idénticos en los
+   tres ciclos— estaría decidiendo qué se publica. Es el defecto de F4 entrando
+   por la puerta de atrás.
+
+   **Sobre el agregado y no municipio a municipio, y aprenderlo costó.** La
+   primera versión exigía monotonía por municipio y suspendió a v2; el control
+   demostró que habría suspendido a **v1 contra sí mismo**, con 14 de 18
+   municipios moviéndose. Si no hay piso medido para el corpus que se compara,
+   la compuerta **se niega a juzgar** en vez de dar un veredicto sin base.
 2. **Ninguna cifra de la salida puede faltar en los insights de entrada.** Y eso
    **incluye las de `contexto_municipal`**: si el modelo escribe «3.480
    hogares» y el número es real pero no estaba en los insights, es una violación
@@ -67,6 +74,50 @@ from territorial.almacen.sesion import sesion  # noqa: E402
 from territorial.reglas.cifras import cifras as numeros  # noqa: E402
 from territorial.reglas.cifras import variantes_de_cifra  # noqa: E402
 from territorial.reglas.contexto import contexto_de  # noqa: E402
+
+# --------------------------------------------------------------------------
+# El piso de ruido, medido y no supuesto
+# --------------------------------------------------------------------------
+#
+# **Una compuerta que no conoce su piso de ruido no mide un efecto: mide
+# varianza y le pone una etiqueta de aprobado o suspenso.** La primera versión
+# de este script exigía que B no correlacionara más que A en NINGÚN municipio, y
+# el control demostró que eso habría suspendido a v1 contra sí mismo, con 14 de
+# 18 municipios moviéndose.
+#
+# Estas cifras salen de correr **la misma versión contra sí misma** sobre el
+# mismo corpus: corridas 11 y 12, más la pasada A del contraste v1/v2, sobre los
+# 322 insights validados de la corrida 10. Si el corpus cambia, hay que volver a
+# medirlas: la compuerta se niega a juzgar sobre un corpus sin piso.
+CORPUS_DEL_PISO = 10
+
+PISO_RUIDO: dict[str, tuple[int, ...]] = {
+    # Tres pasadas de v1. Oscila 3 sobre una media de 41: un 7,3%.
+    "convergencias": (42, 39, 42),
+    # Las mismas tres pasadas. Oscila 4 sobre 22,3: un 17,9%.
+    "tipologia": (20, 23, 24),
+}
+
+
+def techo_del_ruido(metrica: str) -> int:
+    """El valor más alto que la misma versión produce contra sí misma.
+
+    El criterio es **el rango observado**, no un margen relativo sobre A. Un
+    margen sobre A tiene un filo: si A cae en el fondo de su rango y B en lo
+    alto, el mismo prompt se suspendería a sí mismo. Con las cifras medidas eso
+    no es hipotético — v1 dio 39 y 42 en dos pasadas seguidas.
+
+    Propiedad que esto garantiza y que un margen no garantiza: **la compuerta
+    nunca suspende a la línea base que la calibró.**
+    """
+    return max(PISO_RUIDO[metrica])
+
+
+def oscilacion(metrica: str) -> float:
+    """Cuánto se mueve la métrica sin que nada cambie. Solo para informar."""
+    obs = PISO_RUIDO[metrica]
+    return (max(obs) - min(obs)) / (sum(obs) / len(obs))
+
 
 # Palabras que indican que la implicación se moja con una tipología, que es lo
 # que CA-M4.2 pide y lo que el contexto debería mejorar.
@@ -301,22 +352,46 @@ def main() -> int:
     # ----------------------------------------------------------------------
     fallos = 0
 
-    print("\n=== Compuerta 1: B no puede correlacionar más que A ===")
+    print("\n=== Compuerta 1: B no correlaciona más que A, sobre el AGREGADO ===")
     if control:
         print("  NO APLICA: las dos pasadas son la misma versión. El movimiento "
               "entre ellas es lo que se está midiendo, no un fallo.")
-    elif mas_en_b:
+        print(f"  ({len(mas_en_b)} de {len(filas_por_muni)} municipios suben. "
+              "Municipio a municipio eso no significa nada: es el piso de ruido.)")
+    elif args.corrida != CORPUS_DEL_PISO:
         fallos += 1
-        print(f"  FALLA en {len(mas_en_b)} municipios. El contexto estaría CREANDO "
-              "convergencias, no explicándolas:")
-        for nombre, a, b in mas_en_b:
-            print(f"    {nombre}: {a} -> {b}")
-    elif tot["B"]["convergencias"] > tot["A"]["convergencias"]:
-        fallos += 1
-        print(f"  FALLA en el agregado: {tot['A']['convergencias']} -> "
-              f"{tot['B']['convergencias']}")
+        print(f"  NO SE PUEDE JUZGAR: el piso de ruido se midió sobre la corrida "
+              f"{CORPUS_DEL_PISO} y estás comparando sobre la {args.corrida}. "
+              "Corre antes el control (--a X --b X) sobre este corpus. Sin piso, "
+              "la comprobación mide varianza y le pone una etiqueta.")
     else:
-        print(f"  pasa: {tot['A']['convergencias']} -> {tot['B']['convergencias']}")
+        a, b = tot["A"]["convergencias"], tot["B"]["convergencias"]
+        techo = techo_del_ruido("convergencias")
+        print(f"  la misma versión consigo misma da {PISO_RUIDO['convergencias']}"
+              f" -> oscila un {oscilacion('convergencias'):.1%}")
+        print(f"  A = {a}, techo del rango = {techo}, B = {b}")
+        if b > techo:
+            fallos += 1
+            print("  FALLA: B se sale del ruido hacia arriba. El contexto estaría "
+                  "CREANDO convergencias, no explicándolas.")
+            for nombre, x, y in mas_en_b:
+                print(f"    (sube en {nombre}: {x} -> {y})")
+        else:
+            print("  pasa: la diferencia cabe dentro de lo que el agente se mueve "
+                  "solo, sin que nada cambie.")
+
+    # No es una compuerta —no hace fallar— pero sin esto se promovería ruido: si
+    # el efecto buscado tampoco sale del piso, no hay efecto que promover.
+    if not control:
+        a, b = tot["A"]["tipologia"], tot["B"]["tipologia"]
+        umbral = techo_del_ruido("tipologia")
+        print("\n=== Efecto buscado (CA-M4.2): ¿sale del ruido? ===")
+        print(f"  la misma versión consigo misma da {PISO_RUIDO['tipologia']} "
+              f"-> oscila un {oscilacion('tipologia'):.1%}")
+        print(f"  A = {a}, hace falta superar {umbral}, B = {b}")
+        print("  " + ("EFECTO REAL: por encima del ruido."
+                      if b > umbral else
+                      "DENTRO DEL RUIDO: no hay efecto que promover."))
 
     print("\n=== Compuerta 2: ninguna cifra de la salida fuera de los insights ===")
     if fugas:

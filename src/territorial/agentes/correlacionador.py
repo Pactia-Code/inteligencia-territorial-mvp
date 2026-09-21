@@ -57,11 +57,13 @@ from territorial.config import Config, obtener_config
 from territorial.reglas.contexto import ContextoBandeado
 
 PROMPTS = Path(__file__).parent / "prompts"
-# **v1 sigue siendo la versión vigente.** v2 existe y funciona, pero no pasó su
-# compuerta: ver `scripts/comparar_correlacionador.py` y el pendiente A10. Se
-# conserva porque §10 lo pide —las versiones que no se promueven documentan una
-# hipótesis— y porque la medición que la frenó tiene un confundido sin resolver.
-VERSION_PROMPT = "v1"
+# **v2 es la versión vigente desde el 2026-09-21.** Añade el contexto estructural
+# bandeado (CA-M4.2). Se promovió tras el control v1 contra v1, que midió el piso
+# de ruido del agente: sus 40 convergencias caen dentro del rango 39-42 que v1
+# produce consigo mismo, y su tipología sube a 35 frente a un máximo de 24 en tres
+# pasadas de v1. Once puntos por encima del ruido en el efecto buscado, y dentro
+# del ruido en el que preocupaba. v1 se conserva como línea base.
+VERSION_PROMPT = "v2"
 
 # Qué versiones entienden el bloque de contexto estructural. Mandar el bloque a
 # un prompt que no lo documenta es peor que no mandarlo: el modelo recibe datos

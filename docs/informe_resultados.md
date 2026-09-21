@@ -328,7 +328,7 @@ régimen permanente en un orden de magnitud.
 
 ## Hallazgos no previstos
 
-Siete cosas que no estaban en ninguna hipótesis y que cambian cómo hay que leer
+Ocho cosas que no estaban en ninguna hipótesis y que cambian cómo hay que leer
 el resto.
 
 ### 1. El Clasificador no es reproducible, y la causa no era la que se suponía
@@ -394,12 +394,47 @@ Lo que **no** se mueve es igual de informativo: el conteo agregado y la calidad
 convergencias lo habría dado por estable; se detectó comparando el conjunto de
 insights de cada convergencia, que es el mismo criterio con el que se midió A6.
 
+**Y se compone.** Un insight puede voltear en M2 y su convergencia volver a
+voltear en M4. **La inestabilidad del pipeline no es la de su peor agente: es
+acumulativa.** Cualquier lectura que trate el 19,5% o el 26,4% como «el margen de
+error del sistema» lo subestima, porque son dos sorteos encadenados sobre el
+mismo contenido.
+
 **Consecuencia:** como A6, toca **H1 y no H4**. Cada convergencia conserva su
 evidencia completa hasta la fuente y las dos pasadas conviven en el almacén. Lo
-que se amplía es la banda de error de lo que las gerencias leen, y ahora sobre
-**dos agentes encadenados**.
+que se amplía es la banda de error de lo que las gerencias leen.
 
-### 3. Una compuerta automática sin piso de ruido no mide nada
+### 3. La línea no está entre agentes buenos y malos: está entre código y modelo
+
+Es la lectura que estos dos hallazgos, juntos, obligan a hacer.
+
+| Qué decide | Quién lo hace | Cuánto varía entre pasadas idénticas |
+|---|---|---|
+| El top 3 y el ranking | **Código** (M5 lee `senal_cruda`) | **0%** — idéntico, 0 de 18 municipios cambian de puesto |
+| Qué señales se ven | LLM (Clasificador) | **19,5%** |
+| Qué se agrupa con qué | LLM (Correlacionador) | **26,4%** |
+| Qué se dice de ello | LLM | entre el 25% y el 50% del contenido del informe |
+
+**Todo lo que pasa por un modelo tiene entre un 19% y un 26% de variación. Todo
+lo que pasa por código tiene cero.** No es que unos agentes estén mejor ajustados
+que otros: es que la frontera de la reproducibilidad coincide exactamente con la
+frontera entre la capa determinista y la agéntica.
+
+Esto es, a la vez, la mejor noticia y la advertencia más seria del experimento:
+
+- **La mejor noticia** — la decisión que el sistema entrega, que es el top 3, no
+  la toma un modelo. La arquitectura que el PRD §3.1 exige —lo determinista no
+  depende de un LLM— no es una preferencia de estilo: es lo único que hace el
+  entregable reproducible.
+- **La advertencia** — todo lo que la gerencia *lee* para entender por qué, sí
+  lo escribe un modelo, y eso no es reproducible. El informe es estable en su
+  conclusión e inestable en su argumento.
+
+Para la Fase 0 la consecuencia es directa: **cualquier cosa que deba ser
+reproducible tiene que estar en código.** Cada vez que se mueva una decisión de
+la capa determinista a un prompt, se está comprando variación del 20% al 26%.
+
+### 4. Una compuerta automática sin piso de ruido no mide nada
 
 `[pendientes A10]`
 
@@ -422,12 +457,30 @@ Las 40 convergencias de v2 están **dentro** del rango de v1. Su tipología est�
 **muy por encima**. El efecto que v2 buscaba es real; el que la compuerta midió
 era varianza.
 
-La lección es general y vale para la Fase 0: **antes de poner una compuerta
-sobre la salida de un agente, córrela contra sí misma.** Una comprobación que
-no conoce su piso de ruido no mide un efecto — mide varianza y le pone una
-etiqueta de aprobado o suspenso.
+**Desenlace:** la compuerta se rediseñó y **v2 se promovió**. El criterio va
+ahora sobre el agregado, el umbral es el rango observado de la versión contra sí
+misma —no un margen sobre la pasada A, que tiene filo: si A cae en el fondo de
+su rango y B en lo alto, el mismo prompt se suspende— y **sin piso medido para
+ese corpus la compuerta se niega a juzgar** en vez de dar un veredicto sin base.
 
-### 4. F4 era una constante ocupando el 18% del peso del score
+La lección es general y vale para la Fase 0: **antes de poner una compuerta
+sobre la salida de un agente, córrela contra sí misma.** Una comprobación que no
+conoce su piso de ruido no mide un efecto — mide varianza y le pone una etiqueta
+de aprobado o suspenso, con toda la autoridad de un número.
+
+**Y lo mismo vale para una detección.** La comprobación de cifras de CA-M6.3
+acusó a Carepa de inventarse un «80» que era **«calles 76 y 80»**, un nombre de
+calle que sí estaba en su entrada: capturaba el punto final de la frase en una
+orilla y no en la otra. **Medir las dos orillas con varas distintas produce
+violaciones inventadas de CA-M6.3, y eso es peor que no detectar nada** — lleva a
+desconfiar de salidas correctas, que es justo la confianza que la regla existe
+para construir.
+
+Re-verificarlo costó **cero tokens**, sobre las corridas 11 y 12 ya persistidas.
+Es la mejor demostración de para qué sirve la persistencia por corrida: una
+medición que se puede repetir sin volver a pagarla.
+
+### 5. F4 era una constante ocupando el 18% del peso del score
 
 `[pendientes A1/4, medido 2026-09-21]`
 
@@ -455,7 +508,7 @@ sustituye un factor estructural por otro.
 primera con un 1,0000 sacado de un único factor siendo la menos informada de las
 18. La patología no se arreglaba: se mudaba de F4 a F5. `[pendientes, variante C]`
 
-### 5. «Ausencia de SECOP» se ha leído como «ausencia de actividad» seis veces
+### 6. «Ausencia de SECOP» se ha leído como «ausencia de actividad» seis veces
 
 `[CLAUDE §7]` Está escrito en D4 y el sistema lo ha violado seis veces, siempre
 por el mismo motivo: SECOP es la fuente más rica, todo acaba calculándose desde
@@ -477,7 +530,7 @@ métrica del propio sistema dice que no sabe nada de Barranquilla.
 **Para la Fase 0 esto es un requisito de diseño, no una anécdota.** Seis
 repeticiones del mismo error no son seis descuidos.
 
-### 6. No hay categoría intermedia entre «entra al top 3» y «no se ve»
+### 7. No hay categoría intermedia entre «entra al top 3» y «no se ve»
 
 `[pendientes P1]` En el ciclo 3, cinco municipios quedan fuera del top 3 por
 fracción informada: Ibagué, Armenia, Barranquilla, Pereira y Cartagena
@@ -489,7 +542,7 @@ El sistema solo sabe decir «no hay suficiente información», y eso no es lo mi
 que «aquí hay algo, pero solo lo veo por un lado». **A decidir con el informe
 delante:** si hace falta una sección de vigilancia junto al top 3.
 
-### 7. Atribución cruzada: contratación departamental archivada en la capital
+### 8. Atribución cruzada: contratación departamental archivada en la capital
 
 `[pendientes A3, cerrado como fuera de alcance del MVP]`
 

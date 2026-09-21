@@ -278,23 +278,32 @@ def test_un_contexto_parcial_solo_lista_lo_que_tiene():
 # --------------------------------------------------------------------------
 
 
-def test_solo_v2_entiende_el_bloque_de_contexto():
-    """Mandarlo a v1 sería darle datos sin una sola regla sobre qué hacer.
+def test_solo_las_versiones_declaradas_reciben_el_contexto():
+    """Mandarlo a un prompt que no lo documenta sería darle datos sin reglas.
 
     v1 no documenta el bloque, así que no sabría que el contexto explica una
     convergencia y nunca la crea — que es justo la regla que hay que sostener.
-    Condicionarlo a la versión evita que revertir `VERSION_PROMPT` deje el
-    bloque colándose por su cuenta.
+    Condicionarlo a la versión evita que cambiar `VERSION_PROMPT` deje el bloque
+    viajando, o dejando de viajar, por su cuenta.
     """
     from territorial.agentes import correlacionador as co
 
-    assert co.VERSION_PROMPT == "v1", "v2 no pasó su compuerta; ver el pendiente A10"
     assert "v2" in co.VERSIONES_CON_CONTEXTO
-    assert co.VERSION_PROMPT not in co.VERSIONES_CON_CONTEXTO
+    assert "v1" not in co.VERSIONES_CON_CONTEXTO
+    # La vigente tiene que entenderlo: si no, el contexto no llegaría a nadie.
+    assert co.VERSION_PROMPT in co.VERSIONES_CON_CONTEXTO
 
 
-def test_el_prompt_v2_existe_y_lleva_las_tres_reglas():
-    """No se promueve, pero se conserva: documenta una hipótesis (§10)."""
+def test_el_prompt_v1_se_conserva_como_linea_base():
+    """§10: las versiones anteriores documentan contra qué se midió."""
+    from territorial.agentes.correlacionador import instrucciones
+
+    assert "Agente Correlacionador" in instrucciones("v1")
+    assert "Contexto estructural del municipio" not in instrucciones("v1")
+
+
+def test_el_prompt_v2_lleva_las_tres_reglas():
+    """Son lo que hace segura la concesión de dejar enunciar la banda."""
     from territorial.agentes.correlacionador import instrucciones
 
     v2 = instrucciones("v2")

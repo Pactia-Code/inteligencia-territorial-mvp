@@ -80,6 +80,50 @@ código. Esta regla no admite excepción ni atajo.
 - Los prompts van **versionados** y se archivan en el almacén (D7). El linaje se
   registra; no se edita un prompt en sitio.
 
+### 2.4 Toda compuerta necesita su piso de ruido medido
+
+**Antes de poner una compuerta automática sobre la salida de un agente, mide su
+piso de ruido corriéndolo contra sí mismo.** No es una recomendación: es un
+requisito para cualquier compuerta futura, no solo para la del Correlacionador.
+
+Una comprobación que no conoce su piso **no mide un efecto: mide varianza y le
+pone una etiqueta de aprobado o suspenso.** Y lo hace con toda la autoridad de
+un número.
+
+Pasó aquí. La primera compuerta del Correlacionador exigía que la versión nueva
+no correlacionara más que la vieja **en ningún municipio**, y suspendió a v2. El
+control v1 contra v1 —mismo prompt, mismos 322 insights— demostró que esa
+compuerta **habría suspendido a v1 contra sí mismo**, con 14 de 18 municipios
+moviéndose y el agregado subiendo de 39 a 42.
+
+Las tres reglas que salen de ahí:
+
+1. **El criterio va sobre el agregado**, no elemento a elemento. Municipio a
+   municipio no significa nada cuando el agente se mueve solo.
+2. **El umbral es el rango observado de la versión contra sí misma**, no un
+   margen relativo sobre la pasada A. Un margen sobre A tiene un filo: si A cae
+   en el fondo de su rango y B en lo alto, el mismo prompt se suspende. Con las
+   cifras medidas no es hipotético — v1 dio 39 y 42 en dos pasadas seguidas.
+3. **Sin piso medido para ese corpus, la compuerta se niega a juzgar** en vez de
+   dar un veredicto sin base. Está implementado así.
+
+El invariante está probado en `tests/test_compuertas.py`: **una compuerta nunca
+puede suspender a la línea base que la calibró.** Si lo hace, está midiendo
+ruido.
+
+**Y lo mismo vale para una detección, no solo para una compuerta.** La
+comprobación de cifras de CA-M6.3 acusó a Carepa de inventarse un «80» que era
+«calles 76 y 80», un nombre de calle que sí estaba en su entrada: capturaba el
+punto final de la frase en una orilla y no en la otra. **Medir las dos orillas
+con varas distintas produce violaciones inventadas, y eso es peor que no
+detectar nada** — lleva a desconfiar de salidas correctas, que es justo la
+confianza que CA-M6.3 existe para construir. Vive en `reglas/cifras.py`, con
+pruebas.
+
+Re-verificarlo costó **cero tokens**, sobre las corridas 11 y 12 ya persistidas.
+Es la mejor demostración de para qué sirve la persistencia por corrida: una
+medición que se puede repetir sin volver a pagarla.
+
 ---
 
 ## 3. Separación de capas
@@ -225,26 +269,15 @@ no declarativa — `scripts/comparar_correlacionador.py` **falla** si v2
 correlaciona más que v1, y falla si aparece en la salida una cifra que no estaba
 en los insights, incluidas las cifras reales de `contexto_municipal`.
 
-> **v2 no está vigente, pero no por lo que parecía** (pendientes A10 y A11).
-> Falló una compuerta que exigía que v2 no correlacionara más que v1 en ningún
-> municipio. El **control v1 contra v1** (corridas 11 y 12) demostró que esa
-> compuerta **habría suspendido a v1 contra sí mismo**: el mismo prompt consigo
-> mismo sube de 39 a 42 convergencias y mueve 14 de 18 municipios. Contra ese
-> piso de ruido, las 40 convergencias de v2 están **dentro** del rango de v1 (42,
-> 39, 42) y su tipología de 35 está **muy por encima** (20, 23, 24). El efecto
-> que v2 buscaba es real; el que la compuerta midió era varianza.
+> **v2 es la versión vigente desde el 2026-09-21.** Se promovió tras el control:
+> sus 40 convergencias caen dentro del rango 39-42 que v1 produce consigo mismo,
+> y su tipología sube a 35 frente a un máximo de 24 en tres pasadas de v1. Once
+> puntos por encima del ruido en el efecto buscado, dentro del ruido en el que
+> preocupaba. v1 se conserva como línea base.
 >
-> `VERSION_PROMPT` sigue en `v1` hasta que se rediseñe la compuerta y se decida.
-> `VERSIONES_CON_CONTEXTO` impide que el bloque llegue a un prompt que no lo
-> documenta: si vuelves a poner v2, el contexto viaja solo.
-
-**Y una lección sobre las compuertas automáticas.** Una comprobación que no
-conoce su piso de ruido no mide un efecto, mide varianza con una etiqueta de
-aprobado o suspenso. Antes de poner una compuerta sobre la salida de un agente,
-**córrela contra sí misma** y mira cuánto se mueve sin que nada cambie. La
-compuerta de cifras tuvo el mismo problema por otro lado: acusó a Carepa por
-«calles 76 y 80» porque capturaba el punto final de la frase en una orilla y no
-en la otra. Vive ahora en `reglas/cifras.py`, probada.
+> `VERSIONES_CON_CONTEXTO` decide qué versiones reciben el bloque. Si añades una
+> versión nueva del prompt, métela ahí o el contexto dejará de viajar en
+> silencio.
 
 ### Pendientes que frenan el avance
 
