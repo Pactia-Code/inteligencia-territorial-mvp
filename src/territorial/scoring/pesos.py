@@ -8,6 +8,26 @@ Un archivo JSON en `Config.ruta_pesos` los sustituye sin tocar código. Si no
 existe, rigen estos. El archivo puede traer solo los ciclos o factores que
 quiera cambiar: lo que no mencione conserva el valor por defecto.
 
+**Hoy ese archivo existe y está en el repositorio** (`config/pesos.json`), así
+que lo que corre no son los valores de este módulo. Lleva **F4 a la mitad**
+—15% en el ciclo 1, 9% en los otros dos— y reparte lo liberado en proporción
+entre los factores restantes. Aprobado por Analítica el 2026-09-21.
+
+El motivo: F4 es **idéntico en los tres ciclos para los 18 municipios**.
+Apartadó marca -43,5% en el ciclo 1, en el 2 y en el 3. No es un factor lento;
+es una constante por municipio ocupando el 18% del peso, y eso contradice el
+criterio ya fijado de que el score prioriza por lo que pasa en la ventana y el
+contexto estructural informa la lectura sin empujar el ranking.
+
+A la mitad y no a cero: con F4 en cero, F5 pasa a dominar con el 37% en el
+ciclo 3 —justo donde SECOP está truncado para cinco municipios— y Barranquilla
+sale primera con un 1,0000 sacado de un único factor siendo la menos informada
+de las 18. La patología no se arreglaba, se mudaba de F4 a F5.
+
+Los valores de este módulo se conservan como la línea de D4 literal: borrar el
+archivo devuelve el comportamiento anterior, y las corridas de antes y después
+conviven en el almacén distinguidas por `version_scoring`.
+
 Sobre el ciclo 1: no existen ciclos previos, así que F3 (aceleración, que
 compara contra ciclos anteriores) y F6 (calificaciones previas) no aplican. D4
 los deja fuera y reparte su peso entre los demás.
