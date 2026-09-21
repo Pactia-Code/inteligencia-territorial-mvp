@@ -105,6 +105,56 @@ después, dejando la base en la revisión anterior. `check` compara el esquema
 real contra los modelos y es lo único que lo detecta. Detalle en
 [CLAUDE.md](CLAUDE.md) §6.1.
 
+### A qué base apunta: `DATABASE_URL`
+
+**Una sola variable decide la base.** No hay ninguna URL de entorno escrita en
+el código; `DATABASE_URL` se lee del `.env` o del entorno, y se acepta el nombre
+antiguo `URL_BASE_DATOS` con menos prioridad.
+
+```powershell
+# Local — SQLite, lo que corre el pipeline por defecto
+$env:DATABASE_URL = "sqlite:///data/territorial.db"
+
+# Neon — PostgreSQL gestionado. Pega la cadena tal cual la da el panel:
+# el prefijo postgresql:// se reescribe solo a psycopg 3.
+$env:DATABASE_URL = "postgresql://usuario:clave@ep-xxx.us-east-2.aws.neon.tech/territorial?sslmode=require"
+```
+
+**Neon publica dos hosts y solo uno sirve para migrar.** El que lleva `-pooler`
+va por PgBouncer en modo transacción, que no conserva la sesión entre
+sentencias: Alembic se rompería a media migración y la base quedaría en un
+estado que depende de por dónde fuera. Usa el **directo**, el mismo host sin
+`-pooler`. `aplicar_migraciones()` se niega a arrancar por el pooled en vez de
+dejar que falle a mitad.
+
+### Llevar la base a Neon
+
+Los datos de desarrollo son SQLite, así que no hay `pg_dump` que restaurar: la
+copia va por SQLAlchemy, fila a fila, que es además lo que exige la regla de que
+todo acceso a datos pase por el ORM.
+
+```powershell
+$env:DATABASE_URL = "postgresql://...ep-xxx.us-east-2.aws.neon.tech/territorial?sslmode=require"
+
+& $py -m alembic upgrade head        # crea el esquema desde cero
+& $py -m alembic check               # y comprueba que no quedó deriva
+& $py scripts\copiar_base.py          # copia local -> DATABASE_URL
+& $py scriptserificar_copia.py      # y comprueba que la copia es fiel
+```
+
+`copiar_base.py` conserva los identificadores —renumerarlos rompería
+`informe.id_corrida` y todo el linaje— y por eso reinicia las secuencias de
+Postgres al terminar. También reetiqueta como UTC las fechas que SQLite devuelve
+sin zona, para que no dependan de la zona del servidor. Se niega a escribir
+sobre un destino que ya tenga filas salvo que se le pase `--vaciar`, y `--seco`
+cuenta sin escribir.
+
+`verificar_copia.py` hace tres comprobaciones y devuelve código distinto de cero
+si alguna falla. La tercera es la que vale: **las corridas de scoring 3 y 4 son
+idénticas municipio por municipio** pese a llevar etiquetas distintas, así que
+si siguen siéndolo en el destino, los `float`, los enteros y el JSON cruzaron
+sin deformarse. Contar filas no lo detectaría.
+
 ## Estructura
 
 ```

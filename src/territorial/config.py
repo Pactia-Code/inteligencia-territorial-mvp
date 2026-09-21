@@ -11,7 +11,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Literal
 
-from pydantic import Field
+from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 RAIZ = Path(__file__).resolve().parents[2]
@@ -56,7 +56,15 @@ class Config(BaseSettings):
     # --- Almacenamiento (Addendum 02, D7 y D8) ---
     modo_almacen: Literal["local", "azure"] = "local"
     ruta_blob_local: Path = Path("data/blob")
-    url_base_datos: str = "sqlite:///data/territorial.db"
+    # Se lee de **DATABASE_URL**, y si no existe de `URL_BASE_DATOS`, que es
+    # como se llamaba antes. Cambiar de base —SQLite local, Neon, Azure— es
+    # cambiar esta variable; ninguna URL de un entorno concreto vive en el
+    # código. El valor por defecto es solo el arranque en limpio de un clon
+    # recién hecho, para que la ingesta pueda correr sin configurar nada.
+    url_base_datos: str = Field(
+        default="sqlite:///data/territorial.db",
+        validation_alias=AliasChoices("DATABASE_URL", "URL_BASE_DATOS"),
+    )
     azure_storage_connection_string: str | None = None
     azure_blob_contenedor: str = "territorial"
 

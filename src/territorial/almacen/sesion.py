@@ -1,7 +1,7 @@
 """Motor y sesiones de SQLAlchemy (Addendum 02, D8).
 
-Local es SQLite, Azure es PostgreSQL. La URL sale del .env, así que migrar
-no toca código.
+Local es SQLite; la nube es PostgreSQL —Neon hoy, Azure en el diseño original—.
+La URL sale de `DATABASE_URL`, así que cambiar de base no toca código.
 """
 
 from __future__ import annotations
@@ -15,16 +15,40 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from territorial.config import Config, obtener_config
 
+# Neon publica **dos** hosts para el mismo proyecto: el directo y uno con
+# `-pooler`, que va por PgBouncer en modo transacción. Se distinguen solo por
+# ese trozo del nombre, y es fácil copiar el que no es.
+MARCA_POOLED = "-pooler."
 
-def _preparar_sqlite(url: str, cfg: Config) -> str:
-    """Crea la carpeta del archivo .db y devuelve la URL con ruta absoluta."""
+
+def normalizar_url(url: str, cfg: Config) -> str:
+    """Deja la URL lista para SQLAlchemy, venga de donde venga.
+
+    Dos arreglos, los dos por pegar una URL tal cual la da su proveedor:
+
+    · **SQLite** — la ruta se vuelve absoluta y se crea su carpeta, para que el
+      script corra igual desde cualquier directorio.
+    · **PostgreSQL** — Neon (y casi todos) entregan `postgresql://…`, y con ese
+      prefijo SQLAlchemy busca **psycopg2**, que no está instalado; el que hay
+      es psycopg 3. Se reescribe a `postgresql+psycopg://`. Sin esto el fallo
+      es un `ModuleNotFoundError` que no menciona la base de datos.
+    """
     prefijo = "sqlite:///"
-    if not url.startswith(prefijo):
-        return url
-    ruta = Path(url[len(prefijo) :])
-    ruta = cfg.ruta_absoluta(ruta)
-    ruta.parent.mkdir(parents=True, exist_ok=True)
-    return f"{prefijo}{ruta}"
+    if url.startswith(prefijo):
+        ruta = cfg.ruta_absoluta(Path(url[len(prefijo) :]))
+        ruta.parent.mkdir(parents=True, exist_ok=True)
+        return f"{prefijo}{ruta}"
+
+    for viejo in ("postgresql://", "postgres://"):
+        if url.startswith(viejo):
+            return "postgresql+psycopg://" + url[len(viejo) :]
+
+    return url
+
+
+def es_pooled(url: str) -> bool:
+    """¿La URL apunta al endpoint con PgBouncer delante?"""
+    return MARCA_POOLED in url
 
 
 # Un motor por URL. No se puede usar lru_cache sobre el Config: los modelos de
@@ -34,11 +58,18 @@ _motores: dict[str, Engine] = {}
 
 def obtener_motor(config: Config | None = None) -> Engine:
     cfg = config or obtener_config()
-    url = _preparar_sqlite(cfg.url_base_datos, cfg)
+    url = normalizar_url(cfg.url_base_datos, cfg)
     if url in _motores:
         return _motores[url]
 
-    motor = create_engine(url, echo=False, future=True)
+    # `pool_pre_ping` solo en Postgres: una base gestionada cierra las
+    # conexiones ociosas por su cuenta, y sin esto la primera consulta después
+    # de un rato falla con la conexión cerrada en vez de reconectar. No es
+    # configuración de pooling —eso sigue sin tocarse—, es descartar conexiones
+    # muertas antes de usarlas.
+    motor = create_engine(
+        url, echo=False, future=True, pool_pre_ping=not url.startswith("sqlite")
+    )
 
     if url.startswith("sqlite"):
         # SQLite no aplica claves foráneas si no se le pide explícitamente.
@@ -79,9 +110,16 @@ def aplicar_migraciones(config: Config | None = None) -> None:
     alembic_cfg.set_main_option("script_location", str(ini.parent / "alembic"))
     # Se pasa la URL de ESTE Config, no la global: si no, migrar una base de
     # prueba acabaría migrando la de desarrollo sin que nadie lo notara.
-    alembic_cfg.set_main_option(
-        "sqlalchemy.url", _preparar_sqlite(cfg.url_base_datos, cfg).replace("%", "%%")
-    )
+    url = normalizar_url(cfg.url_base_datos, cfg)
+    if es_pooled(url):
+        raise ValueError(
+            "DATABASE_URL apunta al endpoint *pooled* (el host lleva "
+            f"'{MARCA_POOLED}'), y por ahí no se migra. PgBouncer en modo "
+            "transacción no conserva la sesión entre sentencias, así que los "
+            "bloqueos de DDL y las transacciones de Alembic se rompen a media "
+            "migración. Usa la conexión directa: el mismo host sin '-pooler'."
+        )
+    alembic_cfg.set_main_option("sqlalchemy.url", url.replace("%", "%%"))
     command.upgrade(alembic_cfg, "head")
 
 
