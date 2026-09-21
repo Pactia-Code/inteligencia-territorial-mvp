@@ -1,7 +1,7 @@
 # CLAUDE.md — MVP Inteligencia Territorial (Pactia)
 
 Guía de trabajo para agentes sobre este repositorio.
-**Actualizado:** 2026-09-21 · ciclo 1 dos veces, ciclo 3 con RSS
+**Actualizado:** 2026-09-21 · F4 a la mitad, corridas 19-21
 
 ---
 
@@ -150,7 +150,7 @@ funcionaba mal, no tenía nada que cruzar. Si algo lleva a la semana 8, es esto.
 | **M2** Clasificación | 🟡 Cumple CA-M2.1, no es reproducible | Prompt **v4**, lotes de 50, descartes registrados (CA-M2.5). **CA-M2.1 medido sobre el ciclo 1 completo: 95,2% y 94,9%** en dos pasadas (B2 cerrado). Pero **una de cada cinco señales cambia de destino entre pasadas idénticas** (**A6**): 19,5% aparecen en insight en una y no en la otra. No afecta al ranking —el score lee `senal_cruda`, no insights— pero sí a lo que las gerencias leen. Ver §8 y §9 |
 | **M3** Validación determinista | ✅ Funciona | 7 reglas R1–R7. Tasa de rechazo 0,0% tras corregir el falso positivo de puntuación de SECOP. **Muestra pequeña: insuficiente para concluir sobre H4** |
 | **M4** Correlación | 🟡 Funciona; CA-M4.3 sin ejercitar | Prompt v1, salida estructurada. CA-M4.1, CA-M4.2 y CA-M4.4 verificados contra el tenant. **La evidencia la une el código, no el modelo** (ver el encabezado de `agentes/correlacionador.py`). CA-M4.3 (bucle de aprendizaje) está implementado pero **no se puede probar**: no hay ni una calificación en la base |
-| **M5** Scoring y priorización | ✅ Funciona con pesos provisionales | F1–F6 de D4, normalización por cohorte, winsorizado de F4, redistribución por cobertura, top 3 y desglose. Los 3 ciclos puntúan y persisten. Los **pesos definitivos** los decide Gerencia General (**pendiente A1/4**); rigen los provisionales de D4 |
+| **M5** Scoring y priorización | ✅ Funciona con pesos provisionales | F1–F6 de D4, normalización por cohorte, winsorizado de F4, redistribución por cobertura, top 3 y desglose. Los 3 ciclos puntúan y persisten. Los **pesos definitivos** los decide Gerencia General (**pendiente A1/4**). Rigen los de `config/pesos.json`, que llevan **F4 a la mitad** por decisión de Analítica del 2026-09-21 — ver §7. Las corridas de antes y después conviven, distinguidas por `version_scoring` |
 | **M6** Síntesis y distribución | ⬜ Sin código | Canal de notificación sin decidir (**pendiente 11.4/3**); §2.2 excluye Teams |
 | **M7** Calificación | ⬜ Sin código | Depende del aplicativo web |
 | **M8** Trazabilidad y observabilidad | 🟡 Parcial | Linaje de dataset, **de prompts por contenido** (D7) y trazas por agente (CA-M8.2). Falta Langfuse y el checkpointing de CA-M8.4: instalados pero **sin cablear**, no hay `grafo/` |
@@ -176,9 +176,10 @@ funcionaba mal, no tenía nada que cruzar. Si algo lleva a la semana 8, es esto.
   gasto es el Correlacionador, y el 84% del total es solo su salida de
   razonamiento. **No cuenta el Sintetizador (M6), que también corre sobre
   gpt-5** y podría no ser menor.
-- **A5** — dos decisiones de M5 que D4 no cubre y que Analítica debe confirmar:
-  la **escala común** de los factores (min-max por cohorte) y el **umbral de
-  información** del 50% para entrar al top 3. Ver §7.
+- **A5** — de las dos decisiones de M5 que D4 no cubre, el **umbral de
+  información** ya está resuelto: queda en **50%**, en el centro de una meseta y
+  no en un filo. Sigue abierta la **escala común** de los factores: min-max por
+  cohorte es ordinal dentro de su corrida y no comparable entre ciclos. Ver §7.
 
 ---
 
@@ -305,6 +306,61 @@ La guarda registra qué fracción del peso nominal tenía datos y, por debajo de
 umbral, el municipio **queda fuera del top 3 pero no fuera del ranking**: no se
 le pone cero, que es lo que D4 prohíbe. Con el umbral en `0.0` vuelve el
 comportamiento literal de D4, y hay una prueba que lo verifica.
+
+**La fracción informada mide dato, no puntuación** (decisión 2 de Analítica,
+2026-09-21). `ValorFactor` separa `disponible` —¿el factor puntúa?— de
+`hay_dato` —¿existe el dato subyacente?—. Coinciden salvo en un caso: el piso
+de área de ELIC, donde el dato existe pero el porcentaje no es fiable sobre una
+base tan pequeña. Antes eso descontaba dos veces: del score, que es correcto, y
+de la fracción informada, que no. El piso sigue sin puntuar y sin entrar en la
+escala de la cohorte; lo único que cambia es que cuenta como informado y el
+crudo se conserva para el informe.
+
+### Los pesos que corren no son los de `pesos.py`
+
+`config/pesos.json` **está en el repositorio** y manda sobre
+`PESOS_POR_DEFECTO`. Lleva **F4 a la mitad** —15% en el ciclo 1, 9% en los
+otros dos, con lo liberado repartido en proporción— aprobado por Analítica el
+2026-09-21.
+
+F4 es **idéntico en los tres ciclos para los 18 municipios**: Apartadó marca
+−43,5% en el 1, en el 2 y en el 3. No es un factor lento, es una constante por
+municipio, y con el 18% del peso desplazaba a todos de forma fija sin que nadie
+pudiera subir ni bajar por él. A la mitad y no a cero porque con F4 en cero F5
+pasa a dominar el ciclo 3 con el 37% —donde SECOP está truncado— y Barranquilla
+sale primera con un 1,0000 sacado de un solo factor: la patología se mudaba, no
+se arreglaba.
+
+Las pruebas **no** leen ese archivo: `tests/conftest.py` las fija a los pesos de
+D4. Si no, cada recalibración de Gerencia rompería el suite por algo que no es
+un defecto.
+
+### La trampa que ya ha aparecido seis veces
+
+**Ausencia de SECOP no es ausencia de actividad.** Está escrito en D4 y aun así
+el sistema lo ha violado seis veces, siempre igual: SECOP es la fuente más rica,
+así que todo acaba calculándose desde ella, y el municipio que no contrata
+obra queda indistinguible del que no existe.
+
+1. **F5** dividía por días cubiertos, que salían solo de fechas de SECOP.
+   Barranquilla con 47 noticias se quedaba sin densidad mediática (A7).
+2. **El corte de cohorte** propagaba el NULL al conjunto si a un municipio le
+   faltaba SECOP, dejando el ciclo 3 sin fecha de auditoría (`_corte`).
+3. **El piso de área de ELIC** se descontaba de la fracción informada, como si
+   una base pequeña fuera un dato ausente (A8).
+4. **El prefiltro** marca como obra los contratos de servicios profesionales
+   que hablan de obra sin serlo, y no ve nada que no tenga forma de objeto
+   contractual (A2).
+5. **RSS no llegaba al Clasificador**: una de las tres barreras era el
+   diccionario de obra, calibrado sobre objetos de SECOP (B7).
+6. **La fracción informada** es casi toda peso derivado de SECOP. Al bajar F4,
+   los cinco municipios truncados del ciclo 3 pasan de 28% a **20%** informados
+   — Barranquilla entre ellos, con 12 insights de prensa que pasaron el
+   validador. El sistema sabe cosas de Barranquilla y su propia métrica dice
+   que no sabe nada (P1).
+
+Antes de escribir cualquier cosa que divida, filtre o cuente, pregúntate qué
+pasa con el municipio que tiene noticias y no tiene contratos.
 
 ## 8. Carga inicial y operación no son lo mismo
 
