@@ -1,7 +1,7 @@
 # CLAUDE.md — MVP Inteligencia Territorial (Pactia)
 
 Guía de trabajo para agentes sobre este repositorio.
-**Actualizado:** 2026-09-18 · ciclo 1 corrido dos veces
+**Actualizado:** 2026-09-21 · ciclo 1 dos veces, ciclo 3 con RSS
 
 ---
 
@@ -26,6 +26,15 @@ municipios que 7 gerencias califican de 1 a 5 durante 3 ciclos.
 Las hipótesis que valida son H1–H5 ([PRD §1](docs/prd.md)). **H4 — trazabilidad
 al 100% — es bloqueante**: si falla, la arquitectura no es auditable y no puede
 ir a producción. No se resuelve con más ingeniería.
+
+> **Sobre H3 y el conteo «2 de 3 fuentes».** El PRD §2.3 lista SECOP II, el feed
+> de noticias y TerriData como las tres fuentes, y eso induce a error al leer
+> H3. **TerriData no es una fuente comparable**: es contexto estructural
+> —población, economía, vivienda—, no señal de coyuntura, y no podría producir
+> insights aunque estuviera cargada. De las fuentes que **sí pueden originar
+> insights**, las dos están evaluadas: SECOP desde el principio y RSS desde el
+> 2026-09-21, con un 98% de supervivencia al validador. **H3 está más cerca de
+> respondido de lo que el conteo 2/3 sugiere.**
 
 Documentos de referencia, en orden de autoridad: [PRD](docs/prd.md) ·
 [Addendum 01 — Fuente de datos](docs/addendum-01-fuente-de-datos.md) ·
@@ -112,6 +121,27 @@ de `tests/` pasan.
 —`corrida_agentes` y `corrida_scoring`— y cada ejecución inserta una nueva. Dos
 pasadas del mismo ciclo conviven, que es lo que A6 necesita para medirse y lo
 que impide que un reproceso borre lo que las gerencias calificaron.
+
+### Dos resultados que no conviene enterrar
+
+**La fuente sin filtrar rinde mejor que la filtrada.** RSS entra al Clasificador
+**sin prefiltro** y convierte el **46%** de sus señales en insight; SECOP, que
+pasa por el diccionario de obra, convierte el **40%**. El prefiltro existe para
+ahorrar coste, y resulta que lo que deja pasar convierte *peor* que lo que nunca
+se filtró. No prueba que haya que quitarlo —SECOP son 19.640 señales y RSS 336—
+pero sí que su calibración no está seleccionando mejor señal, y refuerza A2
+desde un ángulo distinto al de las subcadenas rotas.
+
+Y cierra la duda que quedaba sobre el formato: de los 136 descartes de RSS,
+**128 son `sin_implicacion_inmobiliaria`**. El Clasificador no se atraganta con
+los titulares — les aplica la prueba de sustancia del prompt v4, que es lo que
+tiene que hacer.
+
+**Los 15 insights que cruzan RSS con SECOP son la primera evidencia de que la
+correlación multiagente produce algo que ninguna fuente sola produce.** Es
+CA-M4.1 literal —cruzar señales de categorías distintas sobre el mismo
+municipio— y con una sola fuente era **literalmente imposible**: M4 no
+funcionaba mal, no tenía nada que cruzar. Si algo lleva a la semana 8, es esto.
 
 | Módulo | Estado | Detalle |
 |---|---|---|
