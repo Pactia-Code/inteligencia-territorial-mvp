@@ -445,6 +445,15 @@ dos cosas.
 3 fijo»: es una desviación deliberada. Sigue siendo un número fijo y no un «todos
 los que pasen de X», que es lo que ese criterio quería evitar.
 
+> **Al usuario final no se le enseñan códigos de factor.** «Apoyado en F4+F5» es
+> correcto y no significa nada para una gerencia. Al presentarlo hay que traducir
+> a **fuentes**, y no es cosmético: F1, F2 y F3 salen los tres de SECOP, así que
+> cinco factores colapsan en tres fuentes. `F1/F2/F3` → contratación pública ·
+> `F4` → licencias de construcción · `F5` → prensa · `F6` → calificaciones de las
+> gerencias. «F4+F5» se lee **«licencias y prensa, sin contratación»**, y ahí lo
+> que falta informa más que lo que hay. Pendiente **M6-src**; el código interno no
+> cambia.
+
 **La fracción informada mide dato, no puntuación** (decisión 2 de Analítica,
 2026-09-21). `ValorFactor` separa `disponible` —¿el factor puntúa?— de
 `hay_dato` —¿existe el dato subyacente?—. Coinciden salvo en un caso: el piso
