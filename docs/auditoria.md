@@ -977,9 +977,203 @@ corrida 24 coinciden con el payload.
 
 ---
 
+## Área 3 — Componentes deterministas (validador y scoring)
+
+**Cerrada el 2026-09-22.** Archivos leídos completos para esta área, además de
+los del Preflight: `scripts/comparar_correlacionador.py`, `scripts/medir_prefiltro.py`,
+`scripts/probar_correlacionador.py`, `tests/test_reglas.py`, `tests/test_cifras.py`,
+`tests/test_compuertas.py`, `tests/test_scoring.py`. Comprobaciones ejecutadas,
+todas de solo lectura y sin LLM: re-ejecución del validador sobre los 326 insights
+del Clasificador de la corrida 10; recomputación del scoring de los tres ciclos
+contra las corridas 22, 23 y 24 (sesión cerrada con `rollback`); detección de
+cifras en la prosa de los 241 insights publicados contra sus señales de origen;
+`scripts/medir_prefiltro.py` (solo cuenta); `grep` de llamadas a modelo en las
+capas deterministas.
+
+### 3.1 Sondas — validador (M3)
+
+| Sonda | Respuesta | Evidencia |
+|---|---|---|
+| ¿El validador llama a algún modelo? | **No** | `validador.py:21-27` importa `dataclasses`, `datetime`, `urllib.parse` y `reglas.normalizacion`; `normalizacion.py:12-15` importa `re` y `unicodedata`. `grep` de `cliente_compartido\|responses\.\|openai` en `reglas/`, `scoring/`, `informes/`, `ingesta/`, `almacen/`: ninguna coincidencia fuera de un comentario (`prefiltro.py:8`) |
+| ¿Comprueba URL? | **Parcial** (decisión del dueño: Medio) | R3 exige el campo (`validador.py:97-100`); R4 exige esquema `http(s)` y `netloc` (`68-75`, `102-104`). No se resuelve. H-007 |
+| ¿Comprueba fecha? | **Sí** | R3 exige el campo; R5 exige fecha ISO interpretable (`58-65`, `106-108`); además R7 compara `url` y `fecha` de la evidencia con la fila real solo de forma indirecta —la fecha la copia código, no el modelo (`clasificador.py:196-206`) |
+| ¿Comprueba que la cita se localiza en el contenido de la fuente? | **Sí, en el contenido ingerido** (decisión del dueño: cumple; condición verificada en el área 4) | R6: `contiene(senal.contenido, cita)` tras normalizar mayúsculas, tildes, comillas y separadores sin descartar palabras (`normalizacion.py:36-60`); R7: la señal existe y es del mismo municipio y ciclo (`110-132`). El texto contra el que se compara es `texto_de(s)` —`objeto` para SECOP, «título. resumen» para RSS— (`ciclo.py:199-215, 369-380`). Nunca la red (`149-151`) |
+| ¿Los rechazos se persisten con motivo? | **Sí** | `ciclo.py:383-391` escribe `estado_validacion` y `motivo_rechazo`; `persistencia.guardar_insights` los inserta igual que a los válidos (`88-124`). Corrida 10: 4 rechazados, los 4 con motivo `evidencia[i]: la cita no aparece en la señal N` (insights 945, 991, 1004, 1064); 27 rechazados en total |
+| ¿Hay algún camino por el que un rechazado llegue a la correlación? | **No** | Producción: solo `estado_validacion == "validado"` entra en `para_correlacionar` (`ciclo.py:407-424`). Scripts: `comparar_correlacionador.py:197-201` filtra `validado` y `origen == clasificador`; `probar_correlacionador.py:100-115` valida en proceso y salta los rechazados. **Base:** 0 de los 170 consolidados tiene un origen rechazado (`SELECT`, 27 rechazados) |
+| ¿El veredicto es reproducible? | **Sí** | Re-ejecutado `validar()` sobre los 326 insights del Clasificador de la corrida 10 con el índice de señales del ciclo 3 por municipio: **326/326** veredictos idénticos a los persistidos, 0 diferencias |
+| ¿La tasa de rechazo se reporta como métrica primaria (CA-M3.3)? | **No** | No se persiste ni se muestra; `ResumenCiclo.__str__` (`ciclo.py:146-181`) imprime válidos, correlacionados y descartes pero no la tasa. Calculada aquí por `SELECT`: corrida 10 **4/326 = 1,2 %**; corrida 7: 7 rechazados de 344 filas; corrida 8: 15 de 365. H-010 |
+
+Nota sobre el alcance de R7: el índice `vistas` en producción se construye **solo
+con el lote enviado** (`ciclo.py:369-380`), y el Clasificador descarta antes toda
+evidencia que referencie una señal no entregada (`clasificador.py:196-206`), así
+que ningún rechazo puede deberse a citar una señal real no enviada. La tasa de
+rechazo mide, por construcción, citas no localizables.
+
+### 3.2 Sondas — scoring (M5)
+
+| Sonda | Respuesta | Evidencia |
+|---|---|---|
+| ¿Los pesos están externalizados? | **Sí** | `config/pesos.json` (F1 0,364286 · F2 0,182143 · F4 0,15 · F5 0,303571 en el ciclo 1; F4 0,09 en los ciclos 2 y 3), cargado por `pesos.cargar` (`112-144`) con validación de suma = 1,0 ± 0,001 (`82-109`); persistidos verbatim en `corrida_scoring.pesos` y en la huella de `version_scoring` (`scoring/persistencia.py:47-58, 103-104`). Los tests se aíslan de este archivo (`tests/conftest.py:24-27`) |
+| ¿El desglose por municipio se persiste? | **Sí** | `score_municipio.factores.aportes[]` con `codigo, crudo, normalizado, peso, aporte, sin_cobertura, hay_dato, motivo`, más `valores_crudos` en plano (`scoring/persistencia.py:109-134`). Verificado sobre Ibagué en el área 4 |
+| ¿La selección es determinista ante empates? | **Sí** | `scores.sort(key=lambda s: (-s.score, s.divipola))` (`ranking.py:362-365`); probado en `test_el_orden_es_reproducible_ante_empate` (`tests/test_scoring.py:412-421`). En el ciclo 3 no hay empates (0 de 18) |
+| ¿El tamaño de la selección sigue la desviación registrada (P1: 10, umbral 0)? | **Sí** | `Config.tope_top=10`, `umbral_informacion=0.0` (`config.py:90, 107`); `ResultadoCiclo.tope` se guarda en el resultado (`ranking.py:187, 392`); `componer` toma el tope del Config y lo registra en `calificacion.mostrados` (`composicion.py:294-297, 417`). Tests `344-366` |
+| ¿El scoring es reproducible? | **Sí, exactamente** | Recomputado con `entradas_del_ciclo` + `cortes_por_fuente` + `puntuar_ciclo` sobre la base actual: ciclo 3 vs corrida 24 → **diferencia máxima 0,00e+00, 18/18 rankings iguales**, `version_scoring` recomputada `v3+8d8a2954` = persistida; ciclo 1 vs corrida 22 y ciclo 2 vs corrida 23: idénticos, versiones `v3+bbf2789c` y `v3+8d8a2954` coinciden. Confirma la afirmación de `CLAUDE.md` §1.1 de que el scoring es lo único reproducible del sistema |
+| ¿Qué alimenta F1–F3? | El prefiltro | `agregacion.py:184-186` cuenta `n_obra` y `valor_obra` con `es_obra(objeto)`, que es coincidencia de subcadena sin límite de palabra (`prefiltro.py:53-58`). H-011 |
+
+### 3.3 CA-M6.3 medido sobre el informe publicado
+
+Las cifras **estructuradas** del payload —scores, rankings, aportes, cobertura,
+fracción informada, tres tarjetas de contexto con fuente y año, fechas y URLs de
+evidencia— las compone `informes/composicion.py`, que no llama a ningún modelo
+(§3.1 y `composicion.py:1-32`). `justificacion` es `None` y `sugerencias` es `[]`
+en los 10 municipios (el Sintetizador no existe).
+
+La **prosa** de cada insight —`resumen` e `implicacion_inmobiliaria`— la escribió
+el modelo y se publica tal cual. Medido con `reglas/cifras.py` (números de ≥3
+dígitos) sobre los 241 insights y contra el texto completo de sus señales de origen
+(`objeto` + `datos` para SECOP; título y resumen para RSS):
+
+| Métrica | Valor |
+|---|---|
+| Insights con alguna cifra escrita por el modelo | **15 de 241** (14 del Clasificador, 1 del Correlacionador; 15 en `resumen`, 1 en `implicacion`) |
+| Insights con cifras **no presentes** en sus señales de origen | **0 de 241** |
+
+Es decir: todas las cifras que el modelo escribió en lo publicado son
+transcripciones de la fuente; ninguna es inventada. Pero **ningún componente de
+la cadena de producción lo comprueba**: `reglas/cifras.py` solo lo usa
+`scripts/comparar_correlacionador.py:294-305`, y solo sobre la salida del
+Correlacionador en una comparación de versiones. `ciclo.py` no llama a `cifras`
+ni a `inventadas`. H-009.
+
+### 3.4 Prefiltro (contexto de F1–F3; pendiente A2)
+
+`scripts/medir_prefiltro.py` ejecutado (solo cuenta): sobre 19.640 señales SECOP
+pasan 7.628 (**reducción 61,2 %**; 56,6 / 60,8 / 66,0 % por ciclo). Motivos:
+obra 38,8 %, sin término territorial 32,9 %, ruido administrativo 28,3 %. La
+fracción que pasa por municipio va de **15,0 % (Puerto Colombia) a 58,9 %
+(Turbo)**. El diccionario compara por subcadena (`prefiltro.py:58`: `term in t`),
+lo que `pendientes.md` A2 documenta con ejemplos («via» en «Viviana»,
+«ampliación» de cobertura en contratos de enfermeras). Está registrado como
+pendiente abierto, no como desviación autorizada.
+
+### 3.5 Qué afirman las pruebas leídas
+
+- `tests/test_reglas.py` (295 líneas): 20 casos del validador —cita inventada,
+  señal inexistente, otro municipio, otro ciclo, Bing declarado y Bing
+  encubierto, una evidencia mala tumba el insight—, normalización con separadores
+  y cifras, prefiltro (4) y cobertura (6). Cubren R1–R7.
+- `tests/test_scoring.py` (685 líneas): independencia del tamaño (F1, F2, y la
+  prueba resumen `test_el_tamano_no_decide_el_ranking`), F3 sin tope inventado,
+  piso de ELIC con `hay_dato`, F5 por ventana (A7), F6 media de medias,
+  redistribución que conserva la suma, winsorizado de F4, empate reproducible,
+  tope fijo y configurable, umbral apagado y reactivable, caso Armenia.
+- `tests/test_cifras.py` (53): el falso positivo «calles 76 y 80», el mínimo de 3
+  dígitos y las variantes de redondeo.
+- `tests/test_compuertas.py` (78): el invariante «la compuerta no suspende a su
+  línea base» sobre las constantes `PISO_RUIDO` del script. Prueba constantes, no
+  una medición: si alguien edita `PISO_RUIDO` a mano, el test sigue pasando.
+
+### 3.6 Hallazgos
+
+**H-009 · Alto · Riesgo · Confianza Alta · Área 3 · CA-M6.3 (conjunto bloqueante), CLAUDE.md §2.2**
+*La prosa publicada contiene cifras escritas por el modelo y ninguna compuerta
+de producción lo comprueba.* 15 de los 241 insights del informe 5 llevan al menos
+un número de tres o más dígitos en `resumen` o `implicacion_inmobiliaria`; **los
+15 están en sus señales de origen** (0 inventadas). La única detección existente
+vive en un script de comparación:
+
+```
+scripts/comparar_correlacionador.py:294-300
+        # --- fuga de cifras, sobre la pasada B ---
+        permitidas: set[str] = set()
+        for i in insights:
+            permitidas |= numeros(i.resumen) | numeros(i.implicacion_inmobiliaria or "")
+            ...
+        inventadas = numeros(texto_de(rb)) - permitidas
+```
+
+y `ciclo.py` no la invoca ni para el Clasificador ni para el Correlacionador.
+*Escenario:* en una pasada futura el Clasificador escribe «beneficia a 3.480
+hogares» —cifra real de `contexto_municipal`, que el propio proyecto ya vio
+filtrarse en el control v1/v2 (`comparar_correlacionador.py:28-32`)— y el
+informe la publica sin que nada la detecte; el conjunto bloqueante se rompe en
+silencio. **Por qué no es Crítico (razón escrita, como exige el criterio A):**
+el estado medido del informe publicado es limpio —241/241 sin cifras inventadas—
+y todas las cifras estructuradas las compone código; lo que falta es el control
+que impida que deje de ser así. **Por qué es Alto y no Medio:** una sola cifra
+inventada publicada invalidaría la confianza en el informe entero (H4/CA-M6.3), y
+el propio proyecto declara que «una cifra real escrita por el modelo sigue siendo
+una cifra escrita por el modelo» (`reglas/contexto.py:3-6`), lectura bajo la cual
+los 15 casos ya son una desviación. Queda en Preguntas abiertas (P-3) qué lectura
+adopta el dueño.
+
+**H-010 · Medio · Brecha · Confianza Alta · Área 3 · CA-M3.3**
+*La tasa de rechazo del validador no se reporta ni se persiste como métrica.*
+CA-M3.3 la declara «métrica primaria» y «tasa de alucinación medida». Ningún
+módulo la calcula: `ResumenCiclo.__str__` (`ciclo.py:146-181`) imprime válidos,
+correlacionados y descartes; `corrida_agentes` guarda `senales_procesadas` y
+tokens pero no rechazados; `ciclo.n_rechazados` existe y vale 0 (H-003). Se
+obtiene solo por `SELECT` sobre `insight.estado_validacion`: **corrida 10, 4/326
+= 1,2 %**. *Escenario:* el informe de resultados y el panel de CA-M9.13 tienen que
+reconstruirla a mano cada vez, y dos personas pueden reconstruirla con
+denominadores distintos (¿326 del Clasificador o 364 con consolidados?).
+
+**H-011 · Medio · Riesgo · Confianza Alta · Área 3 · Addendum 01 D4 (F1–F3), pendiente A2**
+*El diccionario de obra decide F1, F2 y F3 por coincidencia de subcadena sin
+límite de palabra.*
+
+```
+src/territorial/reglas/prefiltro.py:53-58
+def es_obra(texto: str | None) -> bool:
+    t = normalizar(texto)
+    if not t:
+        return False
+    return any(term in t for term in TERMINOS_OBRA)
+```
+
+`agregacion.py:184-186` cuenta `n_obra` y `valor_obra` con esa función, así que
+los tres factores de contratación —el 53,7 % del peso en los ciclos 2 y 3 y el
+54,6 % en el 1, según `config/pesos.json`— heredan sus falsos positivos.
+Medido: la fracción marcada como obra va del 15,0 % al 58,9 % según el municipio.
+*Escenario:* un municipio con muchos contratos de «prestación de servicios… vía
+ampliación de cobertura» puntúa alto en F1 sin obra real; el ranking se mueve
+por el diccionario y no por el territorio. Está registrado como pendiente abierto
+A2 con los mismos ejemplos, y el dueño ha pedido no tocarlo durante la auditoría;
+se consigna porque condiciona la lectura del ranking publicado.
+
+### 3.7 Estado de los CA del área
+
+| CA | Estado | Base |
+|---|---|---|
+| CA-M3.1 | **Parcial (Medio)** — decisión del dueño | «Localizable»: cumple, 933/933 citas del informe; «accesible»: sintaxis (H-007) |
+| CA-M3.2 | **Cumple** | Rechazados persistidos con motivo; 27 filas, 4 en la corrida publicada |
+| CA-M3.3 | **Parcial** | La tasa existe por derivación (1,2 % en la corrida 10) pero no se reporta ni se persiste (H-010) |
+| CA-M3.4 | **Cumple** | Filtro en `ciclo.py:407-424`; 0 de 170 consolidados con origen rechazado; scripts también filtran |
+| CA-M5.1 | **Cumple** | Ranking completo, explicable factor a factor y reproducido con diferencia 0 en los tres ciclos |
+| CA-M5.2 | **Desviación autorizada** (Addendum 01 D4/§6) | Features de SECOP y ELIC en lugar de TerriData; F6 íntegro, sin ejercitar (0 calificaciones) |
+| CA-M5.3 | **Cumple** | `config/pesos.json` con validación; sin cambio de código |
+| CA-M5.4 | **Desviación autorizada** (P1) | Tope fijo de 10, umbral 0; verificado en Config, resultado y payload |
+| CA-M5.5 | **Cumple** | `factores_que_empujaron` y aportes persistidos por municipio y corrida |
+| CA-M6.3 | **Parcial** | Cifras estructuradas: compuestas por código, 100 %. Prosa: 15 insights con cifras del modelo, 0 inventadas, sin compuerta en producción (H-009). Lectura definitiva pendiente de P-3 |
+| CA-M6.4 (composición) | **Cumple** | Contexto con `fuente` y `anio` (`composicion.py:117-152`); evidencia con `url` y `fecha`. La presentación se juzga en las áreas 5 y 6 |
+
+### 3.8 No verificable en esta área
+
+- Comportamiento del validador ante evidencia de una fuente **viva** (URL que
+  cambia o desaparece): fuera del modelo de snapshot; artefacto: conector real en
+  Fase 0.
+- F6 (calificaciones previas ponderadas por gerencia): implementado y probado con
+  datos sintéticos (`test_scoring.py:159-168`), nunca ejercitado con datos reales
+  (0 calificaciones).
+
+*Fin del área 3.*
+
+---
+
 ## Preguntas abiertas (acumuladas; se consolidan en la sección 9 al cierre)
 
 | # | Pregunta | Decide | Prioridad | Origen |
 |---|---|---|---|---|
+| P-3 | **¿Qué lectura de CA-M6.3 rige?** (a) La literal del PRD: ninguna cifra *generada* sin fuente → los 15 insights con cifras transcritas cumplen y H-009 es un Riesgo por falta de compuerta. (b) La del propio proyecto (`reglas/contexto.py:3-6`): ninguna cifra *escrita* por el modelo → los 15 son una desviación no registrada y H-009 sube a Crítico. Decide también si la compuerta de `reglas/cifras.py` debe cablearse en `ciclo.py` antes de distribuir | Dueño | **Previa a distribución** | Área 3, H-009 |
 | P-1 | **El informe 5 se compuso con el Correlacionador v1** (corrida 10, `version_correlacionador='v1'`, `id_prompt=2`) mientras `CLAUDE.md` declara vigente v2 desde el 2026-09-21. ¿Se republica el ciclo 3 con una corrida v2 —lo que exige volver a correr M4 y gastar tokens— o se corrige `CLAUDE.md` para que diga que lo publicado es v1? | Dueño | **Previa a distribución** | Área 4, §4.3 |
 | P-2 | **H-005 debe resolverse antes de cargar los 7 usuarios reales.** ¿Cómo se congela la lista de gerencias autorizadas por ciclo —en el payload del informe, en una tabla propia o en Alembic— para que el denominador de H2 no dependa del estado actual de `usuario`? | Dueño | **Previa a distribución** | Área 4, H-005 y §4.9 |
