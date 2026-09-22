@@ -68,15 +68,15 @@ export async function cicloEsEditable(idCiclo: number): Promise<boolean> {
  */
 export async function gerenciaDelCorreo(
   correo: string,
-): Promise<{ id_gerencia: string; nombre: string; rol: string } | null> {
+): Promise<{ id: number; id_gerencia: string; nombre: string; rol: string } | null> {
   const filas = await sql`
-    SELECT id_gerencia, nombre, rol
+    SELECT id, id_gerencia, nombre, rol
       FROM usuario
      WHERE lower(correo) = lower(${correo})
        AND activo
   `;
   return filas.length
-    ? (filas[0] as { id_gerencia: string; nombre: string; rol: string })
+    ? (filas[0] as { id: number; id_gerencia: string; nombre: string; rol: string })
     : null;
 }
 

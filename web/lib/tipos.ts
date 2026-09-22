@@ -112,8 +112,17 @@ export interface MunicipioDelInforme {
 }
 
 export interface Informe {
-  /** CA-M6.5 y CA-M9.17. Viene en el payload para que no se olvide al pintar. */
+  /**
+   * El texto que CA-M6.5 y CA-M9.17 exigen. Va en el payload para que no se
+   * olvide al pintar, y queda en el registro de cada informe publicado.
+   */
   aviso: string;
+  /**
+   * Lo que se muestra: «MVP». **Desviacion deliberada** de esos dos criterios
+   * (pendiente `M6-aviso`). La version corta dice que es una version temprana
+   * y **quita la parte que informa** — que nadie reviso el contenido.
+   */
+  aviso_corto: string;
   ciclo: number;
   ventana: { desde: string | null; hasta: string | null };
   corridas: {

@@ -227,9 +227,13 @@ export default async function VistaCiclo({
         {!editable && (
           <span className="t-label etiqueta">Ciclo cerrado · no se califica</span>
         )}
-        {/* CA-M6.5 y CA-M9.17: arriba, no al pie. */}
+        {/*
+          CA-M6.5 y CA-M9.17 piden el texto completo; se muestra el corto por
+          decision de producto (pendiente `M6-aviso`). El largo sigue en el
+          payload: `informe.aviso`.
+        */}
         <span className="t-label etiqueta etiqueta-aviso" style={{ marginLeft: "auto" }}>
-          ⚠ {informe.aviso}
+          ⚠ {informe.aviso_corto}
         </span>
       </header>
 

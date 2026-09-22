@@ -17,6 +17,17 @@ import { gerenciaDelCorreo } from "./consultas";
 export const COOKIE_CORREO = "correo";
 
 export interface Identidad {
+  /**
+   * El id de fila de `usuario`. Hace falta para `seguimiento.id_usuario`.
+   *
+   * **Y aqui hay una asimetria deliberada que conviene no «corregir»:**
+   * `seguimiento` atribuye a PERSONA y `calificacion` a GERENCIA. No es un
+   * descuido. El seguimiento necesita saber quien cambio un estado —es una
+   * decision operativa con consecuencias—; la calificacion no debe saberlo,
+   * porque CA-M7.2 exige que sea independiente y que nadie vea la de otro.
+   * Igualarlas por consistencia romperia una de las dos.
+   */
+  id: number;
   correo: string;
   id_gerencia: string;
   nombre: string;

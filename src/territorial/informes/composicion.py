@@ -54,6 +54,20 @@ from territorial.informes.seleccion import PEDIDAS, pedir_calificacion
 # superficie pueda publicar sin ella por descuido.
 AVISO_MVP = "MVP — contenido no validado por Analítica"
 
+# **Desviación deliberada de CA-M6.5 y CA-M9.17**, decisión de producto del
+# 2026-09-22: la pantalla muestra solo «MVP».
+#
+# El texto largo se conserva aquí a propósito. Es lo que los criterios exigen y
+# lo que queda en el registro de cada informe publicado, así que la divergencia
+# entre lo pedido y lo mostrado se ve en el propio payload en vez de quedar
+# enterrada en una plantilla.
+#
+# **La consecuencia, escrita para que no se pierda:** «MVP» dice que es una
+# versión temprana; «no validado por Analítica» decía que **nadie revisó el
+# contenido**, que es lo que el lector necesita saber. La versión corta quita
+# justo la parte que informa. Ver el pendiente `M6-aviso`.
+AVISO_CORTO = "MVP"
+
 # De código de factor a fuente legible (M6-src). El nombre largo es para la
 # ficha; el corto, para la frase de una línea.
 FUENTES: dict[str, tuple[str, str]] = {
@@ -377,6 +391,7 @@ def componer(
 
     return {
         "aviso": AVISO_MVP,
+        "aviso_corto": AVISO_CORTO,
         "ciclo": corrida.id_ciclo,
         "ventana": {
             "desde": _iso(corrida.ventana_desde),
