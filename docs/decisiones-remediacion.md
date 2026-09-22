@@ -53,9 +53,66 @@ Registradas tras cerrar F0.1. Amplían, no sustituyen, las de arriba.
   después** de cargar los usuarios reales y **desactivar los de prueba**, y
   **la ejecuta el dueño** con el comando que se le deje preparado.
 
+## Decisiones del 2026-09-22 sobre identidad y gerencias reales (tercera tanda)
+
+**Esta tanda sustituye lo decidido antes sobre el token, el enlace personal y el
+archivo de semilla de usuarios.** Donde contradiga a las dos anteriores, manda
+esta.
+
+- **1) No se adopta el token. La identificación es por correo tecleado.** Se
+  activa **R-A2**: **H-012 queda abierto como riesgo aceptado por el dueño**, no
+  cerrado. Quien conozca un correo autorizado puede calificar por esa gerencia, y
+  el `id_usuario` registrado sería el del suplantado. F0.3 pasa a reducir el
+  residual sin eliminarlo: **firma la cookie** para que no se pueda forjar
+  editándola, **restringe la identificación a correos registrados y activos** y
+  **deja rastro** de cada identificación y de quién escribió cada calificación.
+  Al publicar H1 y H2 hay que decir que la atribución es **declarativa**.
+- **2) El núcleo del experimento son 5 gerencias, no 7.** Es una **desviación del
+  PRD**, que habla de 7 (§1, CA-M9.1).
+  - `prd`: `general`, `juridica`, `rotacion_portafolio`, `producto_logistica`,
+    `producto_hoteles_oficinas`.
+  - **Financiera no participa**, y **Oficinas y Hotelería son una sola gerencia**.
+  - `adicional`: `administrativa`, `analitica`.
+- **3) Reporte.** H2 se reporta sobre las gerencias **`prd`**; las **adicionales,
+  aparte**. H1 se reporta **con y sin** ellas.
+- **4) Los dos usuarios del dueño.** Wilmar Sánchez tiene
+  `wsanchez@pactia.com` (calificador de `analitica`) y
+  `wsanchez+admin@pactia.com` (**administrador**). Son dos filas distintas
+  porque **el operador del pipeline también califica** y sus calificaciones
+  tienen que poder separarse al analizar H1.
+- **5) `config/usuarios.csv` y `config/gerencias.json` se versionan en git**, por
+  indicación del dueño de que no contienen datos sensibles. Cambia lo decidido
+  en la tanda anterior (archivo ignorado): **ya no hay archivo ignorado ni
+  tokens que ocultar**, porque no hay tokens.
+
+### Consecuencias registradas de esta tanda
+
+- **Una tabla más que la app escribe: `identificacion`** (quién se identificó,
+  cuándo, con qué navegador y desde qué IP si el despliegue la da). CA-M9.16
+  enumera `calificacion` y `seguimiento`; esto es **dato de sesión**, que el
+  criterio de la auditoría admite, y **nace en Alembic** como todo lo demás. Se
+  registra aquí para que la ampliación de la superficie de escritura sea
+  explícita y no un descubrimiento posterior.
+- **`calificacion.id_usuario`** queda **anulable**. La escribe siempre la app;
+  se deja anulable para no obligar a fabricar un usuario en cada prueba o carga
+  de Python. La garantía que importa —que toda calificación hecha desde la web
+  lleva autor— vive en el camino de escritura, no en el esquema.
+- **El rol de «solo lectura» no existe** y **no se ha creado**. El modelo admite
+  `gerencia` y `administrador` (`ck_rol`). Una fila del CSV con
+  `puede_calificar=no` y `es_administrador=no` **se rechaza con un mensaje que
+  pide decidirlo**. Hoy ninguna fila está en ese caso. **Leer no requiere estar
+  en `usuario`**, así que un usuario de solo lectura no necesita fila; si se
+  quiere igualmente por registro, hay que ampliar `ck_rol` con una migración.
+- **Guarda prevista para F0.6** (no implementada aún; se implementa en esa
+  subfase): `publicar()` se negará si **no hay ninguna gerencia `prd`** entre las
+  autorizadas, o si **alguna gerencia `prd` no tiene al menos un usuario activo
+  con rol `gerencia`**. **Sin números fijos en el código**: el conjunto sale de
+  `config/gerencias.json` y de `usuario`, no de un «5» ni de un «7» escritos a
+  mano.
+
 ## Orden de ejecución acordado
 
-F0.1 → **F0.1b** → F0.3 → F0.2 → F0.4 (ampliada por la decisión e) → F0.7 →
+F0.1 → **F0.1b** → F0.3 (sin token, ver tercera tanda) → F0.2 → F0.4 (ampliada por la decisión e) → F0.7 →
 F0.8 → F0.5 → F0.6 (solo preparación y verificación en branch).
 
 ## Reglas de ejecución
