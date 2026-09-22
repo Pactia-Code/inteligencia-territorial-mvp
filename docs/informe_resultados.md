@@ -174,6 +174,12 @@ Lo calificado de forma opcional se cuenta **aparte**, y es señal de interés, n
 de cumplimiento. Al publicar el resultado de H2 hay que decir explícitamente cuál
 fue el denominador, o el número no será interpretable.
 
+**El denominador se conoce antes de medir**, y eso no es menor: los usuarios
+autorizados se precargan y quien no está en la lista no puede calificar
+(`[pendientes M9-acceso]`). Así el universo queda fijado de antemano en vez de
+descubrirse al final, que es la forma habitual de que una tasa de respuesta
+acabe siendo indiscutible y a la vez incomparable.
+
 ---
 
 ## H3 — Las fuentes públicas contienen señal accionable
