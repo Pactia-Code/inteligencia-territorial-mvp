@@ -2191,6 +2191,78 @@ porque el sistema no la registra.
 
 ---
 
+## Área 1 — Ingesta (M1 sobre el snapshot)
+
+**Cerrada en la sesión 2.** Archivos leídos completos para esta área, además de
+los del Preflight: `scripts/cargar_snapshot.py`, `scripts/cargar_divipola.py`,
+`scripts/cargar_contexto.py` (`ingesta/snapshot.py`, `nomenclator.py` y
+`contexto.py` estaban leídos). Ejecutado, sin escrituras: recuento del snapshot
+archivado (`data/blob/raw/territorial_data_cruda_v3.json`, hash verificado en el
+área 4) contra `senal_cruda`, y `git check-ignore` sobre `data/`.
+
+### 1.1 Sondas
+
+| Sonda | Respuesta | Evidencia |
+|---|---|---|
+| ¿Aislamiento de fallos por fuente? | **No aplica / No verificable** | No hay fuentes vivas (Addendum 01 §1, D9). La ingesta lee un JSON y tolera que a un municipio le falte una fuente (`(muni.get("secop") or {})`, `snapshot.py:83, 104, 124`), pero **es una sola transacción**: `cargar` abre `with sesion(cfg)` (`159`) y cualquier excepción —un `DivipolaInvalido` en `desde_bloque`, `186`— revierte todo. Es todo-o-nada, no aislamiento. CA-M1.4 queda «sin validar», como declara el Addendum 01 §5 |
+| ¿URL y fecha de publicación original persistidas? | **Sí** | SECOP: `url` y `fecha` del registro (`snapshot.py:93-96`); RSS: `link` y `fecha` (`115-117`); ambas con 0 NULL en 19.640 y 336 filas (§0.2, área 4). El registro completo viaja en `datos` (D3). Bing sin URL ni fecha por diseño (D1). `capturado_en` es la hora de **carga** (`modelos.py:233`), no la fecha de captura del snapshot (`raw.generado`), que no se persiste por fila |
+| ¿La deduplicación se apoya en contenido estable y la impone una restricción? | **Restricción sí; contenido no** | `uq_senal_ciclo_hash` real en el esquema (área 4) más el conjunto `vistos` en memoria (`snapshot.py:183-209`). El hash es de **identidad** —`sha256(fuente\|divipola\|id_externo)` para SECOP, del `link` para RSS, del ciclo para Bing (`99, 119, 136`)—, no del contenido (H-001). Alcance por ciclo (desviación 11.2). **Sobre el snapshot real no se ejercita**: 0 duplicados por `(municipio, id)` en SECOP y 0 por `(municipio, link)` en RSS |
+| ¿La ingesta es sin pérdida respecto del snapshot? | **Sí, exacta** | Snapshot: 19.640 registros SECOP (0 fuera de la ventana extendida, 0 sin fecha), 336 noticias (0 fuera), 18 textos Bing → base: 19.640 / 336 / 54 (= 18 × 3 ciclos). La ventana declarada por el archivo (hasta 2026-08-09) se extendió a 2026-09-09 (D2) y absorbe los 1.007 registros posteriores |
+| ¿Qué registra la traza por fuente (CA-M1.5)? | **Solo en pantalla** | `Resumen` (`snapshot.py:29-51`) imprime señales por ciclo y por fuente, fuera de ventana y duplicadas; `cargar_snapshot.py:37-38` lo muestra y no lo guarda. Persistido: `dataset_version` (hash, URI, `n_registros = 18`, que son **municipios**, no registros) y `ciclo.id_dataset`. `ciclo.n_senales` vale 0 (H-003) |
+| Nomenclátor y contexto (tablas maestras) | **Idempotentes y desacoplados** | `nomenclator.cargar` compara en Python y reporta sobrantes sin borrar (`137-166`); `cargar_contexto.cargar` igual (`70-89`); ambos scripts llaman a `aplicar_migraciones()` antes de escribir (regla 2 de D8). Sin FK a `municipio` a propósito (`modelos.py:101-107`). **Sus insumos no están en el repositorio**: `data/divipola_terridata_1102.csv`, `data/TerriData.txt.zip` (3,31 GB) y `data/contexto_municipal.csv` están ignorados por git (`git check-ignore`) |
+| Texto que se persiste vs. texto que ve el modelo | Distintos para RSS | `senal_cruda.contenido` guarda solo el **título** (`snapshot.py:116`); el Clasificador y el validador reciben «título. resumen» vía `texto_de` (`ciclo.py:199-215`), coherentes entre sí. El nivel 3 de evidencia del Design System («contenido capturado, tal como se recibió») mostraría el título y no el resumen |
+
+### 1.2 Hallazgos
+
+**H-042 · Bajo · Brecha · Confianza Alta · Área 1 · CA-M1.5, PRD §4.2 (`dataset_version`)**
+*La traza de ingesta por fuente no se persiste y `dataset_version.n_registros`
+no cuenta registros.* El resumen con «cuántos registros aportó cada fuente por
+ciclo» —lo que CA-M1.5 exige y lo que el Addendum 01 §5 reinterpreta— se imprime
+y se pierde:
+
+```
+scripts/cargar_snapshot.py:36-38
+    inicio = time.perf_counter()
+    resumen = cargar(cfg)
+    print(resumen)
+```
+
+`dataset_version.n_registros = len(datos.get("municipios", []))` (`snapshot.py:166`)
+guarda **18** bajo un nombre que sugiere señales. Los conteos se pueden rehacer
+desde `senal_cruda`, por eso es Bajo; pero «fuera de ventana» y «duplicadas» no
+se pueden rehacer sin el snapshot, y hoy valen 0 y 0 solo porque esta auditoría
+lo recontó.
+
+**H-043 · Bajo · Riesgo · Confianza Alta · Área 1 · D7 (linaje de dataset), reproducibilidad**
+*`entidad_divipola` y `contexto_municipal` no son regenerables desde el
+repositorio.* Sus fuentes viven en `data/` (ignorado): el CSV del nomenclátor, el
+zip de TerriData y el CSV exportado. A diferencia del snapshot, **ninguno está
+archivado en el blob ni anclado por hash** en `dataset_version`: la tabla
+`contexto_municipal` (1.102 filas) alimenta las bandas del Correlacionador v2 y
+las tres tarjetas del informe, y nada en la base dice de qué archivo salió. Bajo
+porque el contenido es público y las cargas son idempotentes; sube si alguien
+rehace el contexto desde otro corte de TerriData.
+
+### 1.3 Estado de los CA del área
+
+| CA | Estado | Base |
+|---|---|---|
+| CA-M1.1 | **Desviación autorizada** (Addendum 01 §5) · Cumple como reinterpretado | Carga las 4 fuentes del snapshot y particiona por ventana sin intervención manual; 19.640 / 336 / 54 exactos |
+| CA-M1.2 | **Cumple** | URL y fecha original en 100 % de SECOP y RSS; Bing excluido por D1 |
+| CA-M1.3 | **Desviación autorizada** (11.2) | Restricción única real por (ciclo, hash de identidad); no ejercitada por el snapshot; ver H-001 sobre contenido |
+| CA-M1.4 | **No verificable** | Sin fuentes vivas; la ingesta es atómica, no aislada por fuente |
+| CA-M1.5 | **Parcial** | Conteos por fuente solo en stdout (H-042); linaje de dataset por hash sí (D7) |
+
+### 1.4 No verificable en esta área
+
+- Comportamiento con una fuente caída o un registro malformado en producción:
+  exige ingesta viva (Fase 0). Artefacto: conector real con una fuente simulada
+  que falle.
+
+*Fin del área 1.*
+
+---
+
 ## Preguntas abiertas (acumuladas; se consolidan en la sección 9 al cierre)
 
 | # | Pregunta | Decide | Prioridad | Origen |
