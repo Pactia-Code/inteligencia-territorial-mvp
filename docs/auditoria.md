@@ -154,6 +154,9 @@ sin volver a abrirlo.
 `scripts/medir_prefiltro.py` · `scripts/probar_correlacionador.py` ·
 `tests/test_reglas.py` · `tests/test_cifras.py` · `tests/test_compuertas.py` ·
 `tests/test_scoring.py`.
+*Añadidos al cerrar el área 2:* los 6 prompts `src/territorial/agentes/prompts/*.md`
+· `scripts/probar_clasificador.py` · `scripts/comparar_prompts.py` ·
+`scripts/dos_pasadas.py` · `scripts/comparar_pasadas.py`.
 
 **Leídos parcialmente:** `docs/addendum-01-fuente-de-datos.md` (§3 D1–D4, §5, §6,
 §7, anexo) · `docs/addendum-02-stack.md` (D5 cabecera, D9, pendientes, anexo) ·
@@ -1431,6 +1434,205 @@ B se clasifica como Brecha documental y pasa a Preguntas abiertas (P-4).
   varias instancias: solo se observó el servidor de desarrollo.
 
 *Fin del área 5.*
+
+---
+
+## Área 2 — Agentes y prompts (M2 y M4)
+
+**Cerrada el 2026-09-22.** Archivos leídos completos para esta área, además de
+los del Preflight: los 6 prompts (`clasificador_v1..v4.md`,
+`correlacionador_v1..v2.md`), `scripts/probar_clasificador.py`,
+`scripts/comparar_prompts.py`, `scripts/dos_pasadas.py`,
+`scripts/comparar_pasadas.py`. Comprobaciones ejecutadas, sin LLM ni escrituras:
+`git log -S` sobre la promoción de v2; `SELECT` sobre `prompt_version`, versiones
+y linaje por corrida, descartes de la corrida 10, señales Bing y
+`contexto_no_verificado`; contabilidad señal a señal de CA-M2.5.
+
+### 2.1 Qué versión se carga en ejecución y cómo queda registrada
+
+| Paso | Código | Verificado |
+|---|---|---|
+| Versión vigente | Constante `VERSION_PROMPT`: `"v4"` (`clasificador.py:35`), `"v2"` (`correlacionador.py:66`) | — |
+| Carga | `instrucciones(version)` lee `prompts/<agente>_<version>.md` y lo cachea (`clasificador.py:113-118`, `correlacionador.py:203-208`) | Los 6 archivos existen |
+| Linaje por contenido (D7) | `registrar_prompt` calcula SHA-256, archiva el texto en el blob y falla con `PromptDivergente` si la misma versión ya está registrada con otro hash (`linaje.py:39-78`); `procesar_ciclo` lo llama **antes** del bucle (`ciclo.py:515-527`) | `prompt_version` tiene **2 filas**: `clasificador v4` (id 1) y `correlacionador v1` (id 2); hash de tabla = blob = archivo en `src/` para v4, v1 **y v2** (área 4) |
+| Registro por corrida | `corrida_agentes.version_clasificador/version_correlacionador/version_pipeline` (`persistencia.py:65-73`); `insight.version_prompt` (etiqueta) e `insight.id_prompt` (FK al linaje) (`88-124`, `127-166`) | Corrida 10: 326 insights v4 → `id_prompt 1`, 38 consolidados v1 → `id_prompt 2`, 0 NULL |
+
+**No existe fila `correlacionador v2` en `prompt_version`.** Ninguna corrida
+registrada con linaje ha corrido el prompt que `CLAUDE.md` declara vigente.
+
+**Por qué la corrida 10 (publicada) usó el Correlacionador v1 — cronología
+ejecutada** (`git log --date=iso`, timestamps de la base en UTC):
+
+| Momento (UTC) | Hecho |
+|---|---|
+| 2026-09-21 16:02:54 | Abre la corrida 10 (`corrida_agentes.fecha_corrida`), con `version_correlacionador = 'v1'` |
+| 2026-09-21 21:15:38 | Commit `9afa300` **añade** `correlacionador_v2.md` («contexto municipal de TerriData, bandeado para el Correlacionador») |
+| 2026-09-21 21:33:01 | Abren las corridas 11 y 12: control **v1 contra v1** (`comparar_correlacionador.py --a v1 --b v1 --persistir`), ambas `version_correlacionador = 'v1'` |
+| 2026-09-21 22:33:54 | Commit `165097e` **promueve** v2 (`VERSION_PROMPT = "v2"`) |
+| 2026-09-22 16:53:40 | Se publica el informe 5 sobre la corrida 10 |
+
+La corrida 10 es **cinco horas anterior** a que existiera el archivo v2 y seis y
+media a su promoción. Desde entonces **nadie ha vuelto a correr `procesar_ciclo`**:
+la última corrida con Clasificador es la 10. El contraste v1/v2 que justificó la
+promoción (40 convergencias, tipología 35, citado en `CLAUDE.md` y
+`comparar_correlacionador.py:88-99`) **no está persistido**: las únicas corridas
+del script son la 11 y la 12, y son v1/v1. Alimenta P-1 y el área 8 (H-023).
+
+### 2.2 Restricciones declaradas en los prompts y qué las hace cumplir
+
+| Restricción (prompt) | Dónde se declara | Lo hace cumplir el código | Evidencia |
+|---|---|---|---|
+| Cita textual exacta, «copia y pega» | `clasificador_v4.md:75-77` (v1–v3 igual) | **Sí** — validador R6 + R7 | `validador.py:134-136`; 933/933 en el informe (área 4) |
+| Solo `id_senal` recibidos | `clasificador_v4.md:79`; `correlacionador_v2.md:37` | **Sí** — el Clasificador descarta evidencia con ids ajenos antes de validar; `ensamblar` rechaza grupos con ids no entregados | `clasificador.py:196-206`; `correlacionador.py:318-323` |
+| «No inventes cifras» / «Ninguna cifra puede salir de ti» | `clasificador_v4.md:81`; `correlacionador_v2.md:63-64, 89-92` | **No en producción** — solo en el script de comparación | H-009 (área 3) |
+| Un hecho, un insight; agrupar por frente | `clasificador_v4.md:7-16, 83-86` | **No** — nada fusiona ni detecta duplicados en `ciclo.py`; `comparar_prompts.py:60-74` lo mide solo en calibración | Pendiente A4; 235 descartes «duplicado» en la corrida 10 muestran que el modelo sí declara duplicados, pero nada verifica los que no declara |
+| `cambio_fisico` obligatorio (prueba de sustancia) | `clasificador_v4.md:18-47` | **Solo el esquema** — Pydantic exige el campo (`clasificador.py:62-64`), pero **no se persiste**: `guardar_insights` no lo escribe y `insight` no tiene la columna | `persistencia.py:103-116`; `PRAGMA table_info(insight)` sin `cambio_fisico`. H-025 |
+| Categoría de una lista cerrada de 7 | `clasificador_v4.md:59-71` | **Parcial** — fuera de la lista el código escribe `otro` y conserva el insight | `clasificador.py:209`; corrida 10: **23 de 326 (7,1 %) en `otro`**, que no pueden correlacionar (`correlacionador.py:85, 333-348`). H-026 |
+| Toda señal en insight o en descarte | `clasificador_v4.md:107-108` | **Sí** — `sin_contabilizar` se registra con `declarado=False` | `clasificador.py:227-231`, `persistencia.py:236-248`. Corrida 10: 1.018 en insights ∪ 1.632 en descarte = **2.487 = `senales_procesadas`**; 98 no mencionadas (3,9 %) quedaron registradas; 163 señales aparecen en ambos lados (usadas y declaradas «duplicado») |
+| Códigos de descarte cerrados (8) | `clasificador_v4.md:110-123` | **No** — `motivo` es texto libre sin validar | Corrida 10: **307 motivos distintos fuera de la lista** («duplicado de la señal 3613…», «arrendamiento de un lote…») |
+| Prohibido «se observa», «sugiere», «podría» | `clasificador_v4.md:100` | **No en producción** — `comparar_prompts.py:38-41` lo mide en calibración | — |
+| Sin restricción de tipología ni de idioma (CA-M2.3, CA-M2.4) | `clasificador_v4.md:88-91` | Solo prompt; no hay nada en código que restrinja, así que se cumple por ausencia | — |
+| ≥ 2 categorías distintas, ≥ 2 insights, `otro` no cuenta | `correlacionador_v2.md:12-33` | **Sí** — `ensamblar` | `correlacionador.py:76-85, 325-348` |
+| «No copies citas ni URLs»; el sistema une la evidencia | `correlacionador_v2.md:57-61` | **Sí, estructural** — el esquema de salida no tiene campo de evidencia; `_unir_evidencia` la compone | `correlacionador.py:125-137, 281-299` |
+| `confianza` ∈ {alta, media, baja} | `correlacionador_v2.md:54-55` | **Sí** — fuera del conjunto cae a `baja` | `correlacionador.py:350-352` |
+| Contexto Bing: orientativo, nunca evidencia, no cites | `correlacionador_v2.md:98-102`; D1 | **Sí para evidencia** (validador R2 sobre los orígenes; el consolidado no copia evidencia). **No para el marcado**: D1 exige `contexto_no_verificado: true` y nunca se escribe | H-021 |
+| El contexto estructural explica, nunca crea (regla 1) | `correlacionador_v2.md:84-87` | **Solo en calibración** — compuerta 1 de `comparar_correlacionador.py:355-381` con piso de ruido; nada en producción | Diseño declarado en CLAUDE.md §2.4 |
+| Usa la banda, nunca el número (regla 2) | `correlacionador_v2.md:89-92` | **Sí en la entrada** (`ContextoBandeado` sin cifras ni años, `contexto.py:84-119`); **no en la salida** en producción | H-009 |
+| Calificaciones previas ajustan el criterio (CA-M4.3) | `correlacionador_v2.md:104-111` | **Sí, cableado** — consulta `ciclo.py:184-196`, resumen por categoría en el prompt `correlacionador.py:216-233, 269-271` | **Nunca ejercitado**: 0 calificaciones. La consulta lee `calificacion` de **todas** las corridas de ciclos previos, no solo de las publicadas, así que H-013 (calificar un insight ajeno al informe) contaminaría también este bucle |
+
+### 2.3 Por qué `contexto_no_verificado` nunca se escribe
+
+D1 (Addendum 01): «todo insight correlacionado que haya usado contexto de Bing
+debe marcarlo en su traza (`contexto_no_verificado: true`)». El contexto Bing
+**sí llega al prompt**: `ciclo.py:427-432` pasa `[s.contenido for s in crudas if
+fuente == "Bing"]` y `_serializar` lo inserta recortado a 400 caracteres
+(`correlacionador.py:262-267`). Hay una señal Bing por municipio y ciclo (18 por
+ciclo, 1.600 caracteres de media), así que **todos los consolidados de todas las
+corridas se produjeron con contexto Bing en la entrada**. Pero:
+
+- `InsightCorrelacionado` no tiene el atributo (`correlacionador.py:148-171`);
+- `guardar_correlaciones` no lo asigna (`persistencia.py:144-161`);
+- `ResultadoCorrelacion` no registra si hubo contexto.
+
+Resultado: `contexto_no_verificado = 0` en los 1.213 insights (`SELECT`), incluidos
+los 170 consolidados. La columna existe desde `949a8ff9e15d:117` y nadie la
+conecta. Es una omisión, no una decisión: ningún documento la retira.
+
+### 2.4 Linaje ausente en las corridas 11 y 12
+
+`comparar_correlacionador.py --persistir` crea sus corridas y guarda sus
+consolidados **sin pasar por el linaje**:
+
+```
+scripts/comparar_correlacionador.py:226-233
+        with sesion() as s:
+            for etiqueta, version in (("A", args.a), ("B", args.b)):
+                c = crear_corrida(
+                    s, id_ciclo, sorted(filas_por_muni),
+                    version_correlacionador=version,
+                )
+scripts/comparar_correlacionador.py:307-313
+        if args.persistir:
+            with sesion() as s:
+                for etiqueta, r in (("A", ra), ("B", rb)):
+                    guardar_correlaciones(
+                        s, r, ids_corrida[etiqueta], d,
+                        {i.id: i.id for i in insights},
+                    )
+```
+
+No llama a `registrar_prompt`, no pasa `id_prompt`, no pasa `version_clasificador`
+(queda `None`), y `tipo_corrida` sale «completa» porque cubre los 18 municipios.
+`SELECT`: corridas 11 y 12 → 39 y 42 insights, **81/81 con `id_prompt NULL`**,
+`version_prompt = 'v1'` solo como etiqueta. Las corridas 1, 2 y 4 también tienen
+NULL (46 filas), pero son anteriores a `a6ac249fcec9` y la migración lo declara.
+Consecuencias: (a) el piso de ruido de la compuerta (`PISO_RUIDO`) se midió sobre
+corridas cuyo prompt no está anclado por hash —la etiqueta dice v1, pero D7 existe
+justo porque la etiqueta no ancla—; (b) `ciclos_publicables` ya las excluye por
+`_corrio_la_cadena` (`publicacion.py:66-86`), así que no pueden publicarse.
+
+### 2.5 Hallazgos
+
+**H-021 · Medio · Brecha · Confianza Alta · Área 2 · Addendum 01 D1 (implicación de trazabilidad), CA-M4.4**
+*Ningún consolidado marca que usó contexto Bing, aunque todos lo recibieron.*
+Evidencia en §2.3. *Escenario:* una gerencia lee una convergencia cuya
+`por_que_convergen` se apoyó en el texto de Bing («generado por LLM, NO
+verificado», D1) y nada en el dato lo distingue de una convergencia apoyada solo
+en evidencia validada. El validador impide que Bing sea evidencia; no impide que
+oriente la correlación, que es exactamente lo que D1 pidió marcar. Medio: no
+rompe H4 (la evidencia sigue siendo verificable) pero incumple una implicación
+explícita del addendum normativo.
+
+**H-022 · Medio · Brecha · Confianza Alta · Área 2 · Addendum 02 D7, CA-M8.2**
+*El script de comparación persiste corridas sin linaje de prompt.* Evidencia en
+§2.4: 81 insights en las corridas 11 y 12 con `id_prompt NULL` y sin
+`registrar_prompt`. *Escenario:* si `correlacionador_v1.md` se editara sin cambiar
+la versión —el caso que D7 y `linaje.py:13-16` existen para detectar—, nada
+delataría que el piso de ruido de la compuerta se midió con otro prompt. El
+control v1-vs-v1 es la base de A11 y de la promoción de v2.
+
+**H-023 · Medio · Brecha documental · Confianza Alta · Área 2 · CLAUDE.md §4 (M4 «v2 vigente»), pendiente A10, P-1**
+*«v2 vigente» no tiene ninguna corrida registrada detrás.* `prompt_version` no
+tiene fila v2; ninguna `corrida_agentes` tiene `version_correlacionador = 'v2'`;
+las cifras que sostienen la promoción (40 convergencias frente al rango 39–42,
+tipología 35 frente a 24) se produjeron en una ejecución de
+`comparar_correlacionador.py` **sin `--persistir`** o no se conservaron. El
+informe publicado es v1 (§2.1). *Escenario:* el área 8 no podrá reproducir la
+evidencia de A10 desde la base, y `CLAUDE.md` describe como vigente un prompt que
+las gerencias no van a leer. Se resuelve con P-1.
+
+**H-024 · Bajo · Riesgo · Confianza Alta · Área 2 · CLAUDE.md §9 (documentado)**
+*El Clasificador no pasa por `techo_de`.*
+
+```
+src/territorial/agentes/clasificador.py:165
+            max_output_tokens=cfg.max_tokens_salida,
+```
+
+frente a `techo_de("correlacionador", cfg)` en `correlacionador.py:434`. Hoy los
+dos techos valen 16.384 y no cambia nada; `CLAUDE.md` §9 lo declara como «detalle
+menor pendiente». Se consigna para la matriz.
+
+**H-025 · Bajo · Brecha · Confianza Alta · Área 2 · Prompt v3/v4 («prueba de sustancia»), CA-M2.5**
+*`cambio_fisico` —la respuesta obligatoria que justifica cada insight— se exige
+al modelo y se descarta al persistir.* El esquema lo requiere
+(`clasificador.py:62-64`) y `clasificar_lote` lo conserva en el dict
+(`clasificador.py:212`), pero `guardar_insights` no lo escribe y la tabla no tiene
+la columna. *Escenario:* al diagnosticar A4 o revisar por qué un insight pasó la
+prueba de sustancia, la respuesta del modelo ya no existe.
+
+**H-026 · Bajo · Defecto · Confianza Alta · Área 2 · CA-M2.2**
+*23 de los 326 insights del Clasificador en la corrida 10 (7,1 %) no tienen
+categoría válida.* El prompt exige una de siete; el código sustituye por `otro`
+(`clasificador.py:209`) en vez de rechazar o reintentar, y esos insights no pueden
+entrar a una convergencia. CA-M2.2 exige «categoría» por insight; `otro` no es
+una. Bajo porque la degradación está contenida (`CATEGORIA_DESCONOCIDA`), y
+`CLAUDE.md` §9 ya registra que la calidad de categorización cae con lotes
+grandes.
+
+### 2.6 Estado de los CA del área
+
+| CA | Estado | Base |
+|---|---|---|
+| CA-M2.1 | **Cumple (medido en el área 8)** | Reducción calculable desde `corrida_agentes.senales_procesadas` y `descarte`; la cifra reportada (95,2 %/94,9 %) se verifica en el área 8 |
+| CA-M2.2 | **Parcial** | DIVIPOLA, resumen, implicación y evidencia siempre; categoría inválida en el 7,1 % (H-026) |
+| CA-M2.3 · CA-M2.4 | **Cumple** | Declarados en el prompt (`clasificador_v4.md:88-91`); nada en código restringe idioma ni tipología |
+| CA-M2.5 | **Cumple** | Contabilidad señal a señal cerrada: 2.487 = 2.487 en la corrida 10; los no mencionados quedan con `declarado=False`. Los códigos de descarte no se validan (texto libre) |
+| CA-M4.1 | **Cumple** | Cruce de ≥ 2 categorías conocidas exigido por código; 38 consolidados en la corrida 10 |
+| CA-M4.2 | **Cumple (v1); v2 sin ejercitar** | `implicacion_inmobiliaria` obligatoria en el esquema; el contexto bandeado que debía mejorarla (v2) no ha corrido en ninguna corrida registrada (H-023) |
+| CA-M4.3 | **No verificable** | Cableado y probado con datos sintéticos (`test_correlacionador.py`, no abierto); 0 calificaciones. Riesgo de contaminación vía H-013 |
+| CA-M4.4 | **Cumple** | Verificado 23/23 consolidados del informe (área 4) |
+| CA-M8.2 (linaje de prompt) | **Parcial** | Completo en las corridas de `procesar_ciclo`; ausente en las del script de comparación (H-022) |
+
+### 2.7 No verificable en esta área
+
+- Reproducibilidad del Clasificador y del Correlacionador (A6 19,5 %, A11 14,1 %):
+  exige volver a llamar al modelo; se verifica en el área 8 solo la
+  reproducibilidad de las **cifras** desde las corridas persistidas (7/8 y 11/12).
+- Efecto real del bloque de contexto bandeado sobre la salida: no existe corrida
+  registrada de v2.
+
+*Fin del área 2.*
 
 ---
 
