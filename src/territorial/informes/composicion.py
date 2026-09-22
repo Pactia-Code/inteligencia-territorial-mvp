@@ -68,8 +68,8 @@ FUENTES: dict[str, tuple[str, str]] = {
 # describan lo mismo con palabras en distinto orden.
 ORDEN_FUENTES: tuple[str, ...] = ("contratación", "licencias", "prensa", "calificaciones")
 
-# Las que entran en la frase de una línea: solo evidencia sobre el territorio.
-# Ver `resumir_fuentes`.
+# Las que entran en la frase de una línea. **Condicional**: F6 vuelve en
+# cuanto existan calificaciones. Ver `resumir_fuentes`.
 FUENTES_EN_RESUMEN: tuple[str, ...] = ("contratación", "licencias", "prensa")
 
 
@@ -133,12 +133,16 @@ def campos_de_contexto(fila: ContextoMunicipal | None) -> list[dict]:
 def resumir_fuentes(presentes: set[str], ausentes: set[str]) -> str:
     """«licencias y prensa, sin contratación». Nombra también lo que falta.
 
-    **Solo entran las fuentes territoriales**, no las calificaciones. F6 es el
-    bucle de aprendizaje, no evidencia sobre el territorio, y hoy falta en los
-    18 municipios porque no hay ni una calificación. Una línea que dijera «sin
-    calificaciones» en los diez enseñaría al lector a saltársela, y esta línea
-    es justo la que tiene que leerse (M6-orden). Sigue apareciendo en el
-    desglose factor a factor, que es donde toca.
+    **Hoy no entran las calificaciones**, y es condicional, no permanente. F6
+    falta en los 18 municipios porque no hay ni una calificación todavía, así
+    que una línea que dijera «sin calificaciones» en los diez enseñaría al
+    lector a saltársela — y esta línea es justo la que tiene que leerse
+    (M6-orden). Sigue apareciendo en el desglose factor a factor.
+
+    **Cuando existan calificaciones, F6 vuelve a la frase**: entonces su
+    ausencia sí distingue a un municipio de otro, que es lo único que se le pide
+    a esta línea. Basta con quitar el filtro de `FUENTES_EN_RESUMEN`. Que nadie
+    lea esto dentro de seis semanas como que F6 se sacó de la presentación.
     """
     def enumerar(nombres: set[str], union: str) -> str:
         ordenados = [n for n in FUENTES_EN_RESUMEN if n in nombres]
