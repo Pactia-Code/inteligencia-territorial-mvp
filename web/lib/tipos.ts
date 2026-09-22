@@ -59,6 +59,11 @@ export interface InsightPublicado {
   origen: string;
   /** «Directo» o «Correlacionado»: como llego al informe. Trabajo de M4. */
   trayecto: string;
+  /**
+   * De que cuota entro si se pide calificar: `correlacionado`,
+   * `contratacion`, `prensa` o `relleno`. `null` si no se pide.
+   */
+  tipo_pedido: string | null;
   ids_senal: number[];
   evidencia: Evidencia[];
 }
@@ -98,6 +103,12 @@ export interface MunicipioDelInforme {
    * reciben exactamente los mismos (CA-M6.6). Vacio donde todo es opcional.
    */
   insights_pedidos: number[];
+  /**
+   * Que composicion salio: `{correlacionado: 3, contratacion: 1, prensa: 1}`,
+   * o la que toque tras el relleno. Al analizar H1 hara falta saber si las
+   * calificaciones bajas venian de correlacionados o de directos.
+   */
+  composicion_pedida: Record<string, number>;
 }
 
 export interface Informe {

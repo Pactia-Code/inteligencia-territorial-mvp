@@ -8,61 +8,82 @@ Es lo que hace medible H1, así que las garantías importan más que el criterio
   **congelada en el payload**. Si cada gerencia recibiera insights distintos,
   CA-M6.6 se rompe —«formato idéntico para las 7, sin personalización»— y las
   calificaciones dejan de ser comparables entre sí.
-· **Los cinco son siempre del municipio que se está viendo.** No tiene sentido
-  entrar a Funza y que pida calificar insights de otro sitio.
+· **Los cinco son siempre del municipio que se está viendo.**
 
 
-Por qué 2 fijas y 3 aleatorias, y no 5 de un tipo
---------------------------------------------------
-Las dos de más peso miden **lo que el sistema priorizó**; las tres aleatorias,
-**lo que produce en general**. La mezcla da un diagnóstico que ninguna de las
-dos da sola: si las gerencias califican alto las fijas y bajo las aleatorias,
-**el scoring acierta y el pipeline produce ruido**. Con solo las de más peso
-ese caso se vería como un éxito.
+La cuota: 3 correlacionados, 1 de contratación, 1 de prensa
+------------------------------------------------------------
+Se selecciona **por tipo y explícitamente**, decisión de Analítica del
+2026-09-22. Los correlacionados son la prioridad porque son **lo que ninguna
+fuente sola produce**: los 15 insights que cruzan RSS con SECOP fueron la
+primera evidencia de que la correlación multiagente aporta algo.
+
+*Antes se ordenaba por número de señales de respaldo. Aquel criterio nació de
+pedir «las 2 de mayor peso en el score», que **no existe** —el score se calcula
+desde `senal_cruda` y los insights no entran en él, por eso es inmune a A6—. El
+proxy funcionaba, pero acababa seleccionando correlacionados sin decirlo. Ahora
+se dice.*
 
 
-Qué significa «de mayor peso», y por qué es una interpretación
----------------------------------------------------------------
-**Los insights no tienen peso en el score.** El score se calcula desde
-`senal_cruda` —por eso es inmune a A6— y los insights no entran en él. No hay
-un «peso del insight» que leer.
+La regla de relleno, y por qué hace falta
+------------------------------------------
+En el ciclo 3 hay **38 correlacionados sobre 364 insights repartidos en 18
+municipios**: muchos no llegarán a 3 y algunos no tendrán ninguno. Sin relleno,
+la muestra encogería justo en los municipios con menos convergencia, que son los
+que más interesa mirar.
 
-El proxy es **cuántas señales respalda cada insight**: es lo más cercano a
-«cuánto de la señal del municipio explica este insight», es determinista y se
-explica en una frase. Los consolidados del Correlacionador agrupan varias
-señales, así que tienden a quedar arriba — que es coherente con «lo que el
-sistema priorizó».
+  1. Los correlacionados que haya, hasta 3.
+  2. Después 1 de contratación y 1 de prensa.
+  3. Si una categoría no existe en ese municipio, se completa con lo que haya.
 
-**Es una interpretación, no una lectura del dato.** Si Analítica prefiere otra
-—los correlacionados primero, o los de la categoría del factor que más aporta—
-se cambia aquí y solo aquí.
+**Siempre 5**, mientras el municipio tenga 5.
+
+
+Y el payload registra qué composición salió
+--------------------------------------------
+`3+1+1`, `1+2+2` o la que toque, y el tipo de cada insight pedido. Al analizar
+H1 hará falta saber si las calificaciones bajas venían de correlacionados o de
+directos, y sin esto habría que reconstruirlo a mano.
 """
 
 from __future__ import annotations
 
 import random
 
-# Las que se piden por municipio, y cuántas de ellas son fijas.
 PEDIDAS = 5
-FIJAS = 2
+
+# Cuántos de cada tipo, en orden de prioridad. Lo que falte se rellena.
+CUOTA: tuple[tuple[str, int], ...] = (
+    ("correlacionado", 3),
+    ("contratacion", 1),
+    ("prensa", 1),
+)
 
 FUENTE_PRENSA = "RSS"
+FUENTE_CONTRATACION = "SECOP II"
+ORIGEN_CORRELACIONADOR = "correlacionador"
 
 
-def es_de_prensa(insight: dict) -> bool:
-    """¿Alguna de sus evidencias viene de prensa?"""
-    return any(
-        (e.get("fuente") or "") == FUENTE_PRENSA for e in (insight.get("evidencia") or [])
-    )
+def _fuentes(insight: dict) -> set[str]:
+    return {(e.get("fuente") or "") for e in (insight.get("evidencia") or [])}
 
 
-def _peso(insight: dict) -> tuple[int, int]:
-    """Orden determinista: más señales primero, y el id desempata.
+def tipo_de(insight: dict) -> str:
+    """A qué cuota pertenece. Un insight cae en **una sola**.
 
-    Sin el desempate por id, dos insights con las mismas señales podrían salir
-    en orden distinto entre procesos y la muestra dejaría de ser reproducible.
+    El orden importa: un correlacionado cruza fuentes por definición, así que si
+    se mirara la fuente primero contaría dos veces. Y la prensa va antes que la
+    contratación porque es la minoritaria —336 señales frente a 19.640—: si
+    empatara con SECOP, no saldría nunca.
     """
-    return (-len(insight.get("ids_senal") or []), insight["id"])
+    if insight.get("origen") == ORIGEN_CORRELACIONADOR:
+        return "correlacionado"
+    fuentes = _fuentes(insight)
+    if FUENTE_PRENSA in fuentes:
+        return "prensa"
+    if FUENTE_CONTRATACION in fuentes:
+        return "contratacion"
+    return "otro"
 
 
 def pedir_calificacion(
@@ -70,34 +91,55 @@ def pedir_calificacion(
     semilla: int,
     divipola: str,
     pedidas: int = PEDIDAS,
-    fijas: int = FIJAS,
-) -> list[int]:
-    """Los ids de los insights que se pide calificar en ese municipio.
+) -> tuple[list[int], dict[int, str], dict[str, int]]:
+    """Devuelve (ids pedidos, tipo de cada uno, composición que salió).
 
     La semilla se combina con el DIVIPOLA para que dos municipios del mismo
     ciclo no saquen la misma posición de la lista, sin dejar de ser
     reproducible: misma semilla y mismo municipio, misma muestra siempre.
     """
-    if len(insights) <= pedidas:
-        return sorted(i["id"] for i in insights)
-
-    ordenados = sorted(insights, key=_peso)
-    elegidos = ordenados[:fijas]
-    resto = ordenados[fijas:]
+    if not insights:
+        return [], {}, {}
 
     rnd = random.Random(f"{semilla}|{divipola}")
-    elegidos += rnd.sample(resto, pedidas - fijas)
+    # Orden estable de partida: sin esto, el orden de lectura de la base
+    # cambiaría la muestra y dejaría de ser reproducible entre procesos.
+    por_tipo: dict[str, list[dict]] = {}
+    for i in sorted(insights, key=lambda x: x["id"]):
+        por_tipo.setdefault(tipo_de(i), []).append(i)
+    for lista in por_tipo.values():
+        rnd.shuffle(lista)
 
-    # **Al menos una de prensa, si el municipio tiene.** Sin esto, un municipio
-    # con 47 insights de contratación y 2 de prensa casi nunca mostraría prensa,
-    # y H1 no diría nada sobre la fuente que mejor convierte (46% frente al 40%
-    # de SECOP). Se sustituye la última aleatoria, no una fija.
-    if not any(es_de_prensa(i) for i in elegidos):
-        ya = {i["id"] for i in elegidos}
-        prensa = next(
-            (i for i in ordenados if es_de_prensa(i) and i["id"] not in ya), None
-        )
-        if prensa is not None:
-            elegidos[-1] = prensa
+    elegidos: list[dict] = []
+    tipos: dict[int, str] = {}
 
-    return sorted(i["id"] for i in elegidos)
+    def tomar(candidatos: list[dict], cuantos: int, etiqueta: str) -> None:
+        # Se comprueba contra `tipos`, que crece: mirar una copia tomada al
+        # entrar dejaría repetir dentro de la misma llamada.
+        for i in candidatos:
+            if cuantos <= 0 or len(elegidos) >= pedidas:
+                return
+            if i["id"] in tipos:
+                continue
+            elegidos.append(i)
+            tipos[i["id"]] = etiqueta
+            cuantos -= 1
+
+    for etiqueta, cuantos in CUOTA:
+        tomar(por_tipo.get(etiqueta, []), cuantos, etiqueta)
+
+    # Relleno: lo que haya, en el mismo orden de prioridad de la cuota para que
+    # sea determinista, y marcado como relleno para poder distinguirlo en H1.
+    if len(elegidos) < pedidas:
+        resto = [
+            i
+            for etiqueta, _ in CUOTA
+            for i in por_tipo.get(etiqueta, [])
+        ] + por_tipo.get("otro", [])
+        tomar(resto, pedidas - len(elegidos), "relleno")
+
+    composicion: dict[str, int] = {}
+    for etiqueta in tipos.values():
+        composicion[etiqueta] = composicion.get(etiqueta, 0) + 1
+
+    return sorted(tipos), tipos, composicion

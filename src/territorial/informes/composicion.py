@@ -307,7 +307,7 @@ def componer(
     municipios = []
     for puesto, fila in enumerate(mostrados, start=1):
         nombre, depto = nombres.get(fila.divipola, (fila.divipola, ""))
-        vistos = [
+        crudos = [
             {
                 "id": i.id,
                 "categoria": i.categoria,
@@ -320,6 +320,15 @@ def componer(
             }
             for i in insights_por_muni.get(fila.divipola, [])
         ]
+        pedidos, composicion = [], {}
+        if puesto <= tope_calificable:
+            pedidos, tipos, composicion = pedir_calificacion(
+                crudos, semilla, fila.divipola
+            )
+        else:
+            tipos = {}
+        # Cada insight lleva de qué cuota entró, o `None` si no se pide.
+        vistos = [{**i, "tipo_pedido": tipos.get(i["id"])} for i in crudos]
         detalle, presentes, ausentes = _factores(fila)
         datos = fila.factores or {}
         municipios.append({
@@ -358,11 +367,12 @@ def componer(
             # M9-carga: qué se **pide** calificar. Lo elige código determinista
             # con la semilla congelada; ver `informes/seleccion.py`. Vacío en
             # los municipios que no se piden: ahí todo es opcional.
-            "insights_pedidos": (
-                pedir_calificacion(vistos, semilla, fila.divipola)
-                if puesto <= tope_calificable
-                else []
-            ),
+            "insights_pedidos": pedidos,
+            # Qué composición salió —3+1+1, 1+2+2, la que toque—. Al analizar
+            # H1 hará falta saber si las calificaciones bajas venían de
+            # correlacionados o de directos, y sin esto habría que
+            # reconstruirlo a mano.
+            "composicion_pedida": composicion,
         })
 
     return {

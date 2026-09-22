@@ -146,8 +146,25 @@ function Fila({
             </div>
           </div>
         ) : (
-          <div className="t-meta" style={{ marginTop: "var(--space-2)" }}>
-            opcional
+          // **Boton, no texto apagado.** Sin un control visible parece que no
+          // hay nada que pulsar y la fila clicable no se descubre sola. Es un
+          // `span` y no un `<button>` porque va dentro del enlace de la fila:
+          // anidar dos elementos interactivos seria HTML invalido.
+          <div style={{ marginTop: "var(--space-2)" }}>
+            <span
+              className="t-h3"
+              style={{
+                display: "inline-block",
+                padding: "var(--space-2) var(--space-3)",
+                border: "1px solid var(--color-border)",
+                borderRadius: "var(--radio-control)",
+                background: "var(--color-surface-alt)",
+                color: "var(--color-ink-muted)",
+                fontWeight: 400,
+              }}
+            >
+              Ver detalle
+            </span>
           </div>
         )}
       </div>
