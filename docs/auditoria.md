@@ -150,6 +150,10 @@ sin volver a abrirlo.
 `web/package.json` · `docs/prd.md` · `docs/audit-baseline.md` · `CLAUDE.md`.
 *Añadidos al cerrar el área 4:* las 11 migraciones `alembic/versions/*.py` ·
 `alembic.ini` · `scripts/cargar_usuarios.py`.
+*Añadidos al cerrar el área 3:* `scripts/comparar_correlacionador.py` ·
+`scripts/medir_prefiltro.py` · `scripts/probar_correlacionador.py` ·
+`tests/test_reglas.py` · `tests/test_cifras.py` · `tests/test_compuertas.py` ·
+`tests/test_scoring.py`.
 
 **Leídos parcialmente:** `docs/addendum-01-fuente-de-datos.md` (§3 D1–D4, §5, §6,
 §7, anexo) · `docs/addendum-02-stack.md` (D5 cabecera, D9, pendientes, anexo) ·
@@ -534,7 +538,7 @@ CA-M9.10 exige «registra usuario, gerencia, fecha y nota». *Escenario:*
 usuario que cambie de gerencia entre ciclos reescribe retroactivamente la gerencia
 de todo su historial de seguimiento. `id_usuario` es además nullable.
 
-**H-005 · Alto · Riesgo · Confianza Media · Área 4 · CA-M7.3, H2**
+**H-005 · Alto · Riesgo · Confianza Media · Área 4 · CA-M7.3, H2 — RESOLVER ANTES DE CARGAR LOS 7 USUARIOS REALES (decisión del dueño, §4.9)**
 *`sin_respuesta` no se registra y su denominador no está congelado por ciclo.* La
 no-respuesta es la ausencia de fila en `calificacion` (correcto para distinguirla de
 una nota baja: `ck_valor_1_5`), pero el denominador —qué gerencias estaban
@@ -558,9 +562,10 @@ recalcula con otro denominador y H2 deja de ser reproducible. Alto porque
 compromete la medición de H2. Confianza Media: estático, y H2 aún no se ha medido.
 Ocurrencia relacionada: ningún código calcula la tasa (CA-M7.5, área 5).
 
-**H-006 · Medio · Brecha · Confianza Alta · Área 4 · CA-M8.2, PRD §4.2 (`traza_agente.output_hash`)**
-*`traza_agente` no enlaza con la corrida y deja vacíos `hash_output`, `id_prompt`
-e `id_dataset`.* SELECT sobre 266 trazas: `hash_output` NULL 266, `id_prompt` NULL
+**H-006 · Alto (reevaluado en §4.8; originalmente Medio) · Riesgo · Confianza Alta · Área 4 · CA-M8.2, CA-M8.3, H5, PRD §4.2 (`traza_agente.output_hash`)**
+*El linaje de ejecución no es atribuible ni completo: `traza_agente` no enlaza con
+la corrida y deja vacíos `hash_output`, `id_prompt` e `id_dataset`.* (El linaje de
+**datos** cumple; ver §4.8.) SELECT sobre 266 trazas: `hash_output` NULL 266, `id_prompt` NULL
 266, `id_dataset` NULL 266, `hash_input` NULL en las 51 del correlacionador aunque
 `hash_entrada` existe (`correlacionador.py:470-473`) y no se llama:
 
@@ -644,4 +649,337 @@ podrían necesitar.
   `publicar()` simultáneos): no se ejecuta nada que escriba. Artefacto: prueba de
   integración contra una rama de Neon.
 
+### 4.7 Ampliación (2026-09-22): la traza sobre los 241 insights del informe 5
+
+A petición del dueño, la verificación de §4.3 se ejecutó —solo con `SELECT`—
+sobre **todos** los insights del informe publicado: 241 insights en 10
+municipios, 933 evidencias. Por cada insight se comprobó: existe en la base con
+`id_corrida = 10`, el municipio y `estado_validacion = validado` del payload;
+`ids_senal` y `evidencia` del payload son idénticos a la fila; si es consolidado,
+sus `ids_insight_origen` existen, son del Clasificador, están validados y la unión
+de sus `ids_senal` es exactamente la del consolidado; cada evidencia apunta a una
+señal existente del mismo municipio y ciclo, con `url` y `fecha` iguales a la fila
+y **cita localizable** en el contenido ingerido; cada señal es **byte a byte** el
+registro del snapshot anclado por hash; y el `score`/`ranking` del municipio en
+la corrida 24 coincide con el payload.
+
+| Puesto | Municipio | Insights | Sin fallo | Citas loc./tot. | Snapshot | Score = payload |
+|---|---|---|---|---|---|---|
+| 1 | Ibagué 73001 | 8 | 8 | 46/46 | 8/8 | sí |
+| 2 | Armenia 63001 | 8 | 8 | 11/11 | 8/8 | sí |
+| 3 | Funza 25286 | 49 | 49 | 183/183 | 49/49 | sí |
+| 4 | Barranquilla 08001 | 12 | 12 | 41/41 | 12/12 | sí |
+| 5 | Buenaventura 76109 | 38 | 38 | 192/192 | 38/38 | sí |
+| 6 | Facatativá 25269 | 30 | 30 | 151/151 | 30/30 | sí |
+| 7 | Turbo 05837 | 21 | 21 | 72/72 | 21/21 | sí |
+| 8 | Mosquera 25473 | 11 | 11 | 42/42 | 11/11 | sí |
+| 9 | Dosquebradas 66170 | 20 | 20 | 84/84 | 20/20 | sí |
+| 10 | La Dorada 17380 | 44 | 44 | 111/111 | 44/44 | sí |
+| **Total** | | **241** | **241** | **933/933** | **241/241** | **10/10** |
+
+**Fallos: ninguno.** Los 23 consolidados (tipo C) superan los 7 saltos; los 218
+directos (tipo D) superan los 6. La tabla insight a insight está en el Anexo A.
+
+**CA-M8.1 pasa de «Cumple» a «Cumple, verificado sobre el 100 % del informe
+publicado»** para la cadena `señal → insight → validación → correlación → score →
+informe`. Los saltos a `calificacion` y `seguimiento` siguen verificados solo por
+estructura (0 filas).
+
+### 4.8 Reevaluación de H-006 (a petición del dueño)
+
+Se separan dos linajes que el hallazgo original mezclaba:
+
+- **Linaje de datos** (qué señal produjo qué insight, qué corrida produjo qué
+  score, qué corridas congela el informe): **Cumple**, verificado en §4.7 sobre
+  241/241 insights.
+- **Linaje de ejecución** (qué llamada al modelo, con qué tokens, produjo cada
+  corrida): **Parcial**, y es lo que H-006 describe.
+
+Evidencia adicional ejecutada (`SELECT`):
+
+| Fuente | Ciclo 3 | Lectura |
+|---|---|---|
+| `corrida_agentes.tokens_entrada/salida` | corrida 9: 13.339 / 6.140 · corrida 10: 541.852 / 249.767 · corridas 11 y 12: **0 / 0** | El total **por corrida** existe para 9 y 10 (`ciclo.py:557-560`); las corridas de comparación 11 y 12 **no registraron su gasto en ninguna tabla** |
+| `traza_agente` por agente | clasificador 507.513 / 152.474 · correlacionador 47.678 / 103.433 (suma 555.191 / 255.907) | La suma **coincide exactamente** con corridas 9 + 10 → las trazas cubren 9 y 10 y **ninguna** de 11 y 12 |
+| Atribución por corrida y agente | 3 trazas anteriores a la apertura de la corrida 10; el resto se solapa | El desglose **por agente de la corrida publicada** no es determinable con certeza: exige restar la corrida 9, cuyo reparto por agente no está registrado |
+| Ciclo 2 | `corrida_agentes` suma 0 / 0 (migrada); `traza_agente` 64.414 / 17.292 | Las dos fuentes de costo **se contradicen** para el ciclo 2 |
+
+Consecuencia para H5: el costo **por ciclo** derivado de `traza_agente` es
+incompleto (omite el control v1-vs-v1, que es gasto real del experimento y la
+base de A11), el costo **por agente y corrida** no es atribuible cuando dos
+corridas comparten ciclo y hora, y las dos tablas que registran gasto discrepan en
+el ciclo 2. Eso compromete la medición de H5 tal como la define el PRD §1 («tokens
+y costo por ciclo») y CA-M8.3 («desglosado por agente»).
+
+**H-006 sube de Medio a Alto**, categoría Riesgo, confianza Alta (ejecutado). El
+texto del hallazgo en §4.4 queda enmendado por esta sección; el linaje de datos
+no está en cuestión.
+
+### 4.9 Enmienda a H-005
+
+**H-005 debe resolverse antes de cargar los 7 usuarios reales** en `usuario`, por
+decisión del dueño: mientras la lista de gerencias autorizadas por ciclo no quede
+congelada, la carga de los usuarios reales sobre un ciclo ya publicado altera el
+denominador de H2 de ese ciclo. Prioridad: **previa a distribución**.
+
+### Anexo A — Traza insight a insight del informe 5
+
+Tipo `C` = consolidado del Correlacionador (7 saltos), `D` = directo del
+Clasificador (6 saltos). «Citas» = evidencias cuya cita se localiza en la señal
+ingerida / evidencias totales. «Score» = el score y el ranking del municipio en la
+corrida 24 coinciden con el payload.
+
+| Insight | Muni | Tipo | Saltos | Citas loc./tot. | Score | Fallos |
+|---|---|---|---|---|---|---|
+| 1087 | 73001 | D | 6/6 | 7/7 | sí | — |
+| 1088 | 73001 | D | 6/6 | 1/1 | sí | — |
+| 1089 | 73001 | D | 6/6 | 5/5 | sí | — |
+| 1090 | 73001 | D | 6/6 | 2/2 | sí | — |
+| 1091 | 73001 | D | 6/6 | 2/2 | sí | — |
+| 1092 | 73001 | C | 7/7 | 12/12 | sí | — |
+| 1093 | 73001 | C | 7/7 | 8/8 | sí | — |
+| 1094 | 73001 | C | 7/7 | 9/9 | sí | — |
+| 1047 | 63001 | D | 6/6 | 1/1 | sí | — |
+| 1048 | 63001 | D | 6/6 | 1/1 | sí | — |
+| 1049 | 63001 | D | 6/6 | 1/1 | sí | — |
+| 1050 | 63001 | D | 6/6 | 1/1 | sí | — |
+| 1051 | 63001 | D | 6/6 | 1/1 | sí | — |
+| 1052 | 63001 | D | 6/6 | 1/1 | sí | — |
+| 1053 | 63001 | D | 6/6 | 1/1 | sí | — |
+| 1054 | 63001 | C | 7/7 | 4/4 | sí | — |
+| 969 | 25286 | D | 6/6 | 4/4 | sí | — |
+| 967 | 25286 | D | 6/6 | 3/3 | sí | — |
+| 968 | 25286 | D | 6/6 | 1/1 | sí | — |
+| 970 | 25286 | D | 6/6 | 2/2 | sí | — |
+| 971 | 25286 | D | 6/6 | 1/1 | sí | — |
+| 972 | 25286 | D | 6/6 | 6/6 | sí | — |
+| 973 | 25286 | D | 6/6 | 8/8 | sí | — |
+| 974 | 25286 | D | 6/6 | 3/3 | sí | — |
+| 975 | 25286 | D | 6/6 | 4/4 | sí | — |
+| 976 | 25286 | D | 6/6 | 2/2 | sí | — |
+| 977 | 25286 | D | 6/6 | 1/1 | sí | — |
+| 978 | 25286 | D | 6/6 | 2/2 | sí | — |
+| 979 | 25286 | D | 6/6 | 8/8 | sí | — |
+| 980 | 25286 | D | 6/6 | 1/1 | sí | — |
+| 981 | 25286 | D | 6/6 | 1/1 | sí | — |
+| 982 | 25286 | D | 6/6 | 3/3 | sí | — |
+| 1003 | 25286 | D | 6/6 | 4/4 | sí | — |
+| 983 | 25286 | D | 6/6 | 3/3 | sí | — |
+| 984 | 25286 | D | 6/6 | 1/1 | sí | — |
+| 985 | 25286 | D | 6/6 | 1/1 | sí | — |
+| 986 | 25286 | D | 6/6 | 3/3 | sí | — |
+| 987 | 25286 | D | 6/6 | 5/5 | sí | — |
+| 988 | 25286 | D | 6/6 | 2/2 | sí | — |
+| 989 | 25286 | D | 6/6 | 4/4 | sí | — |
+| 990 | 25286 | D | 6/6 | 2/2 | sí | — |
+| 992 | 25286 | D | 6/6 | 3/3 | sí | — |
+| 993 | 25286 | D | 6/6 | 4/4 | sí | — |
+| 994 | 25286 | D | 6/6 | 4/4 | sí | — |
+| 995 | 25286 | D | 6/6 | 22/22 | sí | — |
+| 996 | 25286 | D | 6/6 | 4/4 | sí | — |
+| 997 | 25286 | D | 6/6 | 4/4 | sí | — |
+| 998 | 25286 | D | 6/6 | 3/3 | sí | — |
+| 999 | 25286 | D | 6/6 | 5/5 | sí | — |
+| 1000 | 25286 | D | 6/6 | 6/6 | sí | — |
+| 1001 | 25286 | D | 6/6 | 2/2 | sí | — |
+| 1002 | 25286 | D | 6/6 | 2/2 | sí | — |
+| 1005 | 25286 | D | 6/6 | 8/8 | sí | — |
+| 1006 | 25286 | D | 6/6 | 1/1 | sí | — |
+| 1007 | 25286 | D | 6/6 | 3/3 | sí | — |
+| 1008 | 25286 | D | 6/6 | 1/1 | sí | — |
+| 1009 | 25286 | D | 6/6 | 3/3 | sí | — |
+| 1010 | 25286 | D | 6/6 | 2/2 | sí | — |
+| 1011 | 25286 | D | 6/6 | 3/3 | sí | — |
+| 1012 | 25286 | D | 6/6 | 1/1 | sí | — |
+| 1013 | 25286 | D | 6/6 | 2/2 | sí | — |
+| 1014 | 25286 | D | 6/6 | 1/1 | sí | — |
+| 1015 | 25286 | C | 7/7 | 6/6 | sí | — |
+| 1016 | 25286 | C | 7/7 | 12/12 | sí | — |
+| 1017 | 25286 | C | 7/7 | 6/6 | sí | — |
+| 834 | 08001 | D | 6/6 | 11/11 | sí | — |
+| 827 | 08001 | D | 6/6 | 3/3 | sí | — |
+| 828 | 08001 | D | 6/6 | 1/1 | sí | — |
+| 829 | 08001 | D | 6/6 | 5/5 | sí | — |
+| 830 | 08001 | D | 6/6 | 2/2 | sí | — |
+| 831 | 08001 | D | 6/6 | 1/1 | sí | — |
+| 832 | 08001 | D | 6/6 | 5/5 | sí | — |
+| 833 | 08001 | D | 6/6 | 1/1 | sí | — |
+| 835 | 08001 | D | 6/6 | 2/2 | sí | — |
+| 836 | 08001 | D | 6/6 | 1/1 | sí | — |
+| 837 | 08001 | C | 7/7 | 7/7 | sí | — |
+| 838 | 08001 | C | 7/7 | 2/2 | sí | — |
+| 1097 | 76109 | D | 6/6 | 1/1 | sí | — |
+| 1098 | 76109 | D | 6/6 | 1/1 | sí | — |
+| 1113 | 76109 | D | 6/6 | 15/15 | sí | — |
+| 1114 | 76109 | D | 6/6 | 9/9 | sí | — |
+| 1095 | 76109 | D | 6/6 | 4/4 | sí | — |
+| 1096 | 76109 | D | 6/6 | 2/2 | sí | — |
+| 1099 | 76109 | D | 6/6 | 3/3 | sí | — |
+| 1100 | 76109 | D | 6/6 | 1/1 | sí | — |
+| 1101 | 76109 | D | 6/6 | 1/1 | sí | — |
+| 1102 | 76109 | D | 6/6 | 1/1 | sí | — |
+| 1103 | 76109 | D | 6/6 | 1/1 | sí | — |
+| 1104 | 76109 | D | 6/6 | 2/2 | sí | — |
+| 1105 | 76109 | D | 6/6 | 1/1 | sí | — |
+| 1106 | 76109 | D | 6/6 | 2/2 | sí | — |
+| 1107 | 76109 | D | 6/6 | 4/4 | sí | — |
+| 1108 | 76109 | D | 6/6 | 1/1 | sí | — |
+| 1109 | 76109 | D | 6/6 | 14/14 | sí | — |
+| 1110 | 76109 | D | 6/6 | 2/2 | sí | — |
+| 1111 | 76109 | D | 6/6 | 5/5 | sí | — |
+| 1112 | 76109 | D | 6/6 | 5/5 | sí | — |
+| 1115 | 76109 | D | 6/6 | 1/1 | sí | — |
+| 1116 | 76109 | D | 6/6 | 7/7 | sí | — |
+| 1117 | 76109 | D | 6/6 | 16/16 | sí | — |
+| 1118 | 76109 | D | 6/6 | 2/2 | sí | — |
+| 1119 | 76109 | D | 6/6 | 3/3 | sí | — |
+| 1120 | 76109 | D | 6/6 | 2/2 | sí | — |
+| 1121 | 76109 | D | 6/6 | 5/5 | sí | — |
+| 1122 | 76109 | D | 6/6 | 28/28 | sí | — |
+| 1123 | 76109 | D | 6/6 | 9/9 | sí | — |
+| 1124 | 76109 | D | 6/6 | 5/5 | sí | — |
+| 1125 | 76109 | D | 6/6 | 14/14 | sí | — |
+| 1126 | 76109 | D | 6/6 | 4/4 | sí | — |
+| 1127 | 76109 | D | 6/6 | 3/3 | sí | — |
+| 1128 | 76109 | D | 6/6 | 1/1 | sí | — |
+| 1129 | 76109 | D | 6/6 | 2/2 | sí | — |
+| 1130 | 76109 | C | 7/7 | 5/5 | sí | — |
+| 1131 | 76109 | C | 7/7 | 6/6 | sí | — |
+| 1132 | 76109 | C | 7/7 | 4/4 | sí | — |
+| 936 | 25269 | D | 6/6 | 2/2 | sí | — |
+| 937 | 25269 | D | 6/6 | 4/4 | sí | — |
+| 938 | 25269 | D | 6/6 | 6/6 | sí | — |
+| 939 | 25269 | D | 6/6 | 2/2 | sí | — |
+| 940 | 25269 | D | 6/6 | 1/1 | sí | — |
+| 941 | 25269 | D | 6/6 | 3/3 | sí | — |
+| 942 | 25269 | D | 6/6 | 1/1 | sí | — |
+| 943 | 25269 | D | 6/6 | 2/2 | sí | — |
+| 944 | 25269 | D | 6/6 | 3/3 | sí | — |
+| 946 | 25269 | D | 6/6 | 2/2 | sí | — |
+| 947 | 25269 | D | 6/6 | 6/6 | sí | — |
+| 948 | 25269 | D | 6/6 | 22/22 | sí | — |
+| 949 | 25269 | D | 6/6 | 4/4 | sí | — |
+| 950 | 25269 | D | 6/6 | 8/8 | sí | — |
+| 951 | 25269 | D | 6/6 | 8/8 | sí | — |
+| 952 | 25269 | D | 6/6 | 4/4 | sí | — |
+| 953 | 25269 | D | 6/6 | 4/4 | sí | — |
+| 954 | 25269 | D | 6/6 | 11/11 | sí | — |
+| 955 | 25269 | D | 6/6 | 2/2 | sí | — |
+| 956 | 25269 | D | 6/6 | 4/4 | sí | — |
+| 957 | 25269 | D | 6/6 | 2/2 | sí | — |
+| 958 | 25269 | D | 6/6 | 1/1 | sí | — |
+| 959 | 25269 | D | 6/6 | 3/3 | sí | — |
+| 960 | 25269 | D | 6/6 | 4/4 | sí | — |
+| 961 | 25269 | D | 6/6 | 3/3 | sí | — |
+| 962 | 25269 | D | 6/6 | 1/1 | sí | — |
+| 963 | 25269 | D | 6/6 | 2/2 | sí | — |
+| 964 | 25269 | C | 7/7 | 10/10 | sí | — |
+| 965 | 25269 | C | 7/7 | 15/15 | sí | — |
+| 966 | 25269 | C | 7/7 | 11/11 | sí | — |
+| 806 | 05837 | D | 6/6 | 7/7 | sí | — |
+| 807 | 05837 | D | 6/6 | 4/4 | sí | — |
+| 808 | 05837 | D | 6/6 | 4/4 | sí | — |
+| 818 | 05837 | D | 6/6 | 10/10 | sí | — |
+| 809 | 05837 | D | 6/6 | 3/3 | sí | — |
+| 810 | 05837 | D | 6/6 | 2/2 | sí | — |
+| 811 | 05837 | D | 6/6 | 1/1 | sí | — |
+| 812 | 05837 | D | 6/6 | 1/1 | sí | — |
+| 813 | 05837 | D | 6/6 | 1/1 | sí | — |
+| 814 | 05837 | D | 6/6 | 2/2 | sí | — |
+| 815 | 05837 | D | 6/6 | 1/1 | sí | — |
+| 816 | 05837 | D | 6/6 | 4/4 | sí | — |
+| 817 | 05837 | D | 6/6 | 1/1 | sí | — |
+| 819 | 05837 | D | 6/6 | 2/2 | sí | — |
+| 820 | 05837 | D | 6/6 | 3/3 | sí | — |
+| 821 | 05837 | D | 6/6 | 3/3 | sí | — |
+| 822 | 05837 | D | 6/6 | 2/2 | sí | — |
+| 823 | 05837 | D | 6/6 | 3/3 | sí | — |
+| 824 | 05837 | D | 6/6 | 1/1 | sí | — |
+| 825 | 05837 | C | 7/7 | 11/11 | sí | — |
+| 826 | 05837 | C | 7/7 | 6/6 | sí | — |
+| 1044 | 25473 | D | 6/6 | 6/6 | sí | — |
+| 1045 | 25473 | D | 6/6 | 13/13 | sí | — |
+| 1036 | 25473 | D | 6/6 | 1/1 | sí | — |
+| 1037 | 25473 | D | 6/6 | 1/1 | sí | — |
+| 1038 | 25473 | D | 6/6 | 1/1 | sí | — |
+| 1039 | 25473 | D | 6/6 | 3/3 | sí | — |
+| 1040 | 25473 | D | 6/6 | 6/6 | sí | — |
+| 1041 | 25473 | D | 6/6 | 2/2 | sí | — |
+| 1042 | 25473 | D | 6/6 | 1/1 | sí | — |
+| 1043 | 25473 | D | 6/6 | 1/1 | sí | — |
+| 1046 | 25473 | C | 7/7 | 7/7 | sí | — |
+| 1067 | 66170 | D | 6/6 | 2/2 | sí | — |
+| 1068 | 66170 | D | 6/6 | 1/1 | sí | — |
+| 1069 | 66170 | D | 6/6 | 2/2 | sí | — |
+| 1070 | 66170 | D | 6/6 | 2/2 | sí | — |
+| 1071 | 66170 | D | 6/6 | 20/20 | sí | — |
+| 1072 | 66170 | D | 6/6 | 2/2 | sí | — |
+| 1073 | 66170 | D | 6/6 | 2/2 | sí | — |
+| 1074 | 66170 | D | 6/6 | 4/4 | sí | — |
+| 1075 | 66170 | D | 6/6 | 7/7 | sí | — |
+| 1076 | 66170 | D | 6/6 | 2/2 | sí | — |
+| 1077 | 66170 | D | 6/6 | 2/2 | sí | — |
+| 1078 | 66170 | D | 6/6 | 17/17 | sí | — |
+| 1079 | 66170 | D | 6/6 | 2/2 | sí | — |
+| 1080 | 66170 | D | 6/6 | 2/2 | sí | — |
+| 1081 | 66170 | D | 6/6 | 1/1 | sí | — |
+| 1082 | 66170 | D | 6/6 | 2/2 | sí | — |
+| 1083 | 66170 | D | 6/6 | 1/1 | sí | — |
+| 1084 | 66170 | C | 7/7 | 4/4 | sí | — |
+| 1085 | 66170 | C | 7/7 | 6/6 | sí | — |
+| 1086 | 66170 | C | 7/7 | 3/3 | sí | — |
+| 892 | 17380 | D | 6/6 | 5/5 | sí | — |
+| 893 | 17380 | D | 6/6 | 2/2 | sí | — |
+| 894 | 17380 | D | 6/6 | 1/1 | sí | — |
+| 895 | 17380 | D | 6/6 | 3/3 | sí | — |
+| 896 | 17380 | D | 6/6 | 2/2 | sí | — |
+| 897 | 17380 | D | 6/6 | 1/1 | sí | — |
+| 898 | 17380 | D | 6/6 | 2/2 | sí | — |
+| 899 | 17380 | D | 6/6 | 1/1 | sí | — |
+| 900 | 17380 | D | 6/6 | 2/2 | sí | — |
+| 901 | 17380 | D | 6/6 | 2/2 | sí | — |
+| 902 | 17380 | D | 6/6 | 1/1 | sí | — |
+| 903 | 17380 | D | 6/6 | 1/1 | sí | — |
+| 904 | 17380 | D | 6/6 | 8/8 | sí | — |
+| 905 | 17380 | D | 6/6 | 1/1 | sí | — |
+| 906 | 17380 | D | 6/6 | 2/2 | sí | — |
+| 907 | 17380 | D | 6/6 | 3/3 | sí | — |
+| 908 | 17380 | D | 6/6 | 2/2 | sí | — |
+| 909 | 17380 | D | 6/6 | 6/6 | sí | — |
+| 910 | 17380 | D | 6/6 | 2/2 | sí | — |
+| 911 | 17380 | D | 6/6 | 1/1 | sí | — |
+| 912 | 17380 | D | 6/6 | 2/2 | sí | — |
+| 913 | 17380 | D | 6/6 | 2/2 | sí | — |
+| 914 | 17380 | D | 6/6 | 2/2 | sí | — |
+| 915 | 17380 | D | 6/6 | 2/2 | sí | — |
+| 916 | 17380 | D | 6/6 | 1/1 | sí | — |
+| 917 | 17380 | D | 6/6 | 1/1 | sí | — |
+| 918 | 17380 | D | 6/6 | 1/1 | sí | — |
+| 919 | 17380 | D | 6/6 | 2/2 | sí | — |
+| 920 | 17380 | D | 6/6 | 1/1 | sí | — |
+| 921 | 17380 | D | 6/6 | 2/2 | sí | — |
+| 922 | 17380 | D | 6/6 | 2/2 | sí | — |
+| 923 | 17380 | D | 6/6 | 2/2 | sí | — |
+| 924 | 17380 | D | 6/6 | 3/3 | sí | — |
+| 925 | 17380 | D | 6/6 | 4/4 | sí | — |
+| 926 | 17380 | D | 6/6 | 3/3 | sí | — |
+| 927 | 17380 | D | 6/6 | 1/1 | sí | — |
+| 928 | 17380 | D | 6/6 | 1/1 | sí | — |
+| 929 | 17380 | D | 6/6 | 3/3 | sí | — |
+| 930 | 17380 | D | 6/6 | 3/3 | sí | — |
+| 931 | 17380 | D | 6/6 | 2/2 | sí | — |
+| 932 | 17380 | D | 6/6 | 4/4 | sí | — |
+| 933 | 17380 | D | 6/6 | 1/1 | sí | — |
+| 934 | 17380 | C | 7/7 | 6/6 | sí | — |
+| 935 | 17380 | C | 7/7 | 12/12 | sí | — |
+
 *Fin del área 4.*
+
+---
+
+## Preguntas abiertas (acumuladas; se consolidan en la sección 9 al cierre)
+
+| # | Pregunta | Decide | Prioridad | Origen |
+|---|---|---|---|---|
+| P-1 | **El informe 5 se compuso con el Correlacionador v1** (corrida 10, `version_correlacionador='v1'`, `id_prompt=2`) mientras `CLAUDE.md` declara vigente v2 desde el 2026-09-21. ¿Se republica el ciclo 3 con una corrida v2 —lo que exige volver a correr M4 y gastar tokens— o se corrige `CLAUDE.md` para que diga que lo publicado es v1? | Dueño | **Previa a distribución** | Área 4, §4.3 |
+| P-2 | **H-005 debe resolverse antes de cargar los 7 usuarios reales.** ¿Cómo se congela la lista de gerencias autorizadas por ciclo —en el payload del informe, en una tabla propia o en Alembic— para que el denominador de H2 no dependa del estado actual de `usuario`? | Dueño | **Previa a distribución** | Área 4, H-005 y §4.9 |
