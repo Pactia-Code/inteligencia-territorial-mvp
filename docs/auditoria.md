@@ -159,6 +159,13 @@ sin volver a abrirlo.
 `scripts/dos_pasadas.py` · `scripts/comparar_pasadas.py`.
 *Añadidos al cerrar el área 8:* `scripts/estimar_costo.py` ·
 `scripts/generar_hojas_revision.py`. *Área 7:* sin archivos nuevos.
+*Añadidos en la sesión 2 (áreas 1, 6, 10):* `scripts/cargar_snapshot.py` ·
+`scripts/cargar_divipola.py` · `scripts/cargar_contexto.py` · `docs/design-system.md`
+(completo) · los 9 archivos de tests restantes (`test_conexion`, `test_contrato`,
+`test_seleccion`, `test_nomenclator`, `test_contexto`, `test_correlacionador`,
+`test_corridas`, `test_informes`, `test_persistencia`). **Quedan sin abrir solo**
+`alembic/script.py.mako`, `web/tsconfig.json`, `web/package-lock.json` y
+`.gitignore` (consultado vía `git check-ignore`).
 
 **Leídos parcialmente:** `docs/addendum-01-fuente-de-datos.md` (§3 D1–D4, §5, §6,
 §7, anexo) · `docs/addendum-02-stack.md` (D5 cabecera, D9, pendientes, anexo) ·
@@ -2424,6 +2431,165 @@ pero la tabla de §2.2 debería corregirse para que el DS no describa dos cosas.
 | DS §5 estados | **Parcial** | H-045, H-046 |
 
 *Fin del área 6.*
+
+---
+
+## Área 10 — Transversal
+
+**Cerrada en la sesión 2.** Archivos leídos completos para esta área: los 13
+archivos de `tests/` (los 9 que faltaban se leyeron aquí: `test_conexion.py`,
+`test_contrato.py`, `test_seleccion.py`, `test_nomenclator.py`, `test_contexto.py`,
+`test_correlacionador.py`, `test_corridas.py`, `test_informes.py`,
+`test_persistencia.py`). Ejecutado: `ruff check --output-format concise`,
+`pytest --collect-only` por archivo, `grep` de módulos de `src/` referenciados
+por tests, versión declarada vs instalada de las 14 dependencias, `npm audit
+--omit=dev`, `git check-ignore` sobre `data/`, `grep` de PII en logs y de
+símbolos sin uso. Con esta área **todos los archivos de código del repositorio
+están leídos completos** salvo `alembic/script.py.mako`, `web/tsconfig.json`,
+`web/package-lock.json` y `.gitignore` (solo consultado con `git check-ignore`).
+
+### 10.1 Secretos
+
+| Sonda | Resultado |
+|---|---|
+| Secretos en código | `grep` de patrones (`sk-`, `npg_`, `AKIA`, `password =`) en `src/ scripts/ web/ alembic/`: **0** (área 7) |
+| Secretos en historial | `npg_` en 0 de 66 revisiones; `.env` nunca rastreado (§0.2 #20) |
+| Configuración | 21 variables en `.env`, 20 en `.env.example`; ninguna en `web/` (§0.2 #21) |
+| `data/` (usuarios, nomenclátor, TerriData, base, blob) | **Ignorado por git** en los seis casos; 0 archivos rastreados bajo `data/` |
+
+**R-A1 · Riesgo aceptado por el dueño (no es hallazgo a remediar) · credencial
+de Neon.** La contraseña de la cadena `DATABASE_URL` fue expuesta en un chat y
+**no se rotará**. Hechos verificados: no está en el repositorio ni en su
+historial; el rol tiene **escritura** (`transaction_read_only = off`); la
+exposición es externa. **Evidencia del experimento que depende de su
+integridad:** todo lo que solo existe en Neon (§0.7) —el informe 5 publicado, que
+fija la corrida canónica del ciclo 3 (A9); la tabla `usuario`, denominador de H2;
+y todas las futuras `calificacion` y `seguimiento`, evidencia primaria de H1 y
+H2 y de cinco de las diez métricas del PRD §6—. Los datos de pipeline tienen
+copia íntegra en SQLite local; las calificaciones no tendrán copia salvo que se
+establezca. Con H-012 (identidad forjable) y H-013 (acciones sin alcance), la
+credencial es el tercer camino de escritura sin control sobre la evidencia de H1
+y H2.
+
+### 10.2 Datos personales
+
+| Sonda | Resultado |
+|---|---|
+| Dónde vive la PII de SECOP (D3: `proveedor`, `rep_legal`) | En `senal_cruda.datos` de las 19.640 filas SECOP, **en SQLite y en Neon** (copia íntegra, §0.7); el snapshot lleva su propia `nota_pii` |
+| ¿Llega al informe publicado? | Indirectamente: `informe.contenido` copia `evidencia[].cita_textual`, tomada del campo `objeto`, no de `proveedor`; no se detectó nombre de persona en las 933 citas de forma sistemática (no se buscó) |
+| ¿Se loguea? | `src/`: ningún `log.*` ni `print` con `contenido`, `datos`, `proveedor` o `rep_legal` (`grep`); los scripts de calibración imprimen citas y resúmenes por stdout (`comparar_prompts.py:205-211`, `probar_clasificador.py:105-122`), no `datos` |
+
+**H-048 · Medio · Riesgo · Confianza Alta · Área 10 · Addendum 01 D3, snapshot `nota_pii`**
+*La PII de SECOP se replicó a una base gestionada en la nube sin política de
+tratamiento ni retención.* D3 conserva `proveedor` y `rep_legal` «como decisión
+consciente» y cita la Ley 1581 de 2012; desde el 2026-09-21 esas 19.640 filas
+están también en Neon (host `aws.neon.tech`), accesibles con la credencial de
+R-A1, y ningún documento del repositorio define quién es responsable del
+tratamiento, cuánto tiempo se conservan ni si la transferencia a un proveedor
+externo está cubierta. *Escenario:* la Fase 0 hereda el dato y la exposición sin
+que nadie haya decidido nada sobre ellos. No es un juicio legal —la auditoría no
+lo hace—; es la constatación de que D3 decidió conservar y no decidió tratar.
+
+### 10.3 Dependencias
+
+| Sonda | Resultado |
+|---|---|
+| Fijación (Python) | `pyproject.toml` con **rangos abiertos y sin lockfile** (§0.4). Saltos de versión mayor ya ocurridos entre lo declarado y lo instalado: `openai >=1.50` → **3.14.1**; `langgraph >=0.2` → **1.2.11**; `langfuse >=2.55` → **4.15.4**; `langgraph-checkpoint-sqlite >=2.0` → **3.1.1**; `ruff >=0.8` → 0.16.8 |
+| `psycopg` | Declarado solo en el extra `azure` (`pyproject.toml:35`) aunque D8 hace de PostgreSQL la base de nube y `sesion.normalizar_url` lo presupone (`sesion.py:31-34`); un `pip install .` sin extras no puede conectar a Neon |
+| Fijación (web) | `package-lock.json` presente; `next ^15.1.3` resuelto a 15.5.25 |
+| Vulnerabilidades (web) | `npm audit --omit=dev`: **1 high, 1 moderate**, ambas por `postcss <= 8.5.22` transitiva de `next`; la corrección propuesta es `next@16.3.6` (cambio mayor) |
+| Vulnerabilidades (Python) | No se ejecutó auditoría (no hay herramienta instalada; no se instala nada) — **No verificable** |
+
+**H-049 · Medio · Riesgo · Confianza Alta · Área 10 · Addendum 02 D5/D8, reproducibilidad del entorno**
+*El entorno Python no es reproducible y arrastra saltos de versión mayor en los
+SDK que llaman al modelo.* Sin lockfile, un `pip install -e .` hoy y otro dentro
+de un mes pueden instalar versiones mayores distintas de `openai`, `langfuse` y
+`langgraph`; ya ha pasado (1.50 → 3.14 en `openai`, cuyos valores por defecto de
+reintentos y timeout rigen la cadena, H-041). `psycopg` queda fuera de las
+dependencias base aunque Neon lo exige. En `web/`, `next` 15.5 arrastra un
+`postcss` con dos avisos que solo cierra un salto a `next` 16. *Escenario:* rehacer
+las mediciones de la semana 8 en una máquina nueva instala otro SDK y otra
+librería de trazas; si el comportamiento cambia, no habrá forma de separar
+«cambió el modelo» de «cambió el cliente». Medio: no bloquea, degrada
+reproducibilidad y mantenimiento.
+
+### 10.4 Qué afirman las pruebas (272, todas en verde)
+
+| Archivo | Tests | Qué afirma de verdad |
+|---|---|---|
+| `test_reglas.py` | 35 | Normalización (separadores, cifras, orden de palabras), validador R1–R7 con Bing declarado y encubierto, una evidencia mala tumba el insight, prefiltro (4), cobertura y redistribución (6) |
+| `test_scoring.py` | 44 | F1–F6 uno a uno, independencia del tamaño, piso de ELIC con `hay_dato`, winsorizado, normalización de cohorte, pesos desde archivo y validación, ranking, empate reproducible, tope configurable, umbral apagado y reactivable, caso Armenia |
+| `test_informes.py` | 39 | Frase de fuentes, contexto con fuente y año, composición (validados, pedidos, hueco de prosa, tope), publicación (dos corridas congeladas, inmutables, archivado, índice único, parcial y sin cadena rechazadas), aportes por fuente, semilla y trayecto |
+| `test_persistencia.py` | 29 | Insights con origen, rechazados guardados, dos pasadas conviven, FK activa, `ids_insight_origen` reales, troceo por lotes, descartes declarados y no declarados, linaje de prompt por hash con `PromptDivergente`, `texto_de` para RSS y SECOP, `VERSION_PIPELINE` |
+| `test_corridas.py` | 23 | Scoring append-only, `tipo_corrida` calculado y reverificable, corte de cohorte mínimo y con faltantes, versión y pesos verbatim, informe no reapuntable, `procesar_ciclo` encadena scoring (con dobles), fallo del scoring no pierde tokens, `corte_por_fuente`, `valores_crudos` |
+| `test_contexto.py` | 23 | Formato numérico de TerriData, extracción con las cinco trampas, derivación per cápita y por predio, clases fijas, cuartiles, **ni un dígito en el prompt**, `VERSIONES_CON_CONTEXTO`, tres reglas en v2 |
+| `test_correlacionador.py` | 19 | `ensamblar`: cruce de categorías, `otro`, ids no entregados, unión de evidencia sin pérdida, dedup por cita, confianza normalizada; `_resumen_calificaciones` |
+| `test_nomenclator.py` | 16 | Construcción (Bogotá, San Andrés, códigos TerriData), homónimos, carga idempotente sin borrado, CSV con BOM |
+| `test_seleccion.py` | 16 | Cuota 3+1+1, relleno, siempre 5, misma semilla ⇒ misma muestra, orden de entrada irrelevante |
+| `test_conexion.py` | 8 | Reescritura de URL a psycopg 3, SQLite absoluta, `-pooler` rechazado en los dos caminos (uno de ellos por `grep` del texto de `env.py`) |
+| `test_contrato.py` | 7 | Contrato TS al día, solo dos tablas, unión de tipos, rango 1–5, determinista |
+| `test_cifras.py` | 7 | Falso positivo «76 y 80», mínimo de 3 dígitos, variantes de redondeo |
+| `test_compuertas.py` | 6 | Invariante «no suspende a su línea base» sobre las **constantes** `PISO_RUIDO` (H-036); 40 ≤ 42 y 35 > 24 como aserciones fijas |
+
+Todos corren sobre SQLite en memoria con `create_all` (legítimo en pruebas,
+declarado en `test_persistencia.py:3-5`) y aislados de `config/pesos.json`
+(`conftest.py`). Lo que **ningún test toca**, verificado por `grep` de importación
+o monkeypatch:
+
+| Sin prueba | Qué es | Por qué importa |
+|---|---|---|
+| `ingesta/snapshot.py` | **Toda M1**: `_senales_del_municipio`, `_ciclo_de`, `_hash`, `cargar` | La partición por ciclo (D2) y el `hash_dedup` (H-001) no tienen ni un caso |
+| `scoring/agregacion.py` | `entradas_del_ciclo`, `cortes_por_fuente`: el único código de M5 que lee la base | Un error aquí cambia F1–F6 con los 44 tests de `factores`/`ranking` en verde; el área 3 lo verificó por recomputación, no la suite |
+| `ciclo.procesar_municipio` | El encadenado M2 → M3 → M4 por municipio, los lotes fallidos, el error del Correlacionador | Es donde viven H-037 y H-038; `procesar_ciclo` solo se prueba con dobles y `solo=["00000"]` |
+| `agentes/clasificador.clasificar_lote`, `agentes/correlacionador.correlacionar`, `agentes/cliente` | Las llamadas al modelo y sus ramas de error (`salida is None`, excepción → `error`) | Sin un cliente simulado, el comportamiento ante el proveedor caído solo se conoce por lectura (H-037, H-041) |
+| `almacen/blob.py`, `utiles/divipola.py` | Almacén de objetos y normalización DIVIPOLA | `desde_bloque` decide la clave de todas las señales |
+| `web/` completo | 0 archivos de prueba; sin framework de pruebas en `package.json` | CA-M7.x y CA-M9.x solo se verifican por GET y lectura (área 5) |
+
+**H-050 · Medio · Brecha · Confianza Alta · Área 10 · CLAUDE.md §4 («las pruebas pasan» como garantía), H4**
+*La suite no cubre la ingesta, la agregación del scoring, el encadenado por
+municipio ni la aplicación web.* Los 272 tests pasan y son buenos donde llegan
+—prueban propiedades, no aritmética—, pero dejan sin un solo caso los cuatro
+puntos donde el código toca el mundo: leer el snapshot (`snapshot.py`), leer la
+base para puntuar (`agregacion.py`), orquestar los agentes con sus fallos
+(`procesar_municipio`) y todo `web/`. `test_compuertas.py` prueba constantes.
+*Escenario:* un cambio en `_ciclo_de` o en `entradas_del_ciclo` mueve el ranking
+publicado con la suite en verde; el área 3 tuvo que recomputar el scoring a mano
+para afirmar que reproduce la corrida 24. Medio: no invalida lo medido —esta
+auditoría lo reprodujo—, pero la garantía «las 272 pruebas pasan» no cubre lo que
+más importa reproducir.
+
+### 10.5 Código muerto, deuda y estilo
+
+| Ítem | Evidencia |
+|---|---|
+| Símbolos definidos y sin uso | `AlmacenAzure` (`blob.py:89-116`, 0 usos, extra `azure` sin instalar), `pesos.escribir_plantilla` (`157-166`), `divipola.desde_codigo` (solo lo llama `desde_bloque`), `correlacionador.hash_entrada` (`470-473`, nunca llamado: H-006) |
+| Columnas nunca pobladas | `senal_cruda.uri_blob` (20.030 NULL), `traza_agente.hash_output`, `id_prompt`, `id_dataset`, `id_traza_langfuse` (266 NULL), `insight.contexto_no_verificado` (1.213 en `False`, H-021), `informe.infografias` (4 × `[]`), `ciclo.n_*` (H-003), `tokens_razonamiento` calculado y no persistido (H-035) |
+| Docstrings que describen un sistema anterior | `probar_correlacionador.py:5` («todavía no hay insights persistidos: M2 corre pero no guarda»); `clasificador.py:13-14` («debe descartar otro 61,4 %», cifra que B2 desmintió); `correr_ciclo.py:17` y `CLAUDE.md` §6 sobre `--seco` (H-038) |
+| Scripts de calibración que no miden lo que corre | `probar_clasificador.py:57-62` y `comparar_prompts.py:124-128` envían `c.contenido` (título para RSS) mientras producción envía `texto_de` (título + resumen, `ciclo.py:199-215`) y prefiltran RSS, que producción no filtra (`ciclo.py:268-307`). Sus medidas de reducción y rechazo no son las del pipeline |
+| `ruff check` | 7 avisos: 3 `I001` (orden de imports en las migraciones `14122d0ee975`, `aef93e016610`, `b37b4fd6e183`), `E501` y `B007` en `comparar_prompts.py`, `F541` en `medir_prefiltro.py`, `B007` en `probar_clasificador.py`. Ninguno en `src/` |
+| TODO / FIXME / XXX / HACK | **0** (§0.2 #28) |
+
+**H-051 · Bajo · Brecha · Confianza Alta · Área 10 · Deuda**
+*Código muerto, columnas vacías y scripts de calibración desalineados con
+producción.* Ocurrencias en la tabla de 10.5. Lo único con efecto potencial en
+una medición es la desalineación de `probar_clasificador.py` y
+`comparar_prompts.py` con `texto_de` y con el no-filtrado de RSS: cualquier
+comparación de prompts hecha con ellos mide un pipeline distinto del que corre
+(`VERSION_PIPELINE = "p2"`). Bajo porque los datos publicados salen de
+`procesar_ciclo`, no de estos scripts.
+
+### 10.6 Estado tras el área
+
+| Elemento | Estado |
+|---|---|
+| Secretos en código e historial | **Cumple** |
+| Credencial de Neon | **Riesgo aceptado R-A1** (dueño) |
+| PII | **Riesgo Medio** (H-048); D3 registrada como decisión |
+| Dependencias | **Riesgo Medio** (H-049) |
+| Cobertura de pruebas | **Parcial** (H-050) |
+| Deuda y estilo | **Bajo** (H-051); 0 TODO |
+
+*Fin del área 10.*
 
 ---
 
