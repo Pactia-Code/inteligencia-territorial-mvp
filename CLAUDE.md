@@ -40,7 +40,36 @@ ir a producción. No se resuelve con más ingeniería.
 Documentos de referencia, en orden de autoridad: [PRD](docs/prd.md) ·
 [Addendum 01 — Fuente de datos](docs/addendum-01-fuente-de-datos.md) ·
 [Addendum 02 — Stack](docs/addendum-02-stack.md) ·
-[Arquitectura](docs/architecture.md) · [Pendientes](docs/pendientes.md)
+[Arquitectura](docs/architecture.md) · [Pendientes](docs/pendientes.md) ·
+[Design System](docs/design-system.md)
+
+> **El [Design System](docs/design-system.md) es la autoridad de color y
+> tipografía**, por encima de `especificacion_ui_inteligencia_territorial.md`.
+> Está derivado de la plantilla Word corporativa real de Pactia (`theme1.xml`,
+> `styles.xml`), así que es marca confirmada y no propuesta. **Léelo entero
+> antes de escribir una línea de front.**
+>
+> Hay dos conflictos con la especificación de UI y el Design System gana en los
+> dos. **Color:** la especificación proponía terracota como acento primario; el
+> primario es **navy `#0F4761`**. **Tipografía:** la especificación pedía tres
+> familias —serif, palo seco, monoespaciada— y Pactia no tiene ni serif ni
+> monoespaciada. La fuente es **Aptos**, y los datos se distinguen con
+> `font-variant-numeric: tabular-nums`, no con una segunda familia.
+>
+> La especificación de UI sigue siendo válida como referencia de **estructura**
+> de pantallas, no de color ni de tipografía. **Ojo: ese documento tampoco está
+> en el repositorio**, igual que el PRD v1.2 (pendiente 11.5), así que su
+> autoridad sobre la estructura no se puede verificar desde aquí.
+>
+> Lo marcado `[provisional]` en el Design System —neutrales, semántica de
+> estado, espaciado— **no es identidad de Pactia**: es deuda que se reemplaza
+> cuando exista brandbook. No lo cites como marca.
+>
+> Su **Anexo** lista lo retirado respecto a la versión anterior del documento
+> —alerta por correo, consola de Analítica, Admiralty, umbral de fatiga,
+> revisión humana, umbral de score, fuentes degradadas—. **Eso es contexto de
+> Fase 0, no deuda del MVP**: no estaba en alcance (§2.2 del PRD) y no se ha
+> perdido nada.
 
 El resultado acumulado se va escribiendo en
 [docs/informe_resultados.md](docs/informe_resultados.md), organizado por H1–H5.
