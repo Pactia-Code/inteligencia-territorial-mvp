@@ -372,6 +372,13 @@ Se aplican en todas las áreas y en el cierre:
    calificaciones. Si no cabe en una sesión, se divide en 8a y 8b por secciones.
 6. **Operación:** al cerrar cada área, commit de `docs/auditoria.md` en
    `audit/2026-09-22` con «docs(audit): área N».
+7. **Etiqueta «Bloquea distribución»** (añadida tras revisar el área 5,
+   independiente de la severidad): marca lo que **debe resolverse antes de enviar
+   el informe a las 7 gerencias o de cargar sus usuarios**, porque después el daño
+   a los datos no es reparable. Se aplica a **H-005, H-009, H-012, H-013 y a la
+   pregunta P-1**, y a lo que las áreas siguientes encuentren con la misma
+   propiedad. En el cierre, el plan de remediación empieza por una fase **F0
+   «Prerrequisitos de distribución»** con exactamente esos puntos.
 
 ---
 
@@ -538,7 +545,7 @@ CA-M9.10 exige «registra usuario, gerencia, fecha y nota». *Escenario:*
 usuario que cambie de gerencia entre ciclos reescribe retroactivamente la gerencia
 de todo su historial de seguimiento. `id_usuario` es además nullable.
 
-**H-005 · Alto · Riesgo · Confianza Media · Área 4 · CA-M7.3, H2 — RESOLVER ANTES DE CARGAR LOS 7 USUARIOS REALES (decisión del dueño, §4.9)**
+**H-005 · Alto · Riesgo · Confianza Media · Área 4 · CA-M7.3, H2 · 🔒 BLOQUEA DISTRIBUCIÓN — resolver antes de cargar los 7 usuarios reales (decisión del dueño, §4.9 y §0.11.7)**
 *`sin_respuesta` no se registra y su denominador no está congelado por ciclo.* La
 no-respuesta es la ausencia de fila en `calificacion` (correcto para distinguirla de
 una nota baja: `ck_valor_1_5`), pero el denominador —qué gerencias estaban
@@ -1075,7 +1082,7 @@ pendiente abierto, no como desviación autorizada.
 
 ### 3.6 Hallazgos
 
-**H-009 · Alto · Riesgo · Confianza Alta · Área 3 · CA-M6.3 (conjunto bloqueante), CLAUDE.md §2.2**
+**H-009 · Alto · Riesgo · Confianza Alta · Área 3 · CA-M6.3 (conjunto bloqueante), CLAUDE.md §2.2 · 🔒 BLOQUEA DISTRIBUCIÓN · quick win (§3.9)**
 *La prosa publicada contiene cifras escritas por el modelo y ninguna compuerta
 de producción lo comprueba.* 15 de los 241 insights del informe 5 llevan al menos
 un número de tres o más dígitos en `resumen` o `implicacion_inmobiliaria`; **los
@@ -1249,7 +1256,7 @@ escrituras son exactamente `calificacion` y `seguimiento`, más la cookie.
 
 ### 5.3 Hallazgos
 
-**H-012 · Alto · Riesgo · Confianza Alta · Área 5 · Criterio C(ii) sobre la desviación `3b`/`M9-acceso` → CA-M7.2, CA-M9.1, CA-M9.14, H1, H2**
+**H-012 · Alto · Riesgo · Confianza Alta · Área 5 · Criterio C(ii) sobre la desviación `3b`/`M9-acceso` → CA-M7.2, CA-M9.1, CA-M9.14, H1, H2 · 🔒 BLOQUEA DISTRIBUCIÓN**
 *La identidad es una cookie en claro sin firma: cualquiera califica y lee a
 nombre de cualquier gerencia autorizada.* (i) La desviación **está implementada
 como se registró**: leer es abierto, calificar pide un correo de la lista
@@ -1282,7 +1289,7 @@ declarativa y hay que decirlo al publicar H2»). No es una Desviación no
 registrada; es el riesgo residual de la registrada, y el registro no menciona que
 la cookie se pueda forjar sin conocer siquiera el flujo de identificación.
 
-**H-013 · Alto · Defecto · Confianza Alta · Área 5 · CA-M7.7, CA-M9.16 (alcance de la escritura)**
+**H-013 · Alto · Defecto · Confianza Alta · Área 5 · CA-M7.7, CA-M9.16 (alcance de la escritura) · 🔒 BLOQUEA DISTRIBUCIÓN**
 *Las Server Actions no verifican en servidor el alcance de lo que escriben.*
 `registrarCalificacion` y `registrarComentario` aceptan cualquier `id_insight`
 existente, sin comprobar que el ciclo esté abierto ni que el insight pertenezca
@@ -1431,7 +1438,7 @@ B se clasifica como Brecha documental y pasa a Preguntas abiertas (P-4).
 
 | # | Pregunta | Decide | Prioridad | Origen |
 |---|---|---|---|---|
-| P-4 | **Infografía por municipio (CA-M6.2, CA-M9.4):** no existe en el código ni está especificada ni retirada. ¿Se retira formalmente del alcance del MVP (registro en `pendientes.md`) o se especifica antes de distribuir? | Dueño | Previa a distribución | Área 5, H-020 |
+| P-4 | **Infografía por municipio (CA-M6.2, CA-M9.4):** no existe en el código ni está especificada ni retirada. ¿Se **implementa**, se **especifica** (contenido, formato y cómo se compone sin cifras del modelo) o se **retira formalmente** del alcance del MVP con registro en `pendientes.md`? | Dueño | Previa a distribución | Área 5, H-020 |
 | P-3 | **¿Qué lectura de CA-M6.3 rige?** (a) La literal del PRD: ninguna cifra *generada* sin fuente → los 15 insights con cifras transcritas cumplen y H-009 es un Riesgo por falta de compuerta. (b) La del propio proyecto (`reglas/contexto.py:3-6`): ninguna cifra *escrita* por el modelo → los 15 son una desviación no registrada y H-009 sube a Crítico. Decide también si la compuerta de `reglas/cifras.py` debe cablearse en `ciclo.py` antes de distribuir | Dueño | **Previa a distribución** | Área 3, H-009 |
-| P-1 | **El informe 5 se compuso con el Correlacionador v1** (corrida 10, `version_correlacionador='v1'`, `id_prompt=2`) mientras `CLAUDE.md` declara vigente v2 desde el 2026-09-21. ¿Se republica el ciclo 3 con una corrida v2 —lo que exige volver a correr M4 y gastar tokens— o se corrige `CLAUDE.md` para que diga que lo publicado es v1? | Dueño | **Previa a distribución** | Área 4, §4.3 |
+| P-1 | **El informe 5 se compuso con el Correlacionador v1** (corrida 10, `version_correlacionador='v1'`, `id_prompt=2`) mientras `CLAUDE.md` declara vigente v2 desde el 2026-09-21. ¿Se republica el ciclo 3 con una corrida v2 —lo que exige volver a correr M4 y gastar tokens— o se corrige `CLAUDE.md` para que diga que lo publicado es v1? | Dueño | **🔒 Bloquea distribución** | Área 4, §4.3 |
 | P-2 | **H-005 debe resolverse antes de cargar los 7 usuarios reales.** ¿Cómo se congela la lista de gerencias autorizadas por ciclo —en el payload del informe, en una tabla propia o en Alembic— para que el denominador de H2 no dependa del estado actual de `usuario`? | Dueño | **Previa a distribución** | Área 4, H-005 y §4.9 |
