@@ -1166,6 +1166,32 @@ se consigna porque condiciona la lectura del ranking publicado.
   datos sintéticos (`test_scoring.py:159-168`), nunca ejercitado con datos reales
   (0 calificaciones).
 
+### 3.9 Decisión del dueño sobre P-3 (2026-09-22) y notas para el área 8
+
+**CA-M6.3 — rige la lectura «ninguna cifra sin fuente».** Una cifra en la prosa
+del modelo es conforme **solo si** (a) aparece literal en las señales de origen del
+insight **y** (b) existe una compuerta de producción en `ciclo.py` que lo
+verifique. Hoy se cumple (a) —15/15 cifras del informe 5 están en su fuente— y
+no (b). Por tanto **CA-M6.3 queda Parcial y H-009 se mantiene Alto**. **H-009 es
+candidato a quick win:** cablear `reglas.cifras.inventadas` sobre `resumen` e
+`implicacion_inmobiliaria` en `ciclo.py`, tras M3 y tras M4, con el texto de las
+señales del insight como entrada permitida; el módulo ya existe y está probado
+(`tests/test_cifras.py`). P-3 queda cerrada con esta decisión.
+
+**Para el área 8 (registrado a petición del dueño):**
+
+1. Bajo el modelo de snapshot, la **tasa de rechazo del validador mide fidelidad
+   de cita contra lo ingerido, no alucinación respecto del mundo**: R6 comprueba
+   que la cita esté en el texto que se le entregó al modelo, y nada comprueba que
+   el texto ingerido sea verdadero ni que la URL siga resolviendo. El área 8 debe
+   verificar cómo presenta `informe_resultados.md` esa tasa (CA-M3.3 la llama
+   «tasa de alucinación medida») y si la distinción está declarada.
+2. **H-011 bajo el criterio C(ii):** el diccionario de obra decide F1–F3, el 54 %
+   del peso del score. El área 8 debe evaluar si ese peso impide atribuir una
+   calificación baja al pipeline agéntico (M2/M4, lo que H1 quiere medir) frente
+   al scoring determinista (qué municipio se muestra y en qué puesto), y qué dice
+   `informe_resultados.md` sobre H1 al respecto.
+
 *Fin del área 3.*
 
 ---
