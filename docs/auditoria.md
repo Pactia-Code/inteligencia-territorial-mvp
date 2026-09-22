@@ -1651,6 +1651,191 @@ una evidencia de promoción que no está persistida (H-023).
 
 ---
 
+## Área 8a — Integridad de la evidencia, primera mitad de `informe_resultados.md`
+
+**Cerrada el 2026-09-22.** Cubre las líneas 1–317 del documento: «Cómo leer las
+cifras», «0. Estado de las cinco hipótesis», H1, H2, H3 y H4. La segunda mitad
+(H5, «Hallazgos no previstos» 1–8, Anexo CA-M2.1 y «Qué falta para poder
+cerrar la compuerta», líneas 318–702) es el área 8b. El documento está fechado
+**2026-09-21** y declara como última medición las corridas 11 y 12. Todas las
+cifras se reprodujeron con `SELECT` sobre SQLite (datos de pipeline idénticos a
+Neon, §0.7) en el commit `96e10e0`; ningún script del repositorio se ejecutó
+para producirlas salvo la lógica de `comparar_pasadas.destino_por_senal`, que se
+reimplementó en solo lectura.
+
+### 8a.1 Medición de H-021 (encargo del dueño)
+
+Sobre los 241 insights publicados se buscó, en `resumen`, `implicacion_inmobiliaria`
+y `por_que_convergen`, cualquier **cifra** (≥3 dígitos) o **nombre propio**
+(secuencia con mayúscula inicial que no abre oración, excluidos genéricos y el
+nombre del municipio y del departamento) que apareciera en el texto Bing del
+municipio en el ciclo 3 y **no** en el texto ni en los `datos` de sus señales de
+origen.
+
+| Búsqueda | Insights afectados |
+|---|---|
+| Cifras presentes en Bing y ausentes en las señales | **0 de 241** |
+| Nombres propios presentes en Bing y ausentes en las señales | **0 de 241** |
+
+Una primera pasada con una heurística más laxa marcó 56 insights, todos por
+verbos al inicio de oración («Mejora», «Ordena», «Aumenta»): falsos positivos que
+la pasada definitiva excluye. **Límite del método:** es una heurística léxica; no
+detecta paráfrasis ni afirmaciones tomadas de Bing sin nombres ni cifras.
+
+**Veredicto:** no hay evidencia medible de que el texto de Bing haya aportado
+contenido identificable a lo publicado. **H-021 se mantiene en Medio y no
+bloquea distribución.** Sigue siendo una brecha de trazabilidad —D1 exige el
+marcado y el dato no permite saber qué convergencias se orientaron por Bing—,
+pero no un contagio detectado.
+
+### 8a.2 Cifras de la primera mitad: productor, pertinencia y reproducibilidad
+
+«Productor» es el código o la consulta que produce la cifra en `96e10e0`;
+«mide lo definido» pregunta si la cifra mide lo que la hipótesis o el criterio
+citado definen; «reproducible» es el resultado de rehacerla hoy.
+
+| Cifra en el documento | Productor | ¿Mide lo definido? | Reproducible en `96e10e0` |
+|---|---|---|---|
+| **§0** 18 municipios · 20.030 señales (19.640 / 336 / 54) · ventanas 51, 84, 239 días | `SELECT count(*)` sobre `municipio`, `senal_cruda`, `ciclo` | Sí (inventario) | **Sí**, exacto |
+| §0 corridas de agentes **10** · corridas de scoring **21** · insights **1.132** · informes publicados **0** | `SELECT count(*)` | Inventario | **Desactualizado**: hoy 12, 24, 1.213 y 1 (Neon). El propio documento cita las corridas 11 y 12 como última medición y su tabla no las cuenta (H-031) |
+| §0 descartes 5.731 · trazas 266 · calificaciones 0 | `SELECT count(*)` | Inventario | **Sí**, exacto |
+| **H1** corridas 7 y 8: 344 y 365 insights; 1.140 y 1.160 evidencias | `SELECT count(*)`, suma de `len(evidencia)` por corrida | Sí (volumen por pasada) | **Sí**, exacto |
+| H1 A6: **22,4 %** cambian de destino; **543 (19,5 %)** en insight en una pasada y no en otra | `scripts/comparar_pasadas.py --a 7 --b 8` (`destino_por_senal`, 44-65); reimplementado en solo lectura | Sí: mide reproducibilidad del Clasificador señal a señal, que es lo que A6 define | **Sí**: 625/2.786 = 22,4 %; 543/2.786 = 19,5 % |
+| H1 «entre el **25 % y el 50 %** del contenido del informe del top 3 depende de qué pasada se publicó, según criterio laxo o estricto» | **Ninguno.** No hay script, consulta ni definición de «criterio laxo» y «estricto» en el repositorio; `pendientes.md` A6 repite la cifra sin método | No evaluable | **No reproducible** (H-030) |
+| H1 A11: Correlacionador reproduce el **14,1 %** de sus convergencias | `comparar_correlacionador.py` (huellas por `frozenset` de ids, 157-165); reimplementado sobre `ids_insight_origen` de las corridas 11 y 12 | Sí | **Sí**: 10 idénticas de 71 distintas = 14,1 %; 85/322 = 26,4 % voltean |
+| **H2** 10 mostrados, 3 pedidos; denominador = carga pedida | `Config.tope_top`, `composicion.py:259, 416-423` | Es la definición decidida (M9-carga), no una medición | Sí (configuración) |
+| H2 «un 80 % en una gerencia podría ser una persona calificando por dos» | Ilustrativo, no medido | — | No aplica |
+| **H3** supervivencia RSS **98 % y 100 %**, SECOP **99 %** `[pendientes B7, ciclo 3]` | Insights del Clasificador con evidencia de esa fuente: validados/total, por corrida | Sí para CA-M3.3 tal como el PRD la define (% que sobrevive al validador); **no mide alucinación respecto del mundo** (8a.3) | **Sí**: corrida 10 RSS 53/54 = 98,1 %, SECOP 269/272 = 98,9 %; corrida 9 RSS 5/5 = 100 %. El documento no dice de qué corridas salen los dos valores de RSS |
+| H3 conversión RSS **46 %**, SECOP **40 %** | Señales de la fuente enviadas al Clasificador que acaban en insight validado / enviadas, corrida 10 | Sí (rendimiento del prefiltro, A2) | RSS **46,0 %** (120/261) exacto; SECOP **39,0 %** (869/2.226): el documento redondea a 40 |
+| H3 **136** descartes RSS, **128** `sin_implicacion_inmobiliaria` | `descarte` ⋈ `senal_cruda` (fuente RSS), corrida 10 | Sí | 128 exacto; el total es **141 filas** (137 declaradas + 4 no mencionadas), no 136 |
+| H3 **15 insights cruzan RSS con SECOP** | Consolidados de la corrida 10 con evidencia de ambas fuentes | Sí (CA-M4.1) | **Sí**: 15 de 38; ningún insight del Clasificador cruza fuentes |
+| H3 corrida 10: **364 insights sobre 1.382 evidencias**; corrida 7: **1.140** | `SELECT` | Sí | **Sí**, exacto |
+| H3 y H4 «la tasa de rechazo del validador es **0,0 %**» `[CLAUDE §4]` (dos veces: líneas 263 y 296) | Ninguno en el documento; `CLAUDE.md` §4 la afirma sin productor | Mide fidelidad de cita (8a.3) | **No**: corrida 9 0,0 % (10 insights), **corrida 10 1,2 %** (4/326), corrida 7 2,2 %, corrida 8 4,4 %. Las corridas 7, 8 y 10 ya existían cuando se escribió el documento (H-028) |
+| **H4** «**266 trazas** con tokens de entrada, de salida, duración y **hashes de entrada y de salida**» `[BD]` | `SELECT` sobre `traza_agente` | Sí (CA-M8.2) | **No**: 266 trazas, `hash_input` en 215, **`hash_output` en 0** (H-027) |
+| H4 descartes **5.455 declarados y 276 no declarados** | `SELECT sum(declarado)` | Sí (CA-M2.5) | **Sí**, exacto |
+| H4 «Ninguna cifra del informe viene del LLM (CA-M6.3)» | Composición por código (área 3) | Parcial: verdadero para las cifras estructuradas; la prosa publicada lleva 15 cifras transcritas por el modelo sin compuerta (H-009, decisión P-3) | Parcial |
+| H4 «Los prompts se anclan por hash; editar uno sin subir la versión levanta `PromptDivergente`» | `linaje.py:39-78` | Sí (D7) | **Sí** para las corridas de `procesar_ciclo`; **no** para las del script de comparación (H-022) |
+| H4 «La evidencia la une el código, no el modelo» | `correlacionador.py:281-299` | Sí (CA-M4.4) | **Sí**, verificado 23/23 consolidados (área 4) |
+| H4 «No hay informes publicados» | `SELECT count(*) FROM informe` | Estado | **Desactualizado**: informe 5 publicado el 2026-09-22 (posterior al documento) |
+| Regla de decisión `[PRD §11]` | Cita | — | **Cita errónea**: la compuerta está en PRD **§9**; §11 no existe (H-032) |
+
+### 8a.3 Encargos del dueño sobre esta mitad
+
+**La tasa de rechazo mide fidelidad de cita contra lo ingerido, no alucinación
+respecto del mundo.** El documento no usa la palabra «alucinación» en esta
+mitad; presenta la cifra como «supervivencia al validador» y, en H3, advierte
+que «un rechazo del 0 % no distingue “el modelo no alucina” de “el validador no
+aprieta”» (263-265). **No declara el alcance real del validador**: R6 comprueba
+que la cita esté en el texto que se le entregó al modelo (`validador.py:134-136`,
+`149-151`); nada comprueba que ese texto sea verdadero, que la URL resuelva ni
+que el insight interprete bien la señal. Bajo el snapshot, la tasa es una medida
+de **fidelidad de transcripción**, y CA-M3.3 la llama «tasa de alucinación
+medida». Un lector del informe de resultados no puede saberlo desde el texto.
+H-029.
+
+**H-011 bajo el criterio C(ii) y la lectura de H1.** La sección H1 condiciona la
+lectura del criterio solo por A6 (banda de error de qué se publica). No dice que
+**qué municipios se muestran y en qué puesto** —y por tanto qué insights se piden
+calificar— lo decide el scoring determinista, cuyos factores F1–F3 (el 54 % del
+peso) dependen del diccionario de obra por subcadena (H-011). Una calificación
+baja de una gerencia puede significar «el insight es malo» (M2/M4, lo que H1
+quiere medir) o «este municipio no debía estar aquí» (M5), y el documento no
+prepara esa distinción. La segunda mitad (8b, hallazgos 5 y 6) trata el scoring;
+si tampoco la establece, H-033 se consolida allí.
+
+**Qué afirma el documento sobre H1, H2 y CA-M4.3 sin calificaciones.** H1 y H2
+están marcadas «⬜ Sin medir — cero calificaciones», coherente con el encuadre de
+§0.11.2. **CA-M4.3 no aparece en ninguna línea de las 702 del documento**: el
+bucle de aprendizaje que el PRD llama «el bucle de aprendizaje del MVP» no se
+menciona ni como pendiente, aunque está cableado y sin ejercitar (área 2) y aunque
+la interpretación de un tercer ciclo dependería de él. H-033.
+
+**Evidencia no persistida de la promoción de v2:** vive en las líneas 485-504
+(hallazgo 4 del documento) → área 8b.
+
+### 8a.4 Hallazgos
+
+**H-027 · Alto · Defecto · Confianza Alta · Área 8a · H4 (bloqueante), CA-M8.2**
+*El informe de resultados afirma en la sección de H4 que las 266 trazas llevan
+«hashes de entrada y de salida» `[BD]`, y no es cierto.*
+
+```
+docs/informe_resultados.md:279-281
+- **Trazas por agente** (CA-M8.2): **266 trazas** con tokens de entrada, de
+  salida, duración y hashes de entrada y de salida. `[BD]`
+```
+
+`SELECT`: `hash_output` es NULL en 266/266; `hash_input` es NULL en 51/266 (todas
+las del Correlacionador). Es una afirmación de evidencia a favor de la hipótesis
+bloqueante, marcada como salida de la base, que la base contradice. Alto por la
+regla del área: un resultado reportado que no se reproduce, en la sección que
+decide el GO.
+
+**H-028 · Alto · Defecto · Confianza Alta · Área 8a · H3, H4, CA-M3.3**
+*«La tasa de rechazo del validador es 0,0 %» se afirma dos veces y la base la
+contradice.* Corrida 10: 4/326 = **1,2 %**; corrida 7: 7/320 = 2,2 %; corrida 8:
+15/342 = 4,4 %; solo la corrida 9 (10 insights) da 0,0 %. Las corridas 7, 8 y 10
+son anteriores al documento. La cifra se cita `[CLAUDE §4]` y `CLAUDE.md` §4 la
+repite («Tasa de rechazo 0,0 % tras corregir el falso positivo»), también sin
+productor. *Escenario:* el lector concluye que el validador «no aprieta» —el
+propio documento lo plantea— cuando en realidad rechaza entre el 1 % y el 4 %
+por citas no localizables, que es la señal que H4 necesita. Alto: cifra
+reportada no reproducible en la sección de la hipótesis bloqueante. Corregir
+también `CLAUDE.md` §4.
+
+**H-029 · Medio · Brecha documental · Confianza Alta · Área 8a · CA-M3.3, H3, H4**
+*El documento no declara que la tasa de rechazo mide fidelidad de cita contra
+el contenido ingerido.* Evidencia en 8a.3. Sin esa frase, «≥60 % sobrevive al
+validador» se lee como «≥60 % es verdadero», y no es lo que se midió. Medio: no
+altera la cifra, altera lo que significa.
+
+**H-030 · Alto · Brecha documental · Confianza Alta · Área 8a · H1, A6**
+*«Entre el 25 % y el 50 % del contenido del informe del top 3 depende de qué
+pasada se publicó» no tiene productor.* No existe script, consulta ni definición
+de «criterio laxo» y «criterio estricto» en el repositorio ni en `pendientes.md`
+A6, que repite el rango. Alto por la regla acordada para el área («un número sin
+código que lo produzca es Alto»); es además la cifra que el documento usa para
+pedir «banda de error» en H1. Confianza Alta en que no hay productor; la cifra
+puede ser correcta, pero no se puede saber.
+
+**H-031 · Bajo · Brecha documental · Confianza Alta · Área 8a · §0 y estados**
+*Inventario y estados desactualizados o internamente inconsistentes.* La tabla de
+§0 cuenta 10 corridas de agentes, 21 de scoring, 1.132 insights y 0 informes
+publicados; el mismo documento declara como última medición las corridas 11 y 12
+(que suman 81 insights) y hoy hay 12, 24, 1.213 y 1. H1 y H2 dicen que «M7 y M9
+no tienen código» y que «Django no está instalado», cuando la decisión de
+Next.js es del 2026-09-21 y `web/` existe. Dos cifras con desviación menor: SECOP
+convierte 39,0 % (el documento dice 40 %) y los descartes RSS son 141 filas / 137
+declaradas (dice 136). Bajo: nada de esto mueve una hipótesis, pero el documento
+se presenta como «cada cifra lleva su procedencia para que se pueda volver a
+comprobar» y varias no pasan la comprobación literal.
+
+**H-032 · Bajo · Brecha documental · Confianza Alta · Área 8a · PRD §9**
+*La regla de decisión se cita como `[PRD §11]` dos veces (líneas 29 y 696); está
+en PRD §9 y el PRD no tiene §11.*
+
+**H-033 · Medio · Brecha documental · Confianza Alta · Área 8a · H1, CA-M4.3, H-011**
+*La lectura de H1 omite dos condicionantes.* (a) Qué se califica lo decide el
+scoring —tope 10, los 3 primeros pedidos— y el 54 % de ese score depende del
+diccionario de obra (H-011): una calificación baja no distingue insight malo de
+municipio mal seleccionado, y la sección solo advierte de A6. (b) **CA-M4.3 no se
+menciona en el documento**: el bucle de aprendizaje está cableado y jamás
+ejercitado, y la comparación entre ciclos que H1 supone lo daría por activo.
+Consolidación pendiente de 8b (hallazgos 5 y 6 del documento).
+
+### 8a.5 No verificable en esta mitad
+
+- Las cifras de `[pendientes B7]` que el documento atribuye al «ciclo 3» sin
+  corrida: se reprodujeron sobre la corrida 10 (y la 9 para el 100 % de RSS); si
+  salieron de otra pasada no persistida, no hay forma de saberlo.
+- Las «hojas de revisión del equipo —5 personas, 45 insights—» (H1): no hay
+  artefacto en el repositorio; `scripts/generar_hojas_revision.py` existe y no se
+  abrió (área 10).
+
+*Fin del área 8a.*
+
+---
+
 ## Preguntas abiertas (acumuladas; se consolidan en la sección 9 al cierre)
 
 | # | Pregunta | Decide | Prioridad | Origen |
