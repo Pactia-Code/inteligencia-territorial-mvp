@@ -1196,10 +1196,242 @@ señales del insight como entrada permitida; el módulo ya existe y está probad
 
 ---
 
+## Área 5 — Aplicación web (M7 y M9)
+
+**Cerrada el 2026-09-22.** Todos los archivos de `web/app` y `web/lib` estaban
+leídos completos desde el Preflight; no hay archivos nuevos. Comprobaciones
+ejecutadas: `grep` de toda llamada a la base y de todo `cookies().set/delete` en
+`web/`; `find` de *route handlers*; peticiones **GET** al servidor de desarrollo
+—sin cookie, con cookie forjada de un usuario autorizado, de un no autorizado y
+del administrador—, contando sobre el HTML renderizado sin el `<script>` del
+payload RSC. **No se envió ninguna calificación, comentario ni cambio de
+seguimiento.**
+
+### 5.1 Superficie de escritura, enumerada
+
+No existe ningún *route handler* (`find web/app -name route.ts` y `api/`: vacío)
+ni ninguna importación del driver fuera de `web/lib/db.ts`. El único archivo
+`"use server"` es `web/app/acciones.ts` (la mención en `tablero.ts:24` es un
+comentario). Toda escritura pasa por estas cinco Server Actions:
+
+| Server Action (`acciones.ts`) | Llama a | Sentencia | Tabla · columnas escritas | Verifica en servidor |
+|---|---|---|---|---|
+| `identificarse` (41-59) | `gerenciaDelCorreo` (lectura) | `cookies().set("correo", …)` (51-56) | **ninguna tabla**; cookie `correo` httpOnly, sameSite lax, 1 año, **sin firma** | Que el correo esté en `usuario` y `activo` |
+| `cambiarCorreo` (62-65) | — | `cookies().delete` (63) | ninguna | — |
+| `registrarCalificacion` (73-80) | `escrituras.calificar` (30-50) | `INSERT INTO calificacion … ON CONFLICT (id_insight, id_gerencia) DO UPDATE` (43-49) | `calificacion` · `id_insight`, `id_gerencia`, `valor`, `comentario`, `creado_en` | Identidad presente; `valor` entero 1–5 (`escrituras.ts:36-42`). **No** verifica ciclo abierto ni que el insight pertenezca a un informe publicado |
+| `registrarComentario` (124-133) | `escrituras.comentar` (53-64) | `UPDATE calificacion SET comentario` (58-63) | `calificacion` · `comentario` | Identidad presente. Sin fila previa no escribe nada (0 filas afectadas) |
+| `cambiarEstado` (93-121) | `escrituras.registrarSeguimiento` (70-78) | `INSERT INTO seguimiento` (73-77) | `seguimiento` · `divipola`, `id_ciclo_origen`, `estado`, `nota`, `id_usuario`, `fecha_cambio` | Identidad; `estado` en la unión generada; nota obligatoria en `descartado`/`en_estructuracion` (105-110). `divipola` e `id_ciclo` vienen de campos ocultos del cliente; solo las FK limitan |
+
+Lecturas: 5 `SELECT` en `consultas.ts` (`informe`, `usuario`, `calificacion`
+propia) y 3 en `tablero.ts` (`informe`, `seguimiento` + `usuario`). Ninguna
+sentencia sobre `insight`, `senal_cruda`, `score_municipio`, `corrida_*`,
+`usuario` (escritura) ni `informe` (escritura). **CA-M9.16 se cumple:** las
+escrituras son exactamente `calificacion` y `seguimiento`, más la cookie.
+
+### 5.2 Sondas
+
+| Sonda | Respuesta | Evidencia |
+|---|---|---|
+| ¿Cómo se identifica quién califica? | Por el **valor en claro** de la cookie `correo`, resuelto en cada petición contra `usuario` (`sesion.ts:38-43`, `consultas.ts:69-81`). La gerencia es `usuario.id_gerencia` | GET con `Cookie: correo=prueba@territorial.local` **sin haber pasado por `identificarse`**: la página muestra «Calificando como **PRUEBA**» y 25 botones de calificación (5 insights × 5); con `correo=nadie@ejemplo.com`: sin identidad y formulario de identificación visible; con `correo=admin@territorial.local`: aparece «Métricas» en la barra |
+| ¿Puede un usuario calificar a nombre de otra gerencia? | **Sí**, tecleando un correo autorizado ajeno o forjando la cookie. No hay secreto, firma ni verificación de posesión del correo | `acciones.ts:45-56`; demostrado por GET arriba (la identidad se acepta sin `identificarse`). Es lo que el registro `M9-acceso` y `sesion.ts:4-8` llaman «atribución declarativa» |
+| ¿Puede calificar dos veces? | **No como dos filas**: el `ON CONFLICT` deja una por `(id_insight, id_gerencia)` (`escrituras.ts:46-49`, `modelos.py:429`). **Sí sobrescribir**: la segunda persona de la misma gerencia —o quien use su correo— reemplaza `valor` sin rastro (H-008: `creado_en` no cambia) | `escrituras.ts:43-49` |
+| ¿Puede alguien leer calificaciones ajenas antes de emitir la suya (CA-M7.2)? | **Por la interfaz, no**: `calificacionesDeLaGerencia` filtra por la gerencia identificada (`consultas.ts:93-100`); la página no muestra promedios ni conteos de otras (GET: 0 menciones a «promedio»/«respondido»). **Con otra identidad, sí**: la misma cookie forjada muestra lo que esa gerencia calificó | Estático + GET |
+| ¿CA-M7.7 (cierre de ciclo) se verifica en servidor? | **No.** Solo en la vista: `cicloEsEditable` decide `puedeCalificar` y si se pinta `Identificarse` (`ciclo/[id]/page.tsx:190, 271, 277`). `registrarCalificacion` y `registrarComentario` no lo consultan | `acciones.ts:73-80, 124-133` |
+| ¿Se verifica que el insight pertenezca a un informe publicado? | **No.** `registrarCalificacion` toma `id_insight` del formulario y llama a `calificar` sin comprobar informe, ciclo ni `estado_validacion`; cualquier `insight.id` existente —incluidos los de las corridas 11/12 y los 27 rechazados— es aceptable para la FK | `acciones.ts:76-78`, `escrituras.ts:43-49` |
+| Clics del informe a la calificación guardada (CA-M7.1) | Abrir el enlace → clic en el municipio (1) → **una vez** correo + «Continuar» → clic en la nota (1). Tras identificarse, **1 clic por calificación**, sin botón de enviar | `Panel.tsx:121-145` (form con 5 `submit`), `Identificarse.tsx:7-9` |
+| Guardado instantáneo (CA-M7.6) | **Sí**: upsert en el clic, `revalidatePath` y marca «✓ Calificación registrada» sin ocultar la fila | `escrituras.ts:43-49`, `Panel.tsx:160-166` |
+| Etiqueta MVP (desviación `M6-aviso`) en cada vista con contenido generado | **Solo en la vista de ciclo**: 1 `etiqueta-aviso` con «MVP» en el encabezado; el texto largo no se muestra («no validado»: 0). **En `/priorizados`: 0** (la única aparición de «MVP» es la `<meta name="description">` del layout) | GET sobre HTML sin `<script>`; `ciclo/[id]/page.tsx:235-237` |
+| Vistas vs CA-M9.3 enmendado | **Dos de tres**: `/ciclo/[id]` y `/priorizados` existen; **`/historico` → 404 y `/metricas` → 404 también con identidad de administrador**, aunque `Nav.tsx:13-23` enlaza a ambas | GET; `git ls-files web/app` |
+| `/ciclo/2` → 404 | **Comportamiento correcto**, no hallazgo: no hay informe publicado del ciclo 2 (`informeDelCiclo` → `notFound()`, `page.tsx:187-188`); el ciclo 2 nunca se corrió entero (área 4, §0.7). `/ciclo/1` igual; `/ciclo/abc` → 404 por `Number.isInteger` | GET |
+| Texto de selección en `Panel.tsx:299-304` | **Obsoleto y renderizado**: «los **2 de mayor peso** y **3 al azar**, con al menos uno de prensa» aparece en Ibagué; la selección real es 3 correlacionados + 1 contratación + 1 prensa con relleno (`seleccion.py:56-60`) y el payload de Ibagué dice `{correlacionado: 3, contratacion: 1, prensa: 1}`, el de Armenia `{correlacionado: 1, prensa: 1, relleno: 3}` | GET: «de mayor peso» presente |
+| ¿Cuántos insights y evidencias ve la gerencia? | **5 insights por municipio como máximo y 1 evidencia por insight.** Ibagué (8 en payload): 5 `<article>`, 5 «ver en la fuente». **Funza (49): 5 `<article>`**. Buenaventura (38, no pedido): 5 | GET; `Panel.tsx:69` (`evidencia[0]`), `Panel.tsx:312` (`pedidos` o `slice(0, 5)`) |
+| Cadena de trazabilidad en interfaz (CA-M9.5) | **No existe** ruta ni componente; el insight muestra «señal N» como texto y un enlace a la URL de la fuente | `Panel.tsx:321-327, 85-95` |
+
+### 5.3 Hallazgos
+
+**H-012 · Alto · Riesgo · Confianza Alta · Área 5 · Criterio C(ii) sobre la desviación `3b`/`M9-acceso` → CA-M7.2, CA-M9.1, CA-M9.14, H1, H2**
+*La identidad es una cookie en claro sin firma: cualquiera califica y lee a
+nombre de cualquier gerencia autorizada.* (i) La desviación **está implementada
+como se registró**: leer es abierto, calificar pide un correo de la lista
+precargada, la app no da de alta a nadie. (ii) Pero la desviación retira el
+control del que dependen CA-M7.2 («ninguna gerencia ve la de otra») y CA-M9.14
+(tasa visible solo para el administrador), y la atribución de H1/H2 a gerencias:
+
+```
+web/app/acciones.ts:51-56
+  (await cookies()).set(COOKIE_CORREO, correo, {
+    httpOnly: true,
+    sameSite: "lax",
+    maxAge: DURACION_COOKIE,
+    path: "/",
+  });
+web/lib/sesion.ts:38-42
+  const correo = (await cookies()).get(COOKIE_CORREO)?.value;
+  if (!correo) return null;
+  const usuario = await gerenciaDelCorreo(correo);
+```
+
+*Demostrado con GET:* `Cookie: correo=prueba@territorial.local` sin pasar por
+`identificarse` renderiza «Calificando como PRUEBA» con los 25 botones de
+calificación activos; `correo=admin@territorial.local` muestra «Métricas».
+*Escenario:* una persona con el listado de las 7 gerencias —que estará en el CSV
+de `cargar_usuarios.py`— califica los 15 insights pedidos a nombre de las 7 en
+diez minutos; H2 marca 100 % y H1 mide la opinión de una sola persona; nada lo
+distingue de una respuesta real. `sesion.ts:4-8` lo reconoce («la atribución es
+declarativa y hay que decirlo al publicar H2»). No es una Desviación no
+registrada; es el riesgo residual de la registrada, y el registro no menciona que
+la cookie se pueda forjar sin conocer siquiera el flujo de identificación.
+
+**H-013 · Alto · Defecto · Confianza Alta · Área 5 · CA-M7.7, CA-M9.16 (alcance de la escritura)**
+*Las Server Actions no verifican en servidor el alcance de lo que escriben.*
+`registrarCalificacion` y `registrarComentario` aceptan cualquier `id_insight`
+existente, sin comprobar que el ciclo esté abierto ni que el insight pertenezca
+al informe publicado; `cambiarEstado` acepta cualquier `divipola` e `id_ciclo`
+que pasen las FK:
+
+```
+web/app/acciones.ts:73-80
+export async function registrarCalificacion(datos: FormData): Promise<void> {
+  const yo = await identidadActual();
+  if (!yo) return;
+  const idInsight = Number(datos.get("id_insight"));
+  const valor = Number(datos.get("valor"));
+  await calificar(idInsight, yo.id_gerencia, valor);
+  revalidatePath("/ciclo/[id]", "page");
+}
+```
+
+El cierre de ciclo vive solo en la vista (`ciclo/[id]/page.tsx:190, 277`).
+*Escenario:* (a) publicado el informe del ciclo siguiente, una petición con el
+formulario del ciclo cerrado —una pestaña abierta desde antes basta— sigue
+escribiendo; (b) un `id_insight` de la corrida 11 o de un insight rechazado
+recibe una calificación que `agregacion.py:203-213` (F6) y `ciclo.py:184-196`
+(CA-M4.3) leerán como opinión de las gerencias. Corrompe la evidencia de H1 y el
+insumo de F6 → Alto. Confianza Alta: no requiere ejecución, el código no tiene la
+comprobación.
+
+**H-014 · Medio · Brecha · Confianza Alta · Área 5 · CA-M9.3, CA-M9.7, CA-M9.13, CA-M9.14, CA-M9.15, CA-M7.5**
+*Las vistas Histórico y Métricas no existen; la barra enlaza a ellas.*
+`Nav.tsx:13-23` define `/historico` y, para el administrador, `/metricas`;
+`web/app/` solo tiene `ciclo/[id]` y `priorizados`. GET: 404 en ambas, también
+con identidad de administrador. Con ello no hay tasa de respuesta por gerencia
+(CA-M7.5, CA-M9.13), ni distribución de calificaciones, ni tasa de rechazo, ni
+costo por agente, ni exportación CSV (CA-M9.15), ni consulta de informes
+anteriores (CA-M9.7). El PRD §7 permite recortar «métricas → filtros → histórico»
+si la semana 5 va con retraso, pero **el recorte no está registrado** en
+`pendientes.md` ni en `CLAUDE.md`, que dan M9 por «sin código» o «parcial» sin
+nombrarlo. Medio porque ningún CA bloqueante depende de ello y las métricas se
+pueden derivar por SQL; sube a Alto si la ventana de calificación se abre sin una
+forma de reportar H2.
+
+**H-015 · Medio · Defecto · Confianza Alta · Área 5 · Desviación registrada `M9-sel`, CA-M6.6**
+*La pantalla describe un criterio de selección que ya no es el que se aplica.*
+
+```
+web/app/ciclo/[id]/Panel.tsx:299-304
+            De los {m.insights.length} insights del municipio se piden estos{" "}
+            {pedidos.length}: los <strong>2 de mayor peso</strong> y{" "}
+            <strong>3 al azar</strong>, con al menos uno de prensa. Los elige
+            código determinista con una semilla congelada, así que las siete
+            gerencias reciben exactamente los mismos. El resto es opcional.
+```
+
+El criterio vigente es 3 correlacionados + 1 de contratación + 1 de prensa con
+relleno (`seleccion.py:56-60`), y el payload lo registra (`composicion_pedida`:
+Ibagué `{correlacionado: 3, contratacion: 1, prensa: 1}`, Armenia
+`{correlacionado: 1, prensa: 1, relleno: 3}`). Renderizado en el servidor de
+desarrollo. *Escenario:* una gerencia lee que califica «los de mayor peso» y
+juzga los correlacionados como si fueran los que más pesan en el score, cuando el
+score no lee insights; sesga la interpretación de H1.
+
+**H-016 · Medio · Brecha · Confianza Alta · Área 5 · CA-M9.4, CA-M6.4 (presentación)**
+*La interfaz muestra como máximo 5 insights por municipio y 1 evidencia por
+insight.* El payload publica 241 insights con 933 evidencias; la pantalla pinta
+`pedidos` en los tres primeros y `m.insights.slice(0, 5)` en el resto
+(`Panel.tsx:312`), y de cada insight solo `i.evidencia[0]` (`Panel.tsx:68-70`).
+Funza tiene 49 insights y 183 evidencias en el payload: se ven 5 y 5. El
+consolidado 1092 tiene 12 evidencias (7 SECOP + 5 RSS): se ve 1. CA-M9.4 exige
+«los insights que lo sustentan y la evidencia enlazada de cada uno», y M6-orden
+sostiene que el cruce SECOP×RSS es «lo que ninguna fuente sola produce»: en
+pantalla ese cruce no se ve. *Escenario:* una gerencia califica un consolidado
+viendo una sola de sus doce citas.
+
+**H-017 · Medio · Brecha · Confianza Alta · Área 5 · CA-M9.5**
+*No hay cadena de trazabilidad en la interfaz.* La cadena existe en datos y se
+reconstruyó al 100 % (área 4), pero CA-M9.5 la pide «expuesta en interfaz, no
+solo en base de datos». La pantalla muestra «señal 4599, 4610, …» como texto
+(`Panel.tsx:324-326`) y el enlace a la URL de la fuente; no hay ruta ni despliegue
+para `señal → insight → validación → correlación → score`.
+
+**H-018 · Medio · Brecha · Confianza Alta · Área 5 · CA-M9.11**
+*La ficha del municipio priorizado no muestra insights acumulados ni
+calificación promedio.* `priorizados/page.tsx:231-237` pinta ciclos y puestos
+(«c3: puesto 1»); CA-M9.11 exige además «sus insights acumulados y su
+calificación promedio». Con 0 calificaciones el promedio sería vacío hoy, pero el
+código tampoco lo calcula ni lo consulta.
+
+**H-019 · Bajo · Riesgo · Confianza Alta · Área 5 · CA-M9.17, desviación `M6-aviso`**
+*La etiqueta MVP vive en una página, no en el layout.* Se pinta solo en
+`ciclo/[id]/page.tsx:235-237`; `/priorizados` no la lleva (GET: 0
+`etiqueta-aviso`). Esa vista no muestra prosa del modelo —nombres, scores y
+estados—, por eso es Bajo; pero cualquier vista nueva nace sin la marca, y
+CA-M9.17 dice «toda pantalla».
+
+**H-020 · Medio · Brecha documental · Confianza Alta · Área 5 · CA-M6.2, CA-M9.4 — criterio B**
+*La infografía no existe en el código y no está especificada ni retirada.*
+`informe.infografias` es `[]` en los 4 informes (área 4); `web/` no tiene
+imagen, gráfico ni componente con ese nombre; ningún documento del repositorio
+define su contenido ni su formato; `pendientes.md` no la retira. Por el criterio
+B se clasifica como Brecha documental y pasa a Preguntas abiertas (P-4).
+
+### 5.4 Estado de los CA del área
+
+| CA | Estado | Base |
+|---|---|---|
+| CA-M6.5 | **Desviación autorizada** (`M6-aviso`) | «MVP» en el encabezado de la vista de ciclo; texto largo en el payload. Ver H-019 |
+| CA-M6.7 | **Parcial** | El informe publicado es permanente y visible en la app; sin correo (`11.4/3`, autorizada); **sin Histórico** para «consultable de forma permanente» más allá del ciclo vigente (H-014) |
+| CA-M7.1 | **Cumple** | 1 clic por calificación tras identificarse una vez; identificación una sola vez por cookie de 1 año |
+| CA-M7.2 | **Parcial** | Estructura: único `(id_insight, id_gerencia)` y lectura solo de lo propio. Independencia: no garantizable sin identidad (H-012) |
+| CA-M7.3 | Parcial (área 4, H-005) | — |
+| CA-M7.4 | **Cumple** | Comentario opcional tras calificar; `UPDATE` de la propia fila |
+| CA-M7.5 | **No cumple** | Ninguna tasa se calcula ni se muestra (H-014) |
+| CA-M7.6 | **Cumple** | Upsert en el clic; sin botón de enviar |
+| CA-M7.7 | **Parcial** | Derivado correctamente (`cicloEsEditable`) pero aplicado solo en la vista (H-013) |
+| CA-M9.1 | **Desviación autorizada** (`3b`/`M9-acceso`) con **Riesgo Alto** (H-012) | Identidad declarativa por correo precargado |
+| CA-M9.2 | **Desviación autorizada** (`11.4/3`) | Sin correo; el enlace se comparte a mano y abre el informe sin paso previo |
+| CA-M9.3 | **Parcial** | 2 de 3 vistas; enlaces a 404 (H-014) |
+| CA-M9.4 | **Parcial** | Informe del top 10 con score, fuentes, contexto y evidencia; **5 insights y 1 evidencia por insight** (H-016); sin infografías (H-020) |
+| CA-M9.5 | **No cumple** | H-017 |
+| CA-M9.6 | **Desviación autorizada** (`M6-src`) · Cumple | Barras por fuente desde `aportes_por_fuente` (`Panel.tsx:251-288`); ausencias mostradas |
+| CA-M9.7 | **No cumple** (vista) | Datos correctos (`informe` publicado/archivado); sin vista Histórico (H-014) |
+| CA-M9.8 | **Cumple** | Tablero derivado de los informes publicados; sin alta manual (`tablero.ts:115-155`); GET: Ibagué, Armenia, Funza |
+| CA-M9.9 | **Cumple** | Cuatro estados; nota obligatoria verificada **en servidor** (`acciones.ts:105-110`) |
+| CA-M9.10 | Parcial (área 4, H-004) | Gerencia derivada en consulta |
+| CA-M9.11 | **Parcial** | Ciclos y puestos sí; insights acumulados y promedio no (H-018) |
+| CA-M9.12 | **Cumple** | Filtros estado/ciclo/departamento y orden score/fecha en la URL (`priorizados/page.tsx:85-96`) |
+| CA-M9.13 · CA-M9.14 · CA-M9.15 | **No cumple** | Sin `/metricas` ni CSV (H-014). CA-M9.14 no se viola —nada expone la tasa— pero tampoco existe lo que debía proteger |
+| CA-M9.16 | **Cumple** | Superficie enumerada en §5.1: `calificacion`, `seguimiento` y la cookie. El alcance de esas escrituras es H-013, no una escritura fuera de las permitidas |
+| CA-M9.17 | **Desviación autorizada** (`M6-aviso`) con nota | Solo en la vista de ciclo (H-019) |
+| CA-M9.18 | → Área 6 | — |
+
+### 5.5 No verificable en esta área
+
+- Que una Server Action forjada (POST con `id_insight` arbitrario o con el ciclo
+  cerrado) escriba de verdad: **no se ejecutó ninguna escritura** por regla de
+  esta auditoría; H-013 se sostiene en la lectura del código, que no contiene la
+  comprobación. Artefacto: prueba de integración contra una rama de Neon.
+- Comportamiento en Vercel con el endpoint *pooled* y `revalidatePath` bajo
+  varias instancias: solo se observó el servidor de desarrollo.
+
+*Fin del área 5.*
+
+---
+
 ## Preguntas abiertas (acumuladas; se consolidan en la sección 9 al cierre)
 
 | # | Pregunta | Decide | Prioridad | Origen |
 |---|---|---|---|---|
+| P-4 | **Infografía por municipio (CA-M6.2, CA-M9.4):** no existe en el código ni está especificada ni retirada. ¿Se retira formalmente del alcance del MVP (registro en `pendientes.md`) o se especifica antes de distribuir? | Dueño | Previa a distribución | Área 5, H-020 |
 | P-3 | **¿Qué lectura de CA-M6.3 rige?** (a) La literal del PRD: ninguna cifra *generada* sin fuente → los 15 insights con cifras transcritas cumplen y H-009 es un Riesgo por falta de compuerta. (b) La del propio proyecto (`reglas/contexto.py:3-6`): ninguna cifra *escrita* por el modelo → los 15 son una desviación no registrada y H-009 sube a Crítico. Decide también si la compuerta de `reglas/cifras.py` debe cablearse en `ciclo.py` antes de distribuir | Dueño | **Previa a distribución** | Área 3, H-009 |
 | P-1 | **El informe 5 se compuso con el Correlacionador v1** (corrida 10, `version_correlacionador='v1'`, `id_prompt=2`) mientras `CLAUDE.md` declara vigente v2 desde el 2026-09-21. ¿Se republica el ciclo 3 con una corrida v2 —lo que exige volver a correr M4 y gastar tokens— o se corrige `CLAUDE.md` para que diga que lo publicado es v1? | Dueño | **Previa a distribución** | Área 4, §4.3 |
 | P-2 | **H-005 debe resolverse antes de cargar los 7 usuarios reales.** ¿Cómo se congela la lista de gerencias autorizadas por ciclo —en el payload del informe, en una tabla propia o en Alembic— para que el denominador de H2 no dependa del estado actual de `usuario`? | Dueño | **Previa a distribución** | Área 4, H-005 y §4.9 |
