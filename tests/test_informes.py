@@ -477,3 +477,70 @@ def test_el_error_de_una_parcial_dice_cuan_parcial(bd):
     s.flush()
     with pytest.raises(PublicacionInvalida, match=r"1 de 2 municipios"):
         publicar(s, sc, ag)
+
+
+# --------------------------------------------------------------------------
+# El contexto son tres tarjetas, y ninguna es de ELIC
+# --------------------------------------------------------------------------
+
+
+def test_el_contexto_son_tres_tarjetas_de_terridata():
+    campos = campos_de_contexto(ContextoMunicipal(
+        codigo_divipola="25286", poblacion_total=125_880, anio_poblacion=2026,
+        deficit_cuantitativo=10.64, anio_deficit=2018,
+        avaluo_catastral_urbano=3_228_451.0, predios_urbanos=28_053,
+        anio_catastro=2024,
+    ))
+    assert [c["clave"] for c in campos] == [
+        "deficit_cuantitativo", "poblacion_total", "avaluo_por_predio",
+    ]
+
+
+def test_el_avaluo_va_por_predio_no_total():
+    """El total mide tamaño de ciudad; el valor del suelo es el cociente."""
+    campos = campos_de_contexto(ContextoMunicipal(
+        codigo_divipola="25286", avaluo_catastral_urbano=1000.0,
+        predios_urbanos=10, anio_catastro=2024,
+    ))
+    avaluo = next(c for c in campos if c["clave"] == "avaluo_por_predio")
+    assert avaluo["valor"] == pytest.approx(100.0)
+
+
+def test_elic_no_aparece_en_el_contexto():
+    """Ya está abajo como F4: arriba lo contaría dos veces."""
+    campos = campos_de_contexto(ContextoMunicipal(
+        codigo_divipola="25286", poblacion_total=1, anio_poblacion=2026,
+    ))
+    texto = " ".join(c["etiqueta"].lower() for c in campos)
+    assert "licencia" not in texto
+    assert "elic" not in texto
+
+
+# --------------------------------------------------------------------------
+# Lo que se pide calificar viaja en el payload, y la semilla congelada
+# --------------------------------------------------------------------------
+
+
+def test_solo_los_municipios_pedidos_traen_insights_pedidos(bd):
+    s, sc, ag = bd
+    d = componer(s, sc, ag, tope_calificable=1)
+    assert d["municipios"][0]["insights_pedidos"]
+    assert d["municipios"][1]["insights_pedidos"] == []
+
+
+def test_la_semilla_queda_congelada_en_el_payload(bd):
+    """Para poder recomputar la muestra y comprobar que fue la misma (CA-M6.6)."""
+    s, sc, ag = bd
+    d = componer(s, sc, ag)
+    assert d["calificacion"]["semilla"] == d["ciclo"]
+    assert d["calificacion"]["pedidas_por_municipio"] == 5
+
+
+def test_cada_insight_dice_como_llego(bd):
+    """Directo o Correlacionado: es el trabajo de M4 hecho visible."""
+    s, sc, ag = bd
+    trayectos = {
+        i["trayecto"] for m in componer(s, sc, ag)["municipios"] for i in m["insights"]
+    }
+    assert trayectos <= {"Directo", "Correlacionado"}
+    assert "Directo" in trayectos

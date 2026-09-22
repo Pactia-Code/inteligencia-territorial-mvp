@@ -48,6 +48,7 @@ from territorial.almacen.modelos import (
     ScoreMunicipio,
 )
 from territorial.config import Config, obtener_config
+from territorial.informes.seleccion import PEDIDAS, pedir_calificacion
 
 # CA-M6.5: la marca va en el payload, no en la plantilla, para que ninguna
 # superficie pueda publicar sin ella por descuido.
@@ -100,32 +101,39 @@ def _iso(valor: date | datetime | None) -> str | None:
 
 
 def campos_de_contexto(fila: ContextoMunicipal | None) -> list[dict]:
-    """El bloque de contexto estructural, cada dato con fuente y año.
+    """El bloque de contexto estructural: **tres tarjetas, todas de TerriData**.
 
     **El déficit es un porcentaje de hogares, no un conteo.** TerriData no trae
     el número absoluto, así que el informe no puede decir «3.480 hogares en
     déficit» por mucho que sea la frase natural: diría algo que la fuente no
     sostiene.
+
+    **Nada de ELIC aquí, ni el área licenciada ni su variación.** La variación
+    es F4 y ya aparece abajo, en el score explicable, como «licencias de
+    construcción». Ponerla también arriba **la contaría dos veces** y parecerían
+    dos evidencias independientes cuando son la misma.
     """
     if fila is None:
         return []
+
+    # **Avalúo POR PREDIO, no total.** El total mide tamaño de ciudad; el valor
+    # del suelo es el cociente. Misma razón por la que ningún factor del score
+    # es una suma (ver `scoring/factores.py`).
+    por_predio = (
+        fila.avaluo_catastral_urbano / fila.predios_urbanos
+        if fila.avaluo_catastral_urbano is not None and fila.predios_urbanos
+        else None
+    )
+
     campos = [
-        CampoContexto("poblacion_total", "Habitantes", fila.poblacion_total,
-                      "personas", "DANE, proyección", fila.anio_poblacion),
-        CampoContexto("valor_agregado", "Valor agregado municipal", fila.valor_agregado,
-                      "miles de millones de pesos corrientes", "DANE",
-                      fila.anio_valor_agregado),
         CampoContexto("deficit_cuantitativo", "Hogares en déficit cuantitativo",
                       fila.deficit_cuantitativo, "% de hogares", "DANE, censo",
                       fila.anio_deficit),
-        CampoContexto("deficit_cualitativo", "Hogares en déficit cualitativo",
-                      fila.deficit_cualitativo, "% de hogares", "DANE, censo",
-                      fila.anio_deficit),
-        CampoContexto("avaluo_catastral_urbano", "Avalúo catastral urbano",
-                      fila.avaluo_catastral_urbano,
-                      "millones de pesos corrientes", "IGAC", fila.anio_catastro),
-        CampoContexto("predios_urbanos", "Predios urbanos", fila.predios_urbanos,
-                      "predios", "IGAC", fila.anio_catastro),
+        CampoContexto("poblacion_total", "Habitantes", fila.poblacion_total,
+                      "personas", "DANE, proyección", fila.anio_poblacion),
+        CampoContexto("avaluo_por_predio", "Avalúo catastral urbano por predio",
+                      por_predio, "millones de pesos corrientes", "IGAC",
+                      fila.anio_catastro),
     ]
     return [c.a_dict() for c in campos if c.valor is not None]
 
@@ -219,6 +227,16 @@ def _factores(fila: ScoreMunicipio) -> tuple[list[dict], set[str], set[str]]:
     return detalle, presentes, ausentes - presentes
 
 
+def _trayecto(insight: dict, ids_correlacionados: set[int]) -> str:
+    """Cómo llegó esa señal al informe: sola, o vía una convergencia.
+
+    Merece mostrarse porque es **el trabajo de M4 hecho visible**: los 15
+    insights que cruzan RSS con SECOP son la primera evidencia de que la
+    correlación produce algo que ninguna fuente sola produce.
+    """
+    return "Correlacionado" if insight["id"] in ids_correlacionados else "Directo"
+
+
 def componer(
     sesion_bd: Session,
     id_corrida_scoring: int,
@@ -273,9 +291,35 @@ def componer(
     ).all():
         insights_por_muni.setdefault(ins.divipola, []).append(ins)
 
+    # Los consolidados de M4 marcan qué señales llegaron por convergencia.
+    correlacionados = {
+        i.id
+        for lista in insights_por_muni.values()
+        for i in lista
+        if i.origen == "correlacionador"
+    }
+
+    # **La semilla se congela en el payload.** Derivada del ciclo, así que es
+    # reproducible, y guardada para que cualquiera pueda recomputar la muestra
+    # meses después y comprobar que fue la misma para las siete gerencias.
+    semilla = corrida.id_ciclo
+
     municipios = []
     for puesto, fila in enumerate(mostrados, start=1):
         nombre, depto = nombres.get(fila.divipola, (fila.divipola, ""))
+        vistos = [
+            {
+                "id": i.id,
+                "categoria": i.categoria,
+                "resumen": i.resumen,
+                "implicacion_inmobiliaria": i.implicacion_inmobiliaria,
+                "origen": i.origen,
+                "trayecto": _trayecto({"id": i.id}, correlacionados),
+                "ids_senal": i.ids_senal or [],
+                "evidencia": i.evidencia or [],
+            }
+            for i in insights_por_muni.get(fila.divipola, [])
+        ]
         detalle, presentes, ausentes = _factores(fila)
         datos = fila.factores or {}
         municipios.append({
@@ -310,17 +354,15 @@ def componer(
             "justificacion": None,
             "sugerencias": [],
             "calificable": puesto <= tope_calificable,
-            "insights": [
-                {
-                    "id": i.id,
-                    "categoria": i.categoria,
-                    "resumen": i.resumen,
-                    "implicacion_inmobiliaria": i.implicacion_inmobiliaria,
-                    "origen": i.origen,
-                    "evidencia": i.evidencia or [],
-                }
-                for i in insights_por_muni.get(fila.divipola, [])
-            ],
+            "insights": vistos,
+            # M9-carga: qué se **pide** calificar. Lo elige código determinista
+            # con la semilla congelada; ver `informes/seleccion.py`. Vacío en
+            # los municipios que no se piden: ahí todo es opcional.
+            "insights_pedidos": (
+                pedir_calificacion(vistos, semilla, fila.divipola)
+                if puesto <= tope_calificable
+                else []
+            ),
         })
 
     return {
@@ -349,6 +391,10 @@ def componer(
         "calificacion": {
             "mostrados": len(municipios),
             "pedida_hasta_puesto": tope_calificable,
+            "pedidas_por_municipio": PEDIDAS,
+            # Congelada: con esto se recomputa la muestra y se comprueba que fue
+            # idéntica para las siete gerencias (CA-M6.6).
+            "semilla": semilla,
         },
         "municipios": municipios,
     }
