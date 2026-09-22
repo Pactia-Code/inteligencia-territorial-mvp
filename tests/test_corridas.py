@@ -314,7 +314,6 @@ def test_una_corrida_parcial_no_altera_lo_que_lee_un_informe_publicado(bd):
     informe = Informe(
         id_ciclo=CICLO,
         id_corrida=publicada.id,
-        uri_html="blob://informe/c1.html",
         estado="publicado",
     )
     bd.add(informe)
@@ -352,7 +351,7 @@ def test_id_corrida_de_un_informe_no_se_puede_reescribir(bd):
     b = guardar(bd, cohorte_completa())
     bd.commit()
 
-    informe = Informe(id_ciclo=CICLO, id_corrida=a.id, uri_html="blob://i.html")
+    informe = Informe(id_ciclo=CICLO, id_corrida=a.id)
     bd.add(informe)
     bd.commit()
 
@@ -365,7 +364,7 @@ def test_el_estado_del_informe_solo_admite_publicado_o_archivado(bd):
 
     corrida = guardar(bd, cohorte_completa())
     bd.commit()
-    bd.add(Informe(id_ciclo=CICLO, id_corrida=corrida.id, uri_html="x", estado="loquesea"))
+    bd.add(Informe(id_ciclo=CICLO, id_corrida=corrida.id, estado="loquesea"))
     with pytest.raises(IntegrityError):
         bd.commit()
 

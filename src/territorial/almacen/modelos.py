@@ -16,10 +16,12 @@ from sqlalchemy import (
     DateTime,
     Float,
     ForeignKey,
+    Index,
     Integer,
     String,
     Text,
     UniqueConstraint,
+    text,
 )
 from sqlalchemy.orm import (
     DeclarativeBase,
@@ -599,16 +601,31 @@ class Seguimiento(Base):
 
 
 class Informe(Base):
-    """Un informe publicado, atado a la corrida de scoring que lo sustenta.
+    """Un informe publicado, atado a **las dos corridas** que lo sustentan.
 
-    **`id_corrida` se fija al publicar y no se reescribe.** El informe y su top
-    3 leen siempre su propia corrida, nunca «la más reciente»: si leyeran la
-    última, un recálculo posterior cambiaría el ranking que las gerencias ya
-    calificaron, y las calificaciones quedarían colgando de un orden que nadie
-    puede reconstruir.
+    **Las dos, y esa es la corrección del 2026-09-22.** Durante un tiempo el
+    informe congelaba solo `corrida_scoring` —el ranking— y no
+    `corrida_agentes`, de donde salen los insights. Podía reconstruir su orden
+    y **no su contenido**, que es justo lo que la gerencia lee y califica.
+
+    Ninguna de las dos se reescribe. El informe lee siempre las suyas, nunca
+    «las más recientes»: si leyeran las últimas, un recálculo o una segunda
+    pasada cambiarían lo que las gerencias ya calificaron, y las calificaciones
+    quedarían colgando de algo que nadie puede reconstruir.
+
+    **Esto resuelve el pendiente A9 sin un flag `es_canonica`.** La corrida
+    canónica de un ciclo es, por definición, la que referencia su informe
+    publicado. Un flag habría que mantenerlo sincronizado y podría acabar con
+    dos en `true`; derivarlo no puede desincronizarse porque no hay nada que
+    sincronizar.
+
+    Y **solo puede haber un informe `publicado` por ciclo**, garantizado por
+    índice único parcial. Publicar uno nuevo archiva el anterior en la misma
+    transacción (ver `informes/publicacion.py`): sin eso, «la última publicada»
+    sería ambiguo justo cuando importa.
 
     Corregir un informe no es editarlo: el viejo pasa a `archivado` y el
-    corregido entra como fila nueva con su propia corrida. Ambos quedan
+    corregido entra como fila nueva con sus propias corridas. Ambos quedan
     consultables, y la divergencia entre los dos es auditable.
     """
 
@@ -616,11 +633,19 @@ class Informe(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     id_ciclo: Mapped[int] = mapped_column(ForeignKey("ciclo.id"), index=True)
-    # Nullable solo porque M6 todavía no existe; al publicar es obligatoria.
+    # Nullables solo porque M6 todavía no publica; al publicar son obligatorias
+    # y `publicar()` lo exige.
     id_corrida: Mapped[int | None] = mapped_column(
         ForeignKey("corrida_scoring.id"), index=True
     )
-    uri_html: Mapped[str] = mapped_column(Text)
+    id_corrida_agentes: Mapped[int | None] = mapped_column(
+        ForeignKey("corrida_agentes.id"), index=True
+    )
+    # El informe compuesto: cifras, factores, contexto e insights, cada dato con
+    # su fuente y su año (CA-M6.4). Lo arma `informes/composicion.py` **desde el
+    # almacén**; ni una cifra sale del modelo (CA-M6.3). M9 lo pinta y no
+    # necesita conocer los códigos de factor.
+    contenido: Mapped[dict] = mapped_column(JSON, default=dict)
     infografias: Mapped[list] = mapped_column(JSON, default=list)  # [{divipola, uri}]
     estado: Mapped[str] = mapped_column(String(20), default="publicado")
     fecha_publicacion: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=ahora)
@@ -629,21 +654,31 @@ class Informe(Base):
         CheckConstraint(
             "estado IN ('publicado', 'archivado')", name="ck_estado_informe"
         ),
+        # Un solo informe vigente por ciclo. Índice **parcial**: los archivados
+        # no compiten, y puede haber tantos como correcciones hagan falta.
+        # SQLite y PostgreSQL lo soportan igual, así que no diverge (D8).
+        Index(
+            "uq_informe_publicado_por_ciclo",
+            "id_ciclo",
+            unique=True,
+            sqlite_where=text("estado = 'publicado'"),
+            postgresql_where=text("estado = 'publicado'"),
+        ),
     )
 
-    @validates("id_corrida")
-    def _congelar_corrida(self, _clave: str, valor: int | None) -> int | None:
-        """Impide reapuntar un informe a otra corrida.
+    @validates("id_corrida", "id_corrida_agentes")
+    def _congelar_corrida(self, clave: str, valor: int | None) -> int | None:
+        """Impide reapuntar un informe a otra corrida. Vale para las dos.
 
         Se aplica en la capa ORM y no con un trigger porque la regla 1 de D8
         exige que todo pase por SQLAlchemy, y un trigger divergiría entre
         SQLite y PostgreSQL. **Limitación conocida:** un `UPDATE` crudo lo
         saltaría; el proyecto no emite SQL crudo.
         """
-        actual = getattr(self, "id_corrida", None)
+        actual = getattr(self, clave, None)
         if actual is not None and valor != actual:
             raise ValueError(
-                f"informe {self.id}: id_corrida es inmutable (era {actual}, se intentó "
+                f"informe {self.id}: {clave} es inmutable (era {actual}, se intentó "
                 f"{valor}). Para corregir un informe, archívalo y publica uno nuevo."
             )
         return valor
