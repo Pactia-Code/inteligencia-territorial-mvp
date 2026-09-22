@@ -22,7 +22,7 @@ from sqlalchemy import create_engine
 
 from alembic import context
 from territorial.almacen.modelos import Base
-from territorial.almacen.sesion import obtener_motor
+from territorial.almacen.sesion import exigir_directa, obtener_motor
 
 config = context.config
 
@@ -42,9 +42,11 @@ def _motor():
     (uso normal por CLI), se usa el motor de la aplicación.
     """
     url = config.get_main_option("sqlalchemy.url", None)
-    if url:
-        return create_engine(url, future=True)
-    return obtener_motor()
+    motor = create_engine(url, future=True) if url else obtener_motor()
+    # La comprobación va aquí y no solo en `aplicar_migraciones`: este es el
+    # camino de `alembic upgrade head`, que es como se migra a mano.
+    exigir_directa(str(motor.url))
+    return motor
 
 
 def _url() -> str:

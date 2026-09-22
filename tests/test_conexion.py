@@ -13,7 +13,12 @@ from __future__ import annotations
 
 import pytest
 
-from territorial.almacen.sesion import aplicar_migraciones, es_pooled, normalizar_url
+from territorial.almacen.sesion import (
+    aplicar_migraciones,
+    es_pooled,
+    exigir_directa,
+    normalizar_url,
+)
 from territorial.config import Config
 
 NEON = "ep-royal-bird-12345.us-east-2.aws.neon.tech/territorial?sslmode=require"
@@ -64,3 +69,24 @@ def test_no_se_migra_por_el_endpoint_pooled():
     cfg = Config(url_base_datos="postgresql://u:c@ep-abc-pooler.aws.neon.tech/territorial")
     with pytest.raises(ValueError, match="pooled"):
         aplicar_migraciones(cfg)
+
+
+def test_la_conexion_directa_pasa_y_devuelve_la_url():
+    url = f"postgresql+psycopg://u:c@{NEON}"
+    assert exigir_directa(url) == url
+
+
+def test_hay_dos_caminos_hasta_alembic_y_los_dos_comprueban():
+    """El de codigo y el de `alembic upgrade head`, que es el que se usa a mano.
+
+    Durante un tiempo solo el primero comprobaba, y el segundo es el probable:
+    `alembic/env.py` resolvia el motor por su cuenta. Ahora los dos llaman a
+    `exigir_directa`, asi que la comprobacion no puede quedarse en un lado.
+    """
+    from pathlib import Path as _Path
+
+    env = _Path(__file__).resolve().parents[1] / "alembic" / "env.py"
+    assert "exigir_directa" in env.read_text(encoding="utf-8")
+
+    with pytest.raises(ValueError, match="pooled"):
+        exigir_directa("postgresql+psycopg://u:c@ep-abc-pooler.aws.neon.tech/t")

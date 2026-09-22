@@ -127,6 +127,37 @@ estado que depende de por dónde fuera. Usa el **directo**, el mismo host sin
 `-pooler`. `aplicar_migraciones()` se niega a arrancar por el pooled en vez de
 dejar que falle a mitad.
 
+### Si conectar a Neon se cuelga: es IPv6
+
+**Síntoma:** `alembic current` no da error, se queda colgado minutos. Pasó el
+2026-09-21 y cuesta media tarde diagnosticarlo, así que queda escrito.
+
+**Causa:** el DNS de Neon devuelve direcciones IPv6 **y** IPv4, y las IPv6
+primero. En una red corporativa sin ruta IPv6, libpq las prueba en orden y cada
+una agota el timeout por defecto del sistema antes de caer a IPv4. Medido en
+esta máquina:
+
+```
+TCP 5432 por IPv6  ->  timeout           (no rutea)
+TCP 5432 por IPv4  ->  conecta en 0,09s
+psycopg sin connect_timeout  ->  cuelga varios minutos
+psycopg con connect_timeout=20  ->  conecta en 61s  (3 intentos IPv6 + IPv4)
+```
+
+**Arreglo, y va puesto de forma permanente:** `connect_timeout` en la cadena.
+
+```
+DATABASE_URL=postgresql://...neon.tech/territorial?sslmode=require&connect_timeout=3
+```
+
+Baja el peaje a unos 9 segundos por conexión. **No es un apaño temporal**: es
+configuración razonable para cualquier cliente en una red sin IPv6 y no molesta
+donde sí la hay. Lo que **no** hay que dejar puesto es un `hostaddr=` con una IP
+fija: funciona, pero Neon las rota.
+
+Vercel sí tiene IPv6, así que esto no afecta a la app desplegada. Importa si el
+pipeline corre desde esta red o desde un runner corporativo.
+
 ### Llevar la base a Neon
 
 Los datos de desarrollo son SQLite, así que no hay `pg_dump` que restaurar: la

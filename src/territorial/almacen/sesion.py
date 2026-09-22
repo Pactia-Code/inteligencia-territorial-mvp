@@ -51,6 +51,26 @@ def es_pooled(url: str) -> bool:
     return MARCA_POOLED in url
 
 
+def exigir_directa(url: str) -> str:
+    """Devuelve la URL si es la conexión directa; si es la pooled, revienta.
+
+    Vive aquí y no en cada llamador porque **hay dos caminos hasta Alembic** y
+    durante un tiempo solo uno estaba protegido: `aplicar_migraciones()` desde
+    código, y `alembic upgrade head` por línea de comandos, que resuelve el
+    motor en `alembic/env.py`. El segundo es el que se usa a mano, o sea el más
+    probable, y era el que no comprobaba nada.
+    """
+    if es_pooled(url):
+        raise ValueError(
+            "DATABASE_URL apunta al endpoint *pooled* (el host lleva "
+            f"'{MARCA_POOLED}'), y por ahí no se migra. PgBouncer en modo "
+            "transacción no conserva la sesión entre sentencias, así que los "
+            "bloqueos de DDL y las transacciones de Alembic se rompen a media "
+            "migración. Usa la conexión directa: el mismo host sin '-pooler'."
+        )
+    return url
+
+
 # Un motor por URL. No se puede usar lru_cache sobre el Config: los modelos de
 # pydantic no son hashables.
 _motores: dict[str, Engine] = {}
@@ -110,15 +130,7 @@ def aplicar_migraciones(config: Config | None = None) -> None:
     alembic_cfg.set_main_option("script_location", str(ini.parent / "alembic"))
     # Se pasa la URL de ESTE Config, no la global: si no, migrar una base de
     # prueba acabaría migrando la de desarrollo sin que nadie lo notara.
-    url = normalizar_url(cfg.url_base_datos, cfg)
-    if es_pooled(url):
-        raise ValueError(
-            "DATABASE_URL apunta al endpoint *pooled* (el host lleva "
-            f"'{MARCA_POOLED}'), y por ahí no se migra. PgBouncer en modo "
-            "transacción no conserva la sesión entre sentencias, así que los "
-            "bloqueos de DDL y las transacciones de Alembic se rompen a media "
-            "migración. Usa la conexión directa: el mismo host sin '-pooler'."
-        )
+    url = exigir_directa(normalizar_url(cfg.url_base_datos, cfg))
     alembic_cfg.set_main_option("sqlalchemy.url", url.replace("%", "%%"))
     command.upgrade(alembic_cfg, "head")
 
