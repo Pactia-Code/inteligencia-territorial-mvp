@@ -162,7 +162,9 @@ def main() -> int:
             print(f"\nsecuencias reiniciadas: {len(movidas)}")
 
     print(f"\n{total} filas copiadas.")
-    print("Verifica ahora con:  scripts\verificar_copia.py")
+    # Cadena cruda: sin la `r`, el `\v` de `\verificar` es una tabulacion
+    # vertical y la linea sale impresa como "scriptserificar_copia.py".
+    print(r"Verifica ahora con:  scripts\verificar_copia.py")
     return 0
 
 
