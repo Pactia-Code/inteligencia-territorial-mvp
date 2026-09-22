@@ -2296,6 +2296,137 @@ matiz de la regla 1 en H-013. Se anota para la matriz que **las tres reglas de
 
 ---
 
+## Área 6 — Conformidad de interfaz con `docs/design-system.md`
+
+**Cerrada en la sesión 2.** Archivos leídos completos para esta área:
+`docs/design-system.md` entero (§0–§7 y anexo; §2–§4 ya leídos en el Preflight);
+los componentes de `web/app` y `web/app/globals.css` estaban leídos. Ejecutado:
+`find` de archivos de estado de Next, `grep` de `@media`, sombras y valores
+literales. **El servidor de desarrollo ya no estaba levantado** en esta sesión
+(la tarea de fondo terminó) y no se relanzó —arrancar servicios exige preguntar—,
+así que las comprobaciones de render son las del área 5 (GET) más lectura de
+código. El Design System es normativo en color y tipografía; su §4 solo esboza
+las vistas secundarias (desvíos allí: como mucho Bajo, según la jerarquía).
+
+### 6.1 Tokens y tipografía (§1)
+
+| Bloque del DS | Implementación (`web/app/globals.css`) | Estado |
+|---|---|---|
+| §1.1 navy-700 `#0F4761`, navy-100 `#DEEAF0` (confirmados) | `--color-navy-700: #0f4761`, `--color-navy-100: #deeaf0` (14-15) | **Idéntico** |
+| §1.2 escala derivada 900/500/300/050 | `#0a3145`, `#2c6b87`, `#7fa9bc`, `#f1f7fa` (18-21) | **Idéntico** |
+| §1.3 neutrales `[provisional]` (6) | ink `#1a1d1f`, muted `#5b6670`, faint `#8a9199`, border `#dde2e5`, surface-alt `#f5f6f7`, surface `#ffffff` (24-29) | **Idéntico**; el CSS repite la marca `[provisional]` en comentario (4-6) |
+| §1.4 semántica de estado `[provisional]` (4 pares) | critical `#a4262c/#fbeaea`, warning `#7a5400/#fdf4dc`, positive `#0e5c38/#e4f0ea`, neutral `#5b6670/#eef0f1` (32-39) | **Idéntico** en valores; el DS los llama `color-state-*` y el CSS `--color-*` (solo nomenclatura) |
+| §1.5 Aptos, pila, sin serif ni monoespaciada, `tabular-nums` | `--fuente: Aptos, "Segoe UI", system-ui, -apple-system, sans-serif` (56); `.t-data` con `font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1` (117-123); ninguna otra familia | **Idéntico** |
+| §1.5 escala: display 28/600 · h1 22 · h2 17 · h3 14 · body 15/400 · data 15/600 · data-lg 32 · meta 12/400 · label 11/600 mayúsculas +0.06em; interlínea 1.5 cuerpo, 1.25 títulos y datos | `.t-display` 28/600/1.25, `.t-h1` 22, `.t-h2` 17, `.t-h3` 14, `.t-body` 15/400, `.t-meta` 12 ink-muted, `.t-label` 11/600 uppercase 0.06em, `.t-data` 15, `.t-data-lg` 32; `body` line-height 1.5 (78-129) | **Idéntico** |
+| §1.6 espaciado base 4 (1/2/3/4/6/8/12), radio 4 tarjetas y 2 controles, sin sombras, 72 caracteres en prosa | `--space-1..12` = 4/8/12/16/24/32/48 (42-48); `--radio-tarjeta: 4px`, `--radio-control: 2px` (50-51); `grep box-shadow`: 0; `.prosa { max-width: 72ch }` (165-167) | **Idéntico** |
+| Regla dura §1.4: el color nunca porta información solo | `.etiqueta*` siempre envuelve texto (139-157); estados del tablero con `ETIQUETA[estado]` junto a `CLASE[estado]` (`priorizados/page.tsx:16-29, 238-240`) | **Cumple** |
+
+Valores literales fuera de tokens en componentes (`grep`): `#fff` ×10 para
+texto sobre navy (el DS no define un token de «texto sobre primario»; existe
+`color-surface #FFFFFF`), `fontSize: 14` en la línea de fuentes (igual al tamaño
+de `type-h3`, decisión M6-orden), y anchos de maquetación (28, 44, 236, 640,
+1200 px) que el DS no regula. Ninguno contradice un token.
+
+### 6.2 Estructura de la vista de ciclo (§2) y del detalle (§3)
+
+| Elemento del DS | Implementación | Estado |
+|---|---|---|
+| §2.1 encabezado: título, rango de fechas, número de municipios; marca en `color-state-warning` con `type-label`, en el encabezado y no en el pie | `ciclo/[id]/page.tsx:218-238`: `t-h1`, fechas, «N municipios mostrados», `etiqueta etiqueta-aviso t-label` en el encabezado | **Cumple**; el texto es «MVP» (desviación `M6-aviso`; H-019 para `/priorizados`) |
+| §2.2 lista: posición sobre navy-700 con `type-data`; nombre `type-h3` + depto + DIVIPOLA `type-meta`; score 0–1 con 4 decimales `type-data`; línea de fuentes; justificación `type-body`; **sugerencia de acción** sobre navy-100; filas alternas navy-100; orden fijo | Posición (`91-105`), nombre y meta (`108-111`), score `toFixed(4)` (`123`), línea de fuentes (`112-114`), justificación condicional (`115-119`), zebra navy-100 (`82-86`), orden del payload | **Parcial**: la zona **«sugerencia de acción» no existe** en la vista y el hueco no se pinta; el aviso `faltaProsa` (`240-246`) nombra solo la justificación (H-046) |
+| §2.2 nota: score ordinal 0–1, nunca porcentaje; versión del modelo junto al informe | `Panel.tsx:241-245` «Score del ciclo (0 – 1)» y `modelo {version_scoring}` | **Cumple** |
+| §2.3 línea de fuentes: junto al nombre y al score, «mismo peso visual», nombres de fuente, ausencias con «ni», F6 fuera mientras falte en todos | `LineaDeFuentes` 14 px ink con la ausencia en negrita (`40-55`); frase de `composicion.resumir_fuentes` | **Cumple §2.3**; contradice la tabla de §2.2, que le asigna `type-meta` ink-muted (H-047) |
+| §2.4 calificación: 5 controles terminales, clic 1 = registro, extremos etiquetados, valor elegido en navy-700 sólido, confirmación positiva, sin promedio ni conteo ajeno, correo una vez, mensaje «no está en la lista» con a quién escribir, forma visible de cambiar el correo, leer sin correo | `Panel.tsx:100-204` (5 `submit`, `minWidth/minHeight 44`, «nada»/«acción inmediata», navy-700 al elegido, `etiqueta-positiva`); `Identificarse.tsx:72-81`; `layout.tsx:43-63` «cambiar correo»; lectura abierta | **Cumple**. El mensaje remite a «quien te compartió el enlace», no a un contacto nombrado (aceptable con el DS) |
+| §2.4 alcance pedido visible (M9-carga) | Pastilla «se pide» + contador solo en los 3 primeros; «Ver detalle» en los demás (`page.tsx:130-169`) | **Cumple** |
+| §3 despliegue lateral, no ruta; insights al desplegar | `?m=` en la URL, `aside` sticky (`268-294`); el servidor serializa solo el municipio abierto | **Cumple** |
+| §3.1 anatomía del dato: valor `type-data` tabular → etiqueta `type-body` → procedencia `type-meta`, contiguos, separación `space-1`, nunca en pie ni tras interacción | `Panel.tsx:44-62`: `t-data-lg`, `t-body`, `t-meta` con `fuente anio`, `marginTop: var(--space-1)` | **Cumple** |
+| §3.2 contexto estructural con año obligatorio | `Contexto` (`33-66`); tres tarjetas con `fuente` y `anio` del payload | **Cumple** |
+| §3.3 evidencia en tres niveles: procedencia siempre; cita en recuadro navy-050 con borde 2 px navy-300 «que se despliega»; nivel 3 señal cruda y cadena | Nivel 1 y 2 en `Evidencia` (`68-98`): recuadro `navy-050`, `borderLeft: 2px solid navy-300`, cita entre comillas, fuente · fecha · enlace en pestaña nueva; **solo `evidencia[0]`** y siempre desplegada; **nivel 3 ausente** | **Parcial** — H-016 y H-017 (área 5) |
+| §3.4 score explicable: barras comparativas con valor al lado, orden por magnitud, sin datos mostrados, versión, nombres de fuente | `Panel.tsx:251-288` sobre `aportes_por_fuente` (ordenado en `composicion.agrupar_por_fuente`), «(aún no hay)» para sin datos | **Cumple** |
+| §4.1 tablero: densidad alta, estados con texto + color, nota obligatoria, historial | `priorizados/page.tsx` y `CambiarEstado.tsx` | **Cumple** el esbozo |
+| §4.2 Histórico · §4.3 Métricas | No existen (H-014) | — (ya registrado; en §4 el DS solo esboza) |
+
+### 6.3 Estados (§5) y móvil (§6)
+
+| Elemento del DS | Implementación | Estado |
+|---|---|---|
+| §5.1 cargando: esqueleto con la forma del resultado, sin cifras provisionales | Sin `loading.tsx` en `web/app` (`find`: ninguno); las páginas son RSC con `force-dynamic` y bloquean hasta tener datos, así que no hay cifras provisionales, pero tampoco esqueleto | **Parcial** (Bajo) |
+| §5.2 error: título, explicación, qué no se perdió, una acción; **si falla el guardado de una calificación, decirlo en el sitio y no borrar la selección** | Sin `error.tsx` ni `global-error.tsx`; `registrarCalificacion` no devuelve estado (`acciones.ts:73-80`, `Promise<void>`) y `Calificar` no tiene rama de error (`Panel.tsx:100-204`); una excepción del driver sube al límite de error por defecto de Next | **No cumple** (H-045) |
+| §5.3 vacío: «El primer ciclo se publica el [fecha]»; filtros sin resultado con acción | Raíz: «Aún no hay ningún informe publicado.» sin fecha (`page.tsx:15`); filtros: mensaje + «Quitar los filtros» (`priorizados/page.tsx:176-184`); `/ciclo/N` sin informe → 404 por defecto de Next, sin `not-found.tsx` | **Parcial** (Bajo, en H-046) |
+| §6 móvil: fila de calificación no se apila, 44 px; línea de fuentes envuelve; **lista pasa de fila a tarjeta**; **detalle a pantalla completa con retorno** | `@media`: **0** en todo `web/app`. Rejilla fija de dos columnas `minmax(0, 1fr) minmax(0, 1fr)` (`page.tsx:251`) y `aside` sticky en cualquier ancho; controles 44 px en `flex` sin `wrap` (cumple); línea de fuentes `span` inline (envuelve, cumple) | **Parcial** — H-044 |
+
+### 6.4 Hallazgos
+
+**H-044 · Medio · Brecha · Confianza Alta · Área 6 · CA-M9.18, Design System §6**
+*La interfaz no tiene ninguna adaptación a pantalla estrecha.* `grep '@media'
+web/app` devuelve 0. La vista de ciclo fija dos columnas:
+
+```
+web/app/ciclo/[id]/page.tsx:248-254
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)",
+          gap: "var(--space-6)",
+          alignItems: "start",
+        }}
+      >
+```
+
+En un teléfono, lista y detalle comparten el ancho a la mitad cada una y el
+`aside` sigue `sticky`; el DS §6 pide que la lista pase a tarjeta y el detalle a
+pantalla completa con retorno. Lo que sí se cumple: la fila de calificación no
+se apila (44 px, `flex`) y la línea de fuentes envuelve. *Escenario:* una gerencia
+abre el enlace en el móvil —el caso que CA-M9.18 protege— y califica sobre
+columnas de media pantalla; H2 puede perder respuestas por incomodidad que el
+sistema no distinguirá de desinterés. Confianza Alta en el código; no se pudo
+renderizar a 375 px porque el servidor no estaba levantado.
+
+**H-045 · Medio · Brecha · Confianza Alta · Área 6 · Design System §5.2, CA-M7.6**
+*Un fallo al guardar una calificación no se muestra en el sitio ni conserva la
+selección.* `registrarCalificacion` y `registrarComentario` devuelven
+`Promise<void>` (`acciones.ts:73, 124`); `Calificar` no usa `useActionState` ni
+tiene rama de error (`Panel.tsx:100-204`); no hay `error.tsx` en `web/app`. Si
+`calificar` lanza —`CalificacionInvalida`, fallo de red con Neon, `database
+is locked`—, Next muestra su página de error genérica y la fila desaparece con
+ella. El DS §5.2 lo señala como «caso crítico». *Escenario:* durante la ventana
+una gerencia pulsa 4, la petición falla, ve un error genérico, y no sabe si su
+calificación quedó; con siete gerencias cada respuesta pesa el 14 % de H2.
+`CambiarEstado` sí tiene manejo de resultado (`useActionState`, `ResultadoSeguimiento`),
+así que el patrón existe en el propio código.
+
+**H-046 · Bajo · Brecha · Confianza Alta · Área 6 · Design System §2.2, §5.1, §5.3**
+*Tres huecos menores frente al DS.* (a) La zona «sugerencia de acción» de §2.2
+no se renderiza: `grep sugerencias web/app` no devuelve nada, y el aviso de prosa
+pendiente (`page.tsx:240-246`) solo nombra la justificación, así que el hueco de
+las sugerencias **no se pinta explícitamente** como el DS exige. (b) El vacío de
+la raíz no lleva fecha del primer ciclo (`page.tsx:15`). (c) Sin `loading.tsx`
+ni `not-found.tsx`: el esqueleto de §5.1 no existe y `/ciclo/1` cae en el 404 por
+defecto de Next. Bajo: nada de esto afecta a una medición.
+
+**H-047 · Bajo · Brecha documental · Confianza Alta · Área 6 · Design System §2.2 vs §2.3**
+*El Design System se contradice sobre la línea de fuentes.* La tabla de §2.2 le
+asigna `type-meta, ink-muted` (12 px gris); §2.3 exige «junto al nombre y al
+score, con el mismo peso visual» y `pendientes.md` M6-orden dice que «pintada en
+gris pequeño se leía como una nota técnica». La implementación sigue §2.3 (14 px
+en tinta plena, ausencia en negrita, `page.tsx:40-55`). Por la regla de
+conflicto, el documento posterior y más específico prevalece (§2.3 y M6-orden),
+pero la tabla de §2.2 debería corregirse para que el DS no describa dos cosas.
+
+### 6.5 Estado de los CA del área
+
+| CA / regla | Estado | Base |
+|---|---|---|
+| CA-M9.18 | **Parcial** | Lectura y calificación funcionan en cualquier ancho sin romperse (controles 44 px, sin apilar), pero sin la adaptación que el DS §6 define (H-044) |
+| CA-M6.5 (presentación) | **Desviación autorizada** (`M6-aviso`) | Encabezado, `type-label`, `color-state-warning`: conforme al DS §2.1 salvo el texto |
+| CA-M9.6 (presentación) | **Cumple** | §3.4 íntegro |
+| CA-M6.4 (presentación) | **Cumple** | §3.1 y §3.2 íntegros en las tarjetas de contexto y en la evidencia mostrada |
+| DS §1 tokens y tipografía | **Cumple** | 100 % de valores idénticos |
+| DS §5 estados | **Parcial** | H-045, H-046 |
+
+*Fin del área 6.*
+
+---
+
 ## Preguntas abiertas (acumuladas; se consolidan en la sección 9 al cierre)
 
 | # | Pregunta | Decide | Prioridad | Origen |
