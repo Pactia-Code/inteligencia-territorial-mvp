@@ -157,6 +157,8 @@ sin volver a abrirlo.
 *Añadidos al cerrar el área 2:* los 6 prompts `src/territorial/agentes/prompts/*.md`
 · `scripts/probar_clasificador.py` · `scripts/comparar_prompts.py` ·
 `scripts/dos_pasadas.py` · `scripts/comparar_pasadas.py`.
+*Añadidos al cerrar el área 8:* `scripts/estimar_costo.py` ·
+`scripts/generar_hojas_revision.py`. *Área 7:* sin archivos nuevos.
 
 **Leídos parcialmente:** `docs/addendum-01-fuente-de-datos.md` (§3 D1–D4, §5, §6,
 §7, anexo) · `docs/addendum-02-stack.md` (D5 cabecera, D9, pendientes, anexo) ·
@@ -2011,6 +2013,159 @@ instalar» y «Canal sin decidir» de «Qué falta», ya cerradas en `pendientes
 - Las hojas de revisión y su devolución: fuera del repositorio.
 
 *Fin del área 8b.*
+
+---
+
+## Área 7 — Ejecución y operación
+
+**Cerrada el 2026-09-22.** Sin archivos nuevos: todo lo citado estaba leído
+completo desde el Preflight (`ciclo.py`, `correr_ciclo.py`, `calcular_scores.py`,
+`cliente.py`, `agentes/persistencia.py`, `informes/publicacion.py`,
+`informes/composicion.py`, `linaje.py`). Ejecutado, sin escrituras: regeneración
+del payload del informe 5 con `componer(sesion_sqlite, 24, 10)` en una sesión
+cerrada con `rollback`, comparada con el `contenido` publicado y con los tres
+archivados en Neon; lectura de los valores por defecto del SDK `openai` instalado;
+`grep` de reintentos, timeouts y bloqueos; `git log` de la publicación. **No se
+ejecutó ningún ciclo ni se escribió en ninguna base**, así que no hizo falta la
+copia temporal que el dueño autorizó condicionalmente.
+
+### 7.1 Sondas
+
+| Sonda | Respuesta | Evidencia |
+|---|---|---|
+| ¿Cómo se dispara un ciclo? | Manual, como fija D9: `scripts/correr_ciclo.py --ciclo N [--municipio D]… [--lote n] [--seco]` → `procesar_ciclo`. Sin cron ni workflow | `correr_ciclo.py:42-58`; §0.1 |
+| ¿El informe 5 se puede regenerar desde `96e10e0`? | **Parcial.** `componer(24, 10)` sobre SQLite reproduce las 10 filas de municipios, los scores, las fuentes, el contexto, los `insights_pedidos`, los `tipo_pedido` y la raíz del payload **idénticos**; difiere en **5 de 10 municipios solo en el orden de la lista `insights`**, porque la consulta no ordena (`composicion.py:299-306`, `select(Insight)` sin `order_by`) y Neon y SQLite devuelven las filas en orden distinto (Funza: Neon `969, 967, 968…`, SQLite `967, 968, 969…`). El contenido ordenado por id es idéntico. **`publicar()` no tiene punto de entrada**: el informe no guarda el commit ni el comando que lo compuso; el rastro son cuatro filas —informes 2, 3, 4 y 5— publicadas el 2026-09-22 a las 14:32, 16:17, 16:45 y 16:53 UTC, con payloads de 16, 17, 18 y 18 claves por municipio (aparecen `semilla`, `composicion_pedida`, `tipo_pedido`, `aviso_corto`), y dos commits del código (`dbba66a` 12:58 UTC, `c9af35d` 15:00 UTC). El informe 2 se publicó **antes** de que existiera la guarda `_corrio_la_cadena` | Ejecutado; H-040 |
+| CA-M8.4: ¿un ciclo que falla a mitad se reanuda sin reprocesar, o se duplica? | **Se duplica.** No hay reanudación: cada invocación llama a `crear_corrida` (`ciclo.py:507-513`) y procesa toda la cohorte. El commit por municipio (`ciclo.py:539-542`) **conserva lo pagado**, pero relanzar abre otra corrida y vuelve a llamar al modelo para los 18 municipios. Peor: la corrida interrumpida queda `tipo_corrida = completa` —`municipios_en_cohorte` es la lista **a procesar**, no la procesada (`persistencia.py:61-73`)— con `senales_procesadas` y tokens en 0 (se escriben al final, `ciclo.py:557-560`), y **`publicar()` la aceptaría** (`_exigir_completa` solo mira `tipo_corrida`; `_corrio_la_cadena` solo exige un insight del Clasificador) | H-037 |
+| ¿Se persiste qué municipios fallaron? | **No.** `ResumenMunicipio.error` solo se imprime (`correr_ciclo.py:85-86`); un lote fallido se anota en el resumen y se sigue (`ciclo.py:346-362`); un error del Correlacionador deja el municipio con insights de M2 persistidos y sin M4, y `return resumen` antes de `guardar_correlaciones` (`ciclo.py:454-462`); la corrida no lo registra | H-037 |
+| ¿`--seco` no escribe? | **Falso.** `procesar_ciclo` hace `commit()` tras cada municipio y tras el scoring (`ciclo.py:542, 555, 560, 569`); el `s.rollback()` de `correr_ciclo.py:63-64` llega cuando ya no queda nada por revertir. `CLAUDE.md` §6 dice «`--seco` corre y revierte» y el docstring «no escribe en la base». `calcular_scores.py --seco` sí es seco (`102-105`: no llama a `guardar`) | H-038 |
+| ¿Qué impidió que las corridas 9 y 10 se solaparan? | **Nada.** No hay bloqueo, estado «en curso» ni comprobación de corridas abiertas (`grep` sin resultados). La 9 (`--municipio`, 50 señales) abrió a las 16:00:41 UTC y la 10 (los 18) a las 16:02:54, con la 9 aún escribiendo trazas. Dos `correr_ciclo.py` a la vez producen dos corridas válidas, trazas entremezcladas sin `id_corrida` (H-006) y, sobre SQLite, contienden por el único escritor: el `database is locked` que salte se traga como error de municipio y el ciclo sigue | H-039 |
+| Idempotencia | Ninguna operación de agentes es idempotente por diseño: cada ejecución inserta. Es lo que A6 necesita y lo que el registro de corridas hace seguro; el precio es H-037/H-039. `registrar_prompt` sí es idempotente (`linaje.py:54-68`) y la ingesta también (`snapshot.py:160-209`) | — |
+| Configuración del LLM | Despliegues por agente en `Config` (`config.py:33-35`) vía `despliegue_de` (`cliente.py:85-95`); techo 16.384 para los tres (`config.py:39, 49`, `techo_de` 105-110; el Clasificador no pasa por `techo_de`, H-024); cliente `OpenAI(api_key, base_url)` **sin `timeout` ni `max_retries`** (`cliente.py:73-76`) → rigen los del SDK 3.14.1: **2 reintentos, `connect` 5 s, `read` 600 s**; salida estructurada con `responses.parse` y `text_format` Pydantic | Ejecutado (`openai.DEFAULT_MAX_RETRIES`, `DEFAULT_TIMEOUT`) |
+| ¿Qué pasa ante un error del proveedor a mitad de ciclo? | El SDK reintenta 2 veces; luego `clasificar_lote`/`correlacionar` capturan **cualquier** excepción y devuelven `error` (`clasificador.py:167-172`, `correlacionador.py:436-442`). El lote o el municipio se pierde, se imprime, la corrida sigue y termina `completa`. Una caída del proveedor de 20 minutos produce una corrida publicable con municipios vacíos y sin marca | H-037, H-041 |
+| Trazas (CA-M8.2) y costo por agente (CA-M8.3) | Consolidado en H-006 (linaje de ejecución no atribuible por corrida; `hash_output`, `id_prompt`, `id_dataset` vacíos; corridas 11/12 sin traza) y H-035 (H5 depende de trazas acumuladas; tokens de razonamiento no persistidos). Sin hallazgo nuevo | Áreas 4 y 8 |
+| Secretos | Solo en `.env` (21 nombres, §0.2 #21), nunca en código ni historial (0 patrones en `src/ scripts/ web/ alembic/`; §0.2 #20). Riesgo aceptado de la credencial de Neon en §0.9 | — |
+
+### 7.2 Hallazgos
+
+**H-037 · Alto · Defecto · Confianza Alta · Área 7 · CA-M8.4, CA-M6.7, CA-M1.4 (análogo), H1**
+*Una corrida interrumpida, con lotes fallidos o con municipios sin correlación
+queda marcada «completa», no registra qué falló y es publicable.* `tipo_corrida`
+se decide antes de procesar:
+
+```
+src/territorial/agentes/persistencia.py:61-67
+    objetivo = sorted(d for (d,) in sesion_bd.execute(select(Municipio.divipola)).all())
+    cohorte = sorted(set(cohorte))
+    completa = set(cohorte) >= set(objetivo)
+
+    corrida = CorridaAgentes(
+        id_ciclo=id_ciclo,
+        tipo_corrida="completa" if completa else "parcial",
+```
+
+y los errores por municipio solo se imprimen (`correr_ciclo.py:85-86`). No hay
+reanudación: `procesar_ciclo` siempre abre una corrida nueva y recorre los 18
+(`ciclo.py:507-513, 530-537`). *Escenario:* el proceso muere en el municipio 12,
+o el proveedor cae y seis lotes devuelven error: la corrida existe, dice
+«completa», `senales_procesadas = 0`, y `ciclos_publicables()` la propone; el
+informe publicado mostraría municipios con 0 insights «apoyados en» un score que
+sí se calculó. Relanzar para completar cuesta los 18 municipios otra vez y deja
+dos corridas «completas» del mismo ciclo sin nada que diga cuál está entera. El
+commit por municipio que `CLAUDE.md` §4 y `ciclo.py:17-21` presentan como
+checkpoint protege el gasto ya hecho, **no** cumple CA-M8.4 («se puede reanudar
+desde el último checkpoint sin reprocesar»). Alto: puede publicar un ciclo
+incompleto como evidencia de H1.
+
+**H-038 · Medio · Defecto · Confianza Alta · Área 7 · `CLAUDE.md` §6, `correr_ciclo.py` docstring**
+*`correr_ciclo.py --seco` escribe en la base y gasta tokens.*
+
+```
+scripts/correr_ciclo.py:57-64
+    with sesion(cfg) as s:
+        resumen = procesar_ciclo(s, args.ciclo, args.lote, args.municipio, cfg)
+        ...
+        if args.seco:
+            s.rollback()
+```
+
+pero `procesar_ciclo` confirma por municipio (`ciclo.py:542`), tras el fallo
+(`555`), al cerrar la corrida (`560`) y tras el scoring (`569`): cuando llega el
+`rollback` todo está confirmado. `CLAUDE.md` §6 afirma «`--seco` corre y
+revierte». *Escenario:* una prueba «en seco» inserta una corrida de agentes y
+una de scoring reales, con trazas, y esa corrida entra en `ciclos_publicables`.
+Medio: el diseño append-only impide que dañe lo anterior, pero contradice la
+documentación operativa y suma corridas indistinguibles (H-006).
+
+**H-039 · Medio · Riesgo · Confianza Alta · Área 7 · CA-M8.2, D9**
+*Nada impide dos ejecuciones simultáneas ni registra que una está en curso.* No
+hay bloqueo de archivo, fila de estado ni comprobación de corridas abiertas
+(`grep` de `lock|en_curso|abierta|fecha_fin`: ninguna). Las corridas 9 y 10 se
+solaparon el 2026-09-21 (16:00:41 y 16:02:54 UTC) y sus trazas son
+indistinguibles (H-006). Sobre SQLite, dos escritores contienden por el bloqueo
+único y el error se absorbe como fallo de municipio (`ciclo.py:543-555`); sobre
+Neon no hay contención pero sí dos corridas «completas» del mismo ciclo con
+minutos de diferencia. Riesgo adicional en la primera ejecución de una versión
+nueva de prompt: dos procesos pueden intentar `registrar_prompt` sin ver la fila
+del otro (`linaje.py:54-58`, se confirma solo con el primer municipio) y el
+segundo revienta en `uq_prompt_agente_version`.
+
+**H-040 · Medio · Riesgo · Confianza Alta · Área 7 · CA-M6.7, CA-M9.4, H4 (reproducibilidad del informe)**
+*El informe publicado no es regenerable byte a byte ni registra el código que
+lo compuso.* (a) `componer` lee los insights sin orden:
+
+```
+src/territorial/informes/composicion.py:299-306
+    insights_por_muni: dict[str, list[Insight]] = {}
+    for ins in sesion_bd.scalars(
+        select(Insight).where(
+            Insight.id_corrida == id_corrida_agentes,
+            Insight.estado_validacion == "validado",
+        )
+    ).all():
+        insights_por_muni.setdefault(ins.divipola, []).append(ins)
+```
+
+Regenerado sobre SQLite, 5 de 10 municipios difieren solo en el orden de
+`insights`; y ese orden **decide qué ve la gerencia**: `Panel.tsx:312` pinta
+`m.insights.slice(0, 5)` en los municipios no pedidos (Buenaventura en Neon:
+1097, 1098, 1113, 1114, 1095; en SQLite: 1095–1099). (b) `informe` no guarda el
+commit ni la invocación; hubo **cuatro publicaciones en un día** con payloads de
+esquema distinto y la única forma de saber qué código produjo cada una es cruzar
+`fecha_publicacion` con `git log`. El informe 2 (14:32 UTC) es anterior al commit
+que añadió la guarda `_corrio_la_cadena` (15:00 UTC). *Escenario:* en la semana 8
+alguien quiere demostrar que el informe 5 sale del código: obtiene otro orden y
+no puede probar qué versión de `componer` corrió. Medio: el contenido es
+idéntico; lo no reproducible es el orden y la procedencia.
+
+**H-041 · Bajo · Riesgo · Confianza Alta · Área 7 · D6, CA-M1.4 (análogo)**
+*Reintentos y timeouts del LLM no están fijados ni documentados; rigen los del
+SDK.* `OpenAI(api_key=…, base_url=…)` (`cliente.py:73-76`) sin `timeout` ni
+`max_retries`; el SDK 3.14.1 aplica 2 reintentos y `read=600 s`. Con lotes de 50
+señales y razonamiento en gpt-5, un cuelgue del proveedor puede retener un lote
+hasta 30 minutos antes de fallar «en silencio» hacia H-037. Bajo: los valores
+son razonables; el problema es que nadie los eligió ni los escribió.
+
+### 7.3 Estado de los CA del área
+
+| CA | Estado | Base |
+|---|---|---|
+| CA-M1.4 (análogo por lote/municipio) | **Parcial** | El ciclo no aborta (`ciclo.py:346-362, 543-555`) pero el fallo no queda registrado (H-037); la versión por fuente sigue sin validar (Addendum 01 §5) |
+| CA-M6.7 (publicación) | **Parcial** | Publica y archiva en una transacción con índice único; **sin punto de entrada, sin rastro del código** (H-040); sin correo (autorizada) |
+| CA-M8.2 | **Parcial** | H-006 (consolidado) |
+| CA-M8.3 | **Parcial** | H-006 y H-035 (consolidados); agregable por ciclo y agente, no por corrida ni con razonamiento |
+| CA-M8.4 | **No cumple** | Sin checkpointer ni reanudación; relanzar duplica (H-037) |
+| D9 (ejecución manual) | **Cumple** | Sin cron; punto de entrada único e intercambiable |
+| Secretos | **Cumple** | Solo en `.env`; ninguno en código ni historial |
+
+### 7.4 No verificable en esta área
+
+- Comportamiento real ante caída del proveedor y ante `database is locked`:
+  exigiría ejecutar un ciclo; se infiere del código. Artefacto: prueba con un
+  cliente simulado que falle en el lote 3 de 6.
+- Qué código exacto publicó los informes 2–4: no está registrado; solo la
+  cronología. Artefacto: guardar `commit` e invocación en `informe`.
+
+*Fin del área 7.*
 
 ---
 
