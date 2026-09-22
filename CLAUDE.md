@@ -1,7 +1,7 @@
 # CLAUDE.md — MVP Inteligencia Territorial (Pactia)
 
 Guía de trabajo para agentes sobre este repositorio.
-**Actualizado:** 2026-09-21 · F4 a la mitad, corridas 19-21
+**Actualizado:** 2026-09-21 · Neon en la nube · informe a top 10 · M4 en v2
 
 ---
 
@@ -13,15 +13,16 @@ decidir go/no-go sobre la Fase 0.
 
 Comprueba si una cadena multiagente puede extraer señal inmobiliaria accionable
 de fuentes públicas colombianas. El pipeline va de un snapshot de datos
-(SECOP II, feed de noticias, Bing, TerriData) a un informe del top 3 de
-municipios que 7 gerencias califican de 1 a 5 durante 3 ciclos.
+(SECOP II, feed de noticias, Bing, TerriData) a un informe de los **10
+municipios mejor puntuados** —CA-M5.4 decía 3; la desviación está en §7— que 7
+gerencias califican de 1 a 5 durante 3 ciclos.
 
 | Dato | Valor |
 |---|---|
 | Municipios | **18** — los que trae el snapshot, no los 25-30 que preveía el PRD §2.1 |
 | Señales | 20.030, repartidas en 3 ciclos por la fecha de cada registro (D2) |
 | LLM | Azure OpenAI, superficie v1 de Foundry, **Responses API** (no `chat.completions`) |
-| Base | SQLAlchemy sobre SQLite en local, PostgreSQL en nube (D8) |
+| Base | SQLAlchemy: SQLite en local, **Neon (PostgreSQL) en nube** (D8). Las dos con los mismos datos desde el 2026-09-21 |
 
 Las hipótesis que valida son H1–H5 ([PRD §1](docs/prd.md)). **H4 — trazabilidad
 al 100% — es bloqueante**: si falla, la arquitectura no es auditable y no puede
@@ -192,8 +193,8 @@ una llamada a LLM no vive en `reglas/`.
 
 ## 4. Estado real por módulo
 
-Diagnóstico verificado sobre el árbol de trabajo el 2026-09-18. Las 139 pruebas
-de `tests/` pasan.
+Diagnóstico verificado sobre el árbol de trabajo el 2026-09-21. Las **210
+pruebas** de `tests/` pasan.
 
 **Nada se sobrescribe.** Insights, descartes y scores cuelgan de una *corrida*
 —`corrida_agentes` y `corrida_scoring`— y cada ejecución inserta una nueva. Dos
@@ -228,9 +229,9 @@ funcionaba mal, no tenía nada que cruzar. Si algo lleva a la semana 8, es esto.
 | **M2** Clasificación | 🟡 Cumple CA-M2.1, no es reproducible | Prompt **v4**, lotes de 50, descartes registrados (CA-M2.5). **CA-M2.1 medido sobre el ciclo 1 completo: 95,2% y 94,9%** en dos pasadas (B2 cerrado). Pero **una de cada cinco señales cambia de destino entre pasadas idénticas** (**A6**): 19,5% aparecen en insight en una y no en la otra. No afecta al ranking —el score lee `senal_cruda`, no insights— pero sí a lo que las gerencias leen. Ver §8 y §9 |
 | **M3** Validación determinista | ✅ Funciona | 7 reglas R1–R7. Tasa de rechazo 0,0% tras corregir el falso positivo de puntuación de SECOP. **Muestra pequeña: insuficiente para concluir sobre H4** |
 | **M4** Correlación | 🟡 Funciona; CA-M4.3 sin ejercitar y no es reproducible | Prompt **v2** desde el 2026-09-21, con contexto estructural bandeado (A10). **No es reproducible: solo el 14,1% de las convergencias se repiten entre pasadas idénticas** (A11). Salida estructurada. CA-M4.1, CA-M4.2 y CA-M4.4 verificados contra el tenant. **La evidencia la une el código, no el modelo** (ver el encabezado de `agentes/correlacionador.py`). CA-M4.3 (bucle de aprendizaje) está implementado pero **no se puede probar**: no hay ni una calificación en la base |
-| **M5** Scoring y priorización | ✅ Funciona con pesos provisionales | F1–F6 de D4, normalización por cohorte, winsorizado de F4, redistribución por cobertura, top 3 y desglose. Los 3 ciclos puntúan y persisten. Los **pesos definitivos** los decide Gerencia General (**pendiente A1/4**). Rigen los de `config/pesos.json`, que llevan **F4 a la mitad** por decisión de Analítica del 2026-09-21 — ver §7. Las corridas de antes y después conviven, distinguidas por `version_scoring` |
-| **M6** Síntesis y distribución | ⬜ Sin código | Canal de notificación sin decidir (**pendiente 11.4/3**); §2.2 excluye Teams |
-| **M7** Calificación | ⬜ Sin código | Depende del aplicativo web |
+| **M5** Scoring y priorización | ✅ Funciona con pesos provisionales | F1–F6 de D4, normalización por cohorte, winsorizado de F4, redistribución por cobertura, **top 10** y desglose. Los 3 ciclos puntúan y persisten. **El umbral de información está apagado**: el informe muestra el score junto a los factores que lo sostienen y los que no, en vez de excluir a quien tiene pocos (P1, §7). `VERSION_ALGORITMO` en **v3**. Los **pesos definitivos** los decide Gerencia General (**pendiente A1/4**). Rigen los de `config/pesos.json`, que llevan **F4 a la mitad** por decisión de Analítica del 2026-09-21 — ver §7. Las corridas de antes y después conviven, distinguidas por `version_scoring` |
+| **M6** Síntesis y distribución | ⬜ Sin código, **sin decisiones abiertas** | **No hay canal de notificación en el MVP**: se entra a la web y se califica lo que hay (11.4/3 cerrado). Decidido además: las cifras de contexto van al informe compuestas **por código** y con su año a la vista (**M6-ctx**); al usuario final se le muestran **nombres de fuente, no códigos de factor** (**M6-src**); y la línea de fuentes va **tan visible como el puesto**, no al pie (**M6-orden**). Falta solo construirlo |
+| **M7** Calificación | ⬜ Sin código, **sin decisiones abiertas** | Depende de M9. Decidido: se piden calificaciones **solo sobre los 3 primeros** de los 10 mostrados y el resto queda opcional, porque con 10 × 7 gerencias una tasa baja no distinguiría fatiga de desinterés (**M9-carga**); **la tasa de H2 se computa sobre la carga pedida, no sobre lo mostrado**, y el denominador hay que declararlo. Usuarios **precargados**: quien no esté en la lista no califica (**M9-acceso**) |
 | **M8** Trazabilidad y observabilidad | 🟡 Parcial | Linaje de dataset, **de prompts por contenido** (D7) y trazas por agente (CA-M8.2). Falta Langfuse y el checkpointing de CA-M8.4: instalados pero **sin cablear**, no hay `grafo/` |
 | **M9** Aplicativo web | ⬜ Sin código | **Next.js en Vercel**, no Django: D5 eligió Django antes de que el hosting fuera Vercel, y Django nunca se instaló (desviación registrada en Addendum 02). **Sin autenticación**: leer es abierto con el enlace; para calificar se pide el correo y se resuelve la gerencia contra `usuario`, que es el nivel al que `calificacion` atribuye. **Los autorizados se precargan y quien no esté no califica**, así que la app nunca escribe `usuario` y el denominador de H2 se conoce antes de medir. **Lee Neon directamente**: la regla 1 de D8 protege escrituras y esquema, no lecturas, y el PRD §4.3 prohíbe la API intermedia (ver §2.1). El panel de CA-M9.13 son cuatro consultas y una página, no un CRUD — el admin de Django habría servido para editar registros, que es justo lo que CA-M9.16 prohíbe. Playwright está por verificar: descarga binarios sin firmar que la política de esta máquina bloquea |
 
@@ -309,18 +310,19 @@ en los insights, incluidas las cifras reales de `contexto_municipal`.
 
 ### Pendientes que frenan el avance
 
-- **B2** — CA-M2.1 **medido una sola vez**: 94,6% sobre Barranquilla en el ciclo
-  2, por encima del 85% exigido. El «falta descartar otro 61,4%» que decía antes
-  este pendiente salía de lotes de 20-25 señales y **no se sostuvo** al procesar
-  el volumen real. Sigue abierto porque un municipio-ciclo no es el ciclo: falta
-  correr los 18 y medir el agregado.
+- ~~**B2**~~ — cerrado. CA-M2.1 medido sobre el **ciclo 1 completo**: 95,2% y
+  94,9% en dos pasadas, y 95,3% en el ciclo 3 con RSS. Muy por encima del 85%
+  exigido y **estable entre pasadas**, lo que vuelve más llamativo que el destino
+  de las señales individuales no lo sea (A6).
 - **A4** — tras cuatro versiones del prompt, el Clasificador sigue partiendo un
   mismo frente de obra en varios insights (cuatro de pavimentación en Carepa).
   Infla el conteo y degrada el informe.
 - **A3** — atribución geográfica (R8). El 0,5% de las señales SECOP nombran un
   municipio distinto al que están archivadas, y entran municipios fuera del MVP
-  (caso Frontino). Resolverlo exige un nomenclátor DIVIPOLA de los 1.103
-  municipios, que el snapshot no trae.
+  (caso Frontino). **El nomenclátor ya está cargado** —`entidad_divipola`, 1.135
+  entidades— pero eso **no reabre A3**: buscar 1.102 nombres en texto libre
+  inflaría la cifra por los 63 homónimos. Sigue fuera de alcance del MVP y la
+  medición necesita diseño propio. Ver §4.
 - ~~**B4**~~ — cerrado el 2026-09-17. **H5 tiene base y el costo no es una
   barrera**: USD 39/año el piloto, USD 2.160/año los 1.103 municipios. Tarifas
   en `config/tarifas.json`, cálculo en `scripts/estimar_costo.py`. El 89% del
@@ -328,9 +330,10 @@ en los insights, incluidas las cifras reales de `contexto_municipal`.
   razonamiento. **No cuenta el Sintetizador (M6), que también corre sobre
   gpt-5** y podría no ser menor.
 - **A5** — de las dos decisiones de M5 que D4 no cubre, el **umbral de
-  información** ya está resuelto: queda en **50%**, en el centro de una meseta y
-  no en un filo. Sigue abierta la **escala común** de los factores: min-max por
-  cohorte es ordinal dentro de su corrida y no comparable entre ciclos. Ver §7.
+  información** dejó de ser una decisión: **está apagado** desde el 2026-09-21 y
+  se sustituyó por mostrar el score con sus factores (P1). Sigue abierta la
+  **escala común**: min-max por cohorte es ordinal dentro de su corrida y no
+  comparable entre ciclos. Ver §7.
 
 ---
 
@@ -363,6 +366,33 @@ $py = "$env:LOCALAPPDATA\venvs\territorial\Scripts\python.exe"
 & $py -m pytest -q                                      # pruebas
 ```
 
+### A qué base apunta: `DATABASE_URL`
+
+Una sola variable decide contra qué base corre todo, y **no hay ninguna URL de
+entorno escrita en el código**. Se acepta el nombre antiguo `URL_BASE_DATOS` con
+menos prioridad, así que si borras `DATABASE_URL` **vuelve a SQLite sin avisar**.
+
+```powershell
+$env:DATABASE_URL = "sqlite:///data/territorial.db"                       # local
+$env:DATABASE_URL = "postgresql://...neon.tech/territorial?sslmode=require&connect_timeout=3"
+```
+
+**Neon está poblada desde el 2026-09-21** con las mismas 29.969 filas que la
+local, copiadas por `scripts/copiar_base.py` y comprobadas con
+`scripts/verificar_copia.py`. Tres cosas que cuesta descubrir solas y están en el
+[README](README.md):
+
+- **Neon publica dos hosts.** El `-pooler` va por PgBouncer y **no sirve para
+  migrar**; `exigir_directa()` se niega a arrancar por ahí, y lo comprueban los
+  dos caminos a Alembic (código y línea de comandos).
+- **Si conectar se cuelga sin error, es IPv6.** El DNS de Neon devuelve IPv6
+  primero y esta red no la rutea, así que libpq agota el timeout del sistema
+  antes de caer a IPv4. Por eso la cadena lleva **`&connect_timeout=3`**, y va
+  permanente.
+- **Para la app en Vercel la cadena será la del pooler**, no esta: las funciones
+  serverless abren muchas conexiones cortas. Son dos cadenas para dos usos
+  opuestos.
+
 `correr_ciclo.py` sin `--municipio` procesa los 18, que son 18 llamadas al
 Clasificador más las del Correlacionador. **Prueba siempre primero con uno.**
 `--seco` corre y revierte.
@@ -385,8 +415,14 @@ Cuatro cosas que ahorran un rato:
 - **`aplicar_migraciones()` en `almacen/sesion.py` es el camino desde código.**
   La ingesta lo llama; ya no existe `crear_esquema`. `create_all` quedó
   prohibido porque crea lo que falta y calla ante lo que cambió.
-- **La URL no está en `alembic.ini`.** Sale de `Config.url_base_datos` vía
-  `env.py`. No la escribas en el `.ini` o local y nube se separarán sin aviso.
+- **La URL no está en `alembic.ini`.** Sale de `DATABASE_URL` vía
+  `Config.url_base_datos` y `env.py`. No la escribas en el `.ini` o local y nube
+  se separarán sin aviso.
+- **Hay dos caminos hasta Alembic y los dos comprueban el host.**
+  `aplicar_migraciones()` desde código y `alembic upgrade head` por línea de
+  comandos, que resuelve el motor en `env.py`. Los dos llaman a
+  `exigir_directa()`: por el endpoint `-pooler` no se migra. Durante un tiempo
+  solo el primero comprobaba, que era justo el que no se usa a mano.
 - **`render_as_batch=True` está activo**, y es obligatorio: SQLite no sabe
   eliminar una columna ni cambiarle el tipo con un `ALTER TABLE` normal.
 - **`--autogenerate` compara contra la base a la que apuntes.** Si esa base ya
