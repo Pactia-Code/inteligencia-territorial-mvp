@@ -42,7 +42,7 @@ Versiones con marca ✅ están instaladas y verificadas; las marcadas ⬜ están
 | langgraph-checkpoint-sqlite | ≥2.0 ⬜ | Checkpointer que respalda CA-M8.4 en local; su gemelo Postgres en Fase 0 |
 | langfuse | ≥2.55 ⬜ | Traza por agente con tokens y duración: CA-M8.2 y CA-M8.3 |
 | httpx | ≥0.28 ⬜ | Cliente HTTP para la ingesta viva de Fase 0 |
-| ~~Django~~ → **Next.js** | por fijar ⬜ | **Desviación del 2026-09-21**: la app web va en Next.js sobre Vercel, no Django. Ver la nota en Addendum 02 D5. Se pierde el admin de Django, así que el panel de CA-M9.13 hay que construirlo |
+| ~~Django~~ → **Next.js** | por fijar ⬜ | **Desviación del 2026-09-21**: la app web va en Next.js sobre Vercel, no Django. Ver la nota en Addendum 02 D5. El PRD §4.3 ya contemplaba Next.js. **Perder el admin de Django no es una pérdida**: CA-M9.13 son cuatro métricas concretas —cuatro consultas y una página—, y el admin servía para editar registros, que es lo que CA-M9.16 prohíbe |
 | Playwright | por fijar ⬜ | HTML → PNG para infografías. **Verificar**: descarga binarios sin firmar y esta máquina los bloquea |
 | azure-storage-blob / psycopg | ≥12.24 / ≥3.2 ⬜ | Extra `azure`, solo para Fase 0 |
 

@@ -58,6 +58,34 @@ toque una hipótesis, actualízalo ahí además de en `pendientes.md`.
 ### 2.1 Datos — consecuencia de D8 (SQLite local / PostgreSQL nube)
 
 1. **Todo acceso a datos pasa por SQLAlchemy.** Nunca SQL crudo de un motor.
+
+   **Alcance, precisado el 2026-09-21: la regla protege las escrituras y el
+   esquema, no las lecturas.** Existe para que nada corrompa la evidencia que el
+   experimento mide, y **una app que solo lee no puede corromper nada**. Lo que
+   sí amenazaría es una app que escriba sobre el pipeline o que traiga su propio
+   ORM con migraciones.
+
+   Así que el aplicativo web (Next.js, ver `M9-fw`) **puede leer Neon
+   directamente**. Es lo que el PRD §4.3 ya pedía —«una sola app sobre la misma
+   Postgres del pipeline, **sin API intermedia ni segundo almacén**»— y meter una
+   API Python por delante habría contradicho esa línea, además de añadir un
+   despliegue a un MVP de 8 semanas con un desarrollador.
+
+   Dos condiciones que lo hacen seguro, y sin las dos la regla sí se rompe:
+
+   - **Las escrituras de la app pasan por Python, o su forma se verifica contra
+     `modelos.py`.** Son las tres de CA-M9.16 —calificación, comentario y
+     seguimiento— y viven en dos tablas: `calificacion` (el comentario es una
+     columna suya) y `seguimiento`. Escribirlas desde TypeScript a pelo es donde
+     el desacople muerde: un campo cambia en `modelos.py` y nadie se entera.
+   - **La app no genera migraciones nunca**, ni para sus propias tablas. Si M9
+     necesita algo —sesiones de acceso por correo, por ejemplo— esa tabla nace en
+     Alembic.
+
+   **El riesgo de desacople no es el lenguaje: es que la forma de las tablas viva
+   en dos sitios.** Mientras Alembic mande y las escrituras sean tres y estén
+   acotadas, TypeScript leyendo Neon es una decisión de despliegue, no de
+   arquitectura de datos.
 2. **El esquema se gobierna con Alembic** desde la primera migración.
 3. **Las columnas JSON usan el tipo `JSON` portátil.** Nunca operadores JSONB de
    PostgreSQL (`->>`, `@>`, `jsonb_path_query`): no existen en SQLite y rompen
@@ -204,7 +232,7 @@ funcionaba mal, no tenía nada que cruzar. Si algo lleva a la semana 8, es esto.
 | **M6** Síntesis y distribución | ⬜ Sin código | Canal de notificación sin decidir (**pendiente 11.4/3**); §2.2 excluye Teams |
 | **M7** Calificación | ⬜ Sin código | Depende del aplicativo web |
 | **M8** Trazabilidad y observabilidad | 🟡 Parcial | Linaje de dataset, **de prompts por contenido** (D7) y trazas por agente (CA-M8.2). Falta Langfuse y el checkpointing de CA-M8.4: instalados pero **sin cablear**, no hay `grafo/` |
-| **M9** Aplicativo web | ⬜ Sin código | **Next.js en Vercel**, no Django: D5 eligió Django antes de que el hosting fuera Vercel, y Django nunca se instaló (desviación registrada en Addendum 02). **Sin autenticación**: se pide el correo antes de calificar y se resuelve la gerencia, que es el nivel al que `calificacion` atribuye. Queda abierto **cómo lee los datos una app TypeScript sin romper la regla 1 de D8**. Playwright está por verificar: descarga binarios sin firmar que la política de esta máquina bloquea |
+| **M9** Aplicativo web | ⬜ Sin código | **Next.js en Vercel**, no Django: D5 eligió Django antes de que el hosting fuera Vercel, y Django nunca se instaló (desviación registrada en Addendum 02). **Sin autenticación**: se pide el correo antes de calificar y se resuelve la gerencia, que es el nivel al que `calificacion` atribuye. **Lee Neon directamente**: la regla 1 de D8 protege escrituras y esquema, no lecturas, y el PRD §4.3 prohíbe la API intermedia (ver §2.1). El panel de CA-M9.13 son cuatro consultas y una página, no un CRUD — el admin de Django habría servido para editar registros, que es justo lo que CA-M9.16 prohíbe. Playwright está por verificar: descarga binarios sin firmar que la política de esta máquina bloquea |
 
 ### El nomenclátor DIVIPOLA: 1.135 entidades, y cuatro rarezas
 

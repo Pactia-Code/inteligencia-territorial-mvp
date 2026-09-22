@@ -33,17 +33,32 @@ Un solo lenguaje, un solo repositorio, un solo despliegue.
 > lenguaje»**. El pipeline sigue en Python y la superficie pasa a TypeScript. El
 > resto de D5 —LangGraph, Langfuse, Blob, Postgres— no se toca.
 >
-> **Dos reglas que la desviación no puede romper**, y que hay que resolver al
-> construir M9:
+> **Y no contradice al PRD**: §4.3 pide «una sola app (framework de stack
+> único, **ej. Next.js o Django**) sobre la misma Postgres del pipeline, sin API
+> intermedia ni segundo almacén». Next.js estaba contemplado; D5 eligió Django
+> entre los dos.
 >
+> **La app lee Neon directamente. Resuelto el 2026-09-21.** La regla 1 de D8
+> —todo acceso por SQLAlchemy— existe para que nada corrompa la evidencia que el
+> experimento mide, y **una app que solo lee no puede corromper nada**. Se acota
+> a las escrituras y al esquema. Se descartó la API Python delgada: es lo
+> correcto en general, pero aquí añade un servicio, un despliegue y un punto de
+> fallo a un MVP de ocho semanas con un desarrollador, y **contradice
+> explícitamente esa línea del PRD**.
+>
+> Dos condiciones que lo hacen seguro:
+>
+> · **Las escrituras de la app pasan por Python, o su forma se verifica contra
+>   `modelos.py`.** Son las tres de CA-M9.16 —calificación, comentario y
+>   seguimiento— en dos tablas: `calificacion` (el comentario es columna suya) y
+>   `seguimiento`.
 > · **Alembic sigue siendo la única autoridad del esquema** (regla 2 de D8). La
->   app de Next.js **no migra nada** y no lleva ORM con migraciones propias, o
->   habría dos fuentes de verdad del esquema.
-> · **Todo acceso a datos pasa por SQLAlchemy** (regla 1 de D8). Una app en
->   TypeScript leyendo Neon por su cuenta lo incumple. Queda abierto **cómo**:
->   una API Python delgada por delante, o acotar la regla a las escrituras y al
->   pipeline dejando que la superficie lea por una capa tipada. **Es decisión
->   pendiente, no detalle de implementación.**
+>   app **no migra nada**, ni para sus propias tablas: si M9 necesita sesiones de
+>   acceso por correo, esa tabla nace en Alembic.
+>
+> **El riesgo de desacople no es el lenguaje, es que la forma de las tablas viva
+> en dos sitios.** Con Alembic mandando y tres escrituras acotadas, TypeScript
+> leyendo Neon es una decisión de despliegue, no de arquitectura de datos.
 
 **Por qué se descartaron las otras dos opciones evaluadas:** el stack nativo Microsoft (Fabric + Power Automate + Power BI) exige licencias, capacidad Fabric y permisos de tenant — dependencias de TI que el PRD ya arrastra como pendiente 3b y como riesgo alto no resuelto en §7. Managed Agents de Anthropic habría sido más rápido, pero cede las trazas a una plataforma en beta justo en el eje que el experimento mide (H4, bloqueante).
 
