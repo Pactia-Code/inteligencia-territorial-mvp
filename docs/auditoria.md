@@ -2263,6 +2263,39 @@ rehace el contexto desde otro corte de TerriData.
 
 ---
 
+## Área 9 — Reglas de `CLAUDE.md` §2
+
+**Cerrada en la sesión 2.** Sin archivos nuevos: cada regla se juzga con
+evidencia ya citada en las áreas 2, 3, 4, 5 y 7. `CLAUDE.md` §2 es normativo
+para el código (jerarquía de línea base, nivel 4); donde la regla fue precisada
+el 2026-09-21 (§2.1, regla 1) se evalúa la versión precisada.
+
+### 9.1 Un estado por regla
+
+| Regla | Estado | Evidencia y matiz |
+|---|---|---|
+| **§2.1 regla 1** — Todo acceso a datos pasa por SQLAlchemy; la precisión del 2026-09-21 la restringe a **escrituras y esquema**, y admite que la app web lea Neon directamente si (a) sus escrituras se verifican contra `modelos.py` y (b) no genera migraciones | **Cumple, con dos notas** | Python: ORM/Core en todo `src/` y `scripts/`; las migraciones `41d077a78426` y `cb034d1c967b` usan `sa.text()`, que es SQLAlchemy Core, no SQL de motor. Web: 8 `SELECT` y 3 escrituras en SQL crudo vía `@neondatabase/serverless` (área 5, §5.1); la condición (a) se cumple por **forma** —`contrato.generado.ts` desde `modelos.py`, `tests/test_contrato.py` falla si divergen (ejecutado: «al día»)— pero **no por alcance**: el contrato garantiza columnas y tipos, no que el insight calificado pertenezca a un informe publicado ni que el ciclo esté abierto (H-013). La condición (b) se cumple: `web/` no tiene ORM ni migraciones. **Nota 2:** `Informe._congelar_corrida` reconoce que un `UPDATE` crudo lo saltaría (`modelos.py:673-676`); la web no toca `informe` |
+| **§2.1 regla 2** — El esquema se gobierna con Alembic desde la primera migración | **Cumple** | 11 migraciones lineales, `alembic check` sin diferencias en SQLite y ambas bases en `head` (§0.2 #7-#10); `create_all` solo en fixtures de pruebas (`tests/*`), que la propia regla admite (`test_persistencia.py:3-5`); `aplicar_migraciones()` en la ingesta y en los tres scripts de carga; `exigir_directa` en los dos caminos (`sesion.py:133`, `env.py:48`); FKs nombradas en modo batch. Sin migraciones desde `web/` |
+| **§2.1 regla 3** — Columnas JSON con el tipo `JSON` portátil; nunca operadores JSONB | **Cumple** | Todas las columnas semiestructuradas son `sa.JSON` (`modelos.py`, migraciones); `grep` de `->>`, `@>`, `jsonb`, `json_extract` en `src/`, `scripts/`, `web/`: ninguno fuera del comentario de `modelos.py:4` (§0.2 #26). `tablero.ts` compone en TypeScript el `contenido` entero en vez de consultar dentro del JSON (`tablero.ts:107-113`) |
+| **§2.2** — Ninguna cifra de un informe proviene del LLM (CA-M6.3) | **Parcial** — decisión del dueño (P-3) | Cifras estructuradas 100 % por código (`informes/composicion.py`, sin llamada a modelo); prosa del modelo con 15 cifras transcritas de la fuente y **sin compuerta en `ciclo.py`** (H-009, Alto, quick win, 🔒). La regla dice «no admite excepción ni atajo» y hoy la sostiene la disciplina del prompt, no el código |
+| **§2.3 corolario 1** — El validador es código, nunca LLM; su tasa de rechazo es la tasa de alucinación medida | **Cumple (código) · Parcial (métrica)** | `validador.py` sin importación ni llamada a modelo (área 3); veredicto reproducido 326/326. La **tasa** no se persiste ni reporta (H-010) y el documento de resultados publica 0,0 % cuando la base da 1,2 % (H-028); bajo snapshot mide fidelidad de cita, no alucinación (H-029) |
+| **§2.3 corolario 2** — Bing nunca es evidencia (D1); el validador lo rechaza por R2 | **Cumple, con la implicación de D1 pendiente** | R2 y R7 rechazan Bing como origen y como señal (`validador.py:92-95, 121-122`); ningún insight de las 1.213 filas tiene evidencia Bing (área 4: 933/933 evidencias del informe son SECOP o RSS). Bing sí llega al prompt del Correlacionador como contexto, según D1 permite, pero el marcado `contexto_no_verificado` que D1 exige nunca se escribe (H-021) |
+| **§2.3 corolario 3** — Los prompts van versionados y se archivan en el almacén (D7); el linaje se registra, no se edita en sitio | **Cumple en `procesar_ciclo` · Parcial en scripts** | `registrar_prompt` ancla por hash y falla ante edición sin cambio de versión (`linaje.py:39-78`; probado en `test_persistencia.py:487-498`); hashes de tabla = blob = `src/` para v4, v1 y v2 (área 4). Las corridas de `comparar_correlacionador.py --persistir` no registran linaje (H-022) y v2 «vigente» no tiene fila (H-023) |
+| **§2.4** — Toda compuerta sobre la salida de un agente necesita su piso de ruido medido; criterio sobre el agregado, umbral = rango observado, sin piso se niega a juzgar; lo mismo para una detección | **Parcial** | El diseño cumple las tres reglas (`comparar_correlacionador.py:92-119, 355-381`) y el invariante «no suspende a su línea base» está probado (`tests/test_compuertas.py:36-44`). Pero el **piso codificado** mezcla dos pasadas persistidas (39/23, 42/24) con una no persistida (42/20), y `test_compuertas.py` prueba las constantes, no una medición (H-036). La detección de cifras «con la misma vara» existe y está probada (`reglas/cifras.py`, `test_cifras.py`), pero solo se usa en calibración (H-009) |
+
+### 9.2 Hallazgos
+
+Ningún hallazgo nuevo: los desvíos de las reglas §2.2, §2.3 y §2.4 ya están
+registrados en H-009, H-010, H-021, H-022, H-023, H-028, H-029 y H-036, y el
+matiz de la regla 1 en H-013. Se anota para la matriz que **las tres reglas de
+§2.1 se cumplen**, que **§2.2 es Parcial por decisión del dueño** y que **§2.3 y
+§2.4 se cumplen en el camino principal y fallan en los caminos de calibración**
+(scripts), que es donde el proyecto midió lo que después declaró vigente.
+
+*Fin del área 9.*
+
+---
+
 ## Preguntas abiertas (acumuladas; se consolidan en la sección 9 al cierre)
 
 | # | Pregunta | Decide | Prioridad | Origen |
