@@ -192,6 +192,19 @@ Vive en [`web/`](web/) — Next.js sobre Vercel, leyendo Neon. No es Django: D5 
 Addendum 02 lo eligió antes de que el hosting fuera Vercel, y la desviación está
 anotada allí.
 
+> **El sistema no envía ningún correo.** No hay canal de notificación en el MVP
+> (pendiente 11.4/3) ni código que mande nada: **el enlace se comparte a mano**,
+> por fuera del sistema. Si buscas el servicio de envío, no existe.
+>
+> Lo que sí hay es **identificación por correo**, que es otra cosa. El flujo:
+>
+> 1. El enlace se comparte fuera del sistema.
+> 2. Cualquiera que lo tenga **lee sin identificarse**.
+> 3. Al intentar **calificar** se pide el correo.
+> 4. Se valida contra `usuario`. Si está, califica con su gerencia.
+> 5. Si no está, **solo visualiza**, con el mensaje «este correo no está en la
+>    lista» y a quién escribir — nunca un error genérico.
+
 ```powershell
 cd web
 npm install

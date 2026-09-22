@@ -54,11 +54,17 @@ export async function cicloEsEditable(idCiclo: number): Promise<boolean> {
 }
 
 /**
- * Resuelve el correo a su gerencia. `null` si no esta en la lista precargada.
+ * Identificacion por correo: resuelve el correo a su gerencia.
  *
- * La app **nunca escribe** en `usuario` (M9-acceso): quien no este, no
- * califica. Eso mantiene las escrituras en las dos tablas de CA-M9.16 y deja
- * el denominador de H2 conocido antes de medir.
+ * **El sistema no envia correos.** No hay canal de notificacion (11.4/3): el
+ * enlace se comparte a mano y el correo es el identificador que la persona
+ * **escribe** en pantalla para poder calificar. Si buscas el servicio de
+ * envio, no existe.
+ *
+ * Devuelve `null` si no esta en la lista precargada — entonces esa persona
+ * **solo visualiza**. La app **nunca escribe** en `usuario` (M9-acceso), lo que
+ * mantiene las escrituras en las dos tablas de CA-M9.16 y deja el denominador
+ * de H2 conocido antes de medir.
  */
 export async function gerenciaDelCorreo(
   correo: string,

@@ -1,5 +1,14 @@
 # Arquitectura — MVP Inteligencia Territorial
 
+> **Superado el 2026-09-21 en lo que toca a la distribución.** Este documento
+> describe en varios puntos un **correo HTML a las 7 gerencias** con enlace
+> profundo (CA-M6.7), autenticación por enlace mágico y «clic en la estrella»
+> desde el propio correo. **Nada de eso existe en el MVP**: no hay canal de
+> notificación (pendiente 11.4/3) y el sistema **no envía ningún correo**. El
+> enlace se comparte a mano y el correo se usa solo como **identificador que la
+> persona escribe** para poder calificar. Ver el [Design System](design-system.md)
+> §2.4 y el pendiente `M9-acceso`.
+
 **Documentos base:** [PRD del MVP](prd.md) · [Addendum 01 — Fuente de datos](addendum-01-fuente-de-datos.md) · [Addendum 02 — Stack](addendum-02-stack.md)
 **Fecha:** 2026-09-11
 **Alcance:** Diseño técnico del MVP. Todo lo aquí descrito se deriva del PRD y de los dos addenda. Lo que no tiene base en esos documentos está marcado como **[SIN BASE]** y recogido en §11.
