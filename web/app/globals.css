@@ -1,0 +1,167 @@
+/* Tokens del Design System (docs/design-system.md §1).
+ *
+ * El navy y el navy-100 salen de theme1.xml de la plantilla corporativa de
+ * Pactia: son marca CONFIRMADA. La escala tonal es derivada. Los neutrales, la
+ * semantica de estado y el espaciado estan marcados [provisional] en el design
+ * system: NO son identidad de Pactia y se reemplazan cuando exista brandbook.
+ *
+ * No se introduce serif ni monoespaciada. Pactia no las tiene. Los datos se
+ * distinguen con tabular-nums de la propia Aptos.
+ */
+
+:root {
+  /* --- Color: base de marca, confirmado --- */
+  --color-navy-700: #0f4761;
+  --color-navy-100: #deeaf0;
+
+  /* --- Color: escala tonal, derivada --- */
+  --color-navy-900: #0a3145;
+  --color-navy-500: #2c6b87;
+  --color-navy-300: #7fa9bc;
+  --color-navy-050: #f1f7fa;
+
+  /* --- Color: neutrales [provisional] --- */
+  --color-ink: #1a1d1f;
+  --color-ink-muted: #5b6670;
+  --color-ink-faint: #8a9199;
+  --color-border: #dde2e5;
+  --color-surface-alt: #f5f6f7;
+  --color-surface: #ffffff;
+
+  /* --- Color: semantica de estado [provisional] --- */
+  --color-critical: #a4262c;
+  --color-critical-bg: #fbeaea;
+  --color-warning: #7a5400;
+  --color-warning-bg: #fdf4dc;
+  --color-positive: #0e5c38;
+  --color-positive-bg: #e4f0ea;
+  --color-neutral: #5b6670;
+  --color-neutral-bg: #eef0f1;
+
+  /* --- Espaciado [provisional], base 4 --- */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-12: 48px;
+
+  --radio-tarjeta: 4px;
+  --radio-control: 2px;
+
+  /* Aptos no esta disponible como fuente web y no se incrusta: en maquinas sin
+   * Microsoft 365 la pila cae a Segoe UI. Es deliberado — la alternativa seria
+   * meter una fuente que no es de Pactia. */
+  --fuente: Aptos, "Segoe UI", system-ui, -apple-system, sans-serif;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--color-surface-alt);
+  color: var(--color-ink);
+  font-family: var(--fuente);
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+/* --- Escala tipografica (§1.5) --- */
+.t-display {
+  font-size: 28px;
+  font-weight: 600;
+  line-height: 1.25;
+}
+.t-h1 {
+  font-size: 22px;
+  font-weight: 600;
+  line-height: 1.25;
+}
+.t-h2 {
+  font-size: 17px;
+  font-weight: 600;
+  line-height: 1.25;
+}
+.t-h3 {
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.25;
+}
+.t-body {
+  font-size: 15px;
+  font-weight: 400;
+}
+.t-meta {
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--color-ink-muted);
+}
+.t-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+/* Datos numericos: se distinguen con recursos de la propia Aptos, nunca con
+ * una segunda familia tipografica. */
+.t-data,
+.t-data-lg {
+  font-weight: 600;
+  line-height: 1.25;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+.t-data {
+  font-size: 15px;
+}
+.t-data-lg {
+  font-size: 32px;
+}
+
+/* --- Primitivas --- */
+.superficie {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radio-tarjeta);
+}
+
+/* El color nunca porta informacion por si solo: toda etiqueta lleva texto. */
+.etiqueta {
+  display: inline-block;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radio-tarjeta);
+  background: var(--color-neutral-bg);
+  color: var(--color-neutral);
+}
+.etiqueta-aviso {
+  background: var(--color-warning-bg);
+  color: var(--color-warning);
+}
+.etiqueta-positiva {
+  background: var(--color-positive-bg);
+  color: var(--color-positive);
+}
+.etiqueta-critica {
+  background: var(--color-critical-bg);
+  color: var(--color-critical);
+}
+
+a {
+  color: var(--color-navy-500);
+}
+
+/* Ancho de linea: maximo 72 caracteres en texto redactado. Las tablas pueden
+ * ocupar el ancho completo. */
+.prosa {
+  max-width: 72ch;
+}

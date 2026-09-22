@@ -186,6 +186,60 @@ idénticas municipio por municipio** pese a llevar etiquetas distintas, así que
 si siguen siéndolo en el destino, los `float`, los enteros y el JSON cruzaron
 sin deformarse. Contar filas no lo detectaría.
 
+## El aplicativo web (M9)
+
+Vive en [`web/`](web/) — Next.js sobre Vercel, leyendo Neon. No es Django: D5 del
+Addendum 02 lo eligió antes de que el hosting fuera Vercel, y la desviación está
+anotada allí.
+
+```powershell
+cd web
+npm install
+$env:DATABASE_URL = "postgresql://...neon.tech/territorial?sslmode=require"
+npm run dev          # http://localhost:3000
+npm run typecheck    # tsc --noEmit
+npm run build
+```
+
+### La raíz de despliegue en Vercel es `web/`
+
+**Esto no se puede deducir mirando el repositorio.** Vive solo en el panel de
+Vercel, en *Settings → General → Root Directory*, y hay que ponerlo a mano:
+
+```
+Root Directory:  web
+```
+
+Sin eso, Vercel compila desde la raíz, no encuentra `package.json` y falla con
+un error que no menciona la causa. El repositorio es un monorepo a medias —
+Python en la raíz, la app en `web/`— porque D5 pedía un solo repositorio.
+
+### Y la cadena de Neon en Vercel es la del **pooler**
+
+Al revés que la de este README para el pipeline. Las funciones serverless abren
+muchas conexiones cortas, así que la app va por el endpoint con `-pooler`;
+Alembic va por el directo, porque por el pooled no se puede migrar. Son dos
+cadenas para dos usos opuestos, y confundirlas falla en sitios distintos: la app
+agotaría conexiones, y la migración se rompería a la mitad.
+
+El `&connect_timeout=3` que lleva la cadena local **no hace falta en Vercel**:
+allí sí hay ruta IPv6. No molesta si se queda.
+
+### Lo que la app puede escribir
+
+Solo `calificacion` y `seguimiento` (CA-M9.16). **No migra nada** — Alembic es la
+única autoridad del esquema— y la forma de esas dos escrituras se verifica
+contra `modelos.py`:
+
+```powershell
+& $py scripts\generar_contrato_ts.py          # regenera web/lib/contrato.generado.ts
+& $py scripts\generar_contrato_ts.py --check  # falla si quedó desactualizado
+```
+
+`tests/test_contrato.py` corre ese `--check` dentro del suite, así que tocar
+`modelos.py` sin regenerar rompe las pruebas de Python. Es lo que impide que la
+app escriba contra una columna que ya no existe.
+
 ## Estructura
 
 ```
