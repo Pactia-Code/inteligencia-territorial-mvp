@@ -145,6 +145,12 @@ export interface Informe {
     pedidas_por_municipio: number;
     /** Congelada: con ella se recomputa la muestra y se audita CA-M6.6. */
     semilla: number;
+    /**
+     * El denominador de H2, congelado al publicar (H-005 / F0.1): las
+     * `id_gerencia` autorizadas a calificar en ese momento, ordenadas. La tasa
+     * de respuesta se computa contra esta lista, no contra `usuario` hoy.
+     */
+    gerencias: string[];
   };
   municipios: MunicipioDelInforme[];
 }

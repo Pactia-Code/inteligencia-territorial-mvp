@@ -29,6 +29,7 @@ from territorial.almacen.modelos import (
     Insight,
     Municipio,
     ScoreMunicipio,
+    Usuario,
 )
 from territorial.config import Config
 from territorial.informes.composicion import (
@@ -36,6 +37,7 @@ from territorial.informes.composicion import (
     agrupar_por_fuente,
     campos_de_contexto,
     componer,
+    gerencias_autorizadas,
     resumir_fuentes,
 )
 from territorial.informes.publicacion import (
@@ -111,6 +113,17 @@ def bd():
             id_corrida=ag.id, divipola="73001", categoria="obra_vial",
             resumen="Rechazado", estado_validacion="rechazado", origen="clasificador",
         ))
+        # Tres gerencias activas (una con dos personas), una desactivada y un
+        # administrador: el denominador de H2 tiene que ser exactamente tres.
+        s.add_all([
+            Usuario(id_gerencia="comercial", nombre="A", correo="a@p.co"),
+            Usuario(id_gerencia="comercial", nombre="A2", correo="a2@p.co"),
+            Usuario(id_gerencia="desarrollo", nombre="B", correo="b@p.co"),
+            Usuario(id_gerencia="activos", nombre="C", correo="c@p.co"),
+            Usuario(id_gerencia="antigua", nombre="D", correo="d@p.co", activo=False),
+            Usuario(id_gerencia="analitica", nombre="E", correo="e@p.co",
+                    rol="administrador"),
+        ])
         s.commit()
         yield s, sc.id, ag.id
 
@@ -534,6 +547,64 @@ def test_la_semilla_queda_congelada_en_el_payload(bd):
     d = componer(s, sc, ag)
     assert d["calificacion"]["semilla"] == d["ciclo"]
     assert d["calificacion"]["pedidas_por_municipio"] == 5
+
+
+# --------------------------------------------------------------------------
+# H-005 / F0.1 — el denominador de H2 se congela en el payload
+# --------------------------------------------------------------------------
+
+
+def test_el_payload_congela_las_gerencias_autorizadas(bd):
+    """Quién podía calificar cuando se publicó, no quién puede hoy.
+
+    Sin esto, sustituir los usuarios de prueba por los reales tras publicar
+    recalculaba la tasa de respuesta del ciclo con otro denominador (H-005).
+    """
+    s, sc, ag = bd
+    assert componer(s, sc, ag)["calificacion"]["gerencias"] == [
+        "activos", "comercial", "desarrollo",
+    ]
+
+
+def test_el_denominador_excluye_inactivos_y_administradores(bd):
+    """El administrador tiene panel, no papeleta (CA-M9.14); el inactivo, nada."""
+    s, _, _ = bd
+    gerencias = gerencias_autorizadas(s)
+    assert "antigua" not in gerencias
+    assert "analitica" not in gerencias
+
+
+def test_dos_personas_de_una_gerencia_cuentan_una_vez(bd):
+    """`calificacion` atribuye por gerencia, así que el denominador también."""
+    s, _, _ = bd
+    assert gerencias_autorizadas(s).count("comercial") == 1
+
+
+def test_el_informe_publicado_guarda_las_gerencias_y_no_cambia_si_usuario_cambia(bd):
+    """La garantía completa: lo que quedó en `informe.contenido` es inmune a
+    altas, bajas y cambios posteriores en `usuario`."""
+    s, sc, ag = bd
+    inf = publicar(s, sc, ag)
+    congeladas = inf.contenido["calificacion"]["gerencias"]
+    assert congeladas == ["activos", "comercial", "desarrollo"]
+
+    # Después de publicar: una gerencia nueva, otra se desactiva.
+    s.add(Usuario(id_gerencia="nueva", nombre="F", correo="f@p.co"))
+    s.query(Usuario).filter_by(correo="c@p.co").one().activo = False
+    s.flush()
+    assert gerencias_autorizadas(s) == ["comercial", "desarrollo", "nueva"]
+
+    s.expire_all()
+    guardado = s.get(Informe, inf.id).contenido["calificacion"]["gerencias"]
+    assert guardado == ["activos", "comercial", "desarrollo"]
+
+
+def test_sin_usuarios_el_denominador_es_una_lista_vacia_no_un_hueco(bd):
+    """Explícito y vacío: el lector del payload ve que no había nadie."""
+    s, sc, ag = bd
+    s.query(Usuario).delete()
+    s.flush()
+    assert componer(s, sc, ag)["calificacion"]["gerencias"] == []
 
 
 def test_cada_insight_dice_como_llego(bd):
