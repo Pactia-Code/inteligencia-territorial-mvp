@@ -1841,10 +1841,184 @@ Consolidación pendiente de 8b (hallazgos 5 y 6 del documento).
 
 ---
 
+## Área 8b — Integridad de la evidencia, segunda mitad de `informe_resultados.md`
+
+**Cerrada el 2026-09-22.** Cubre las líneas 318–702: H5, «Hallazgos no
+previstos» 1–8, Anexo CA-M2.1 y «Qué falta para poder cerrar la compuerta».
+Archivos leídos completos para esta mitad: `scripts/estimar_costo.py`,
+`scripts/generar_hojas_revision.py`. Ejecutado: `scripts/estimar_costo.py` (solo
+lee `traza_agente` y `config/tarifas.json`) y `SELECT` sobre SQLite para cada
+cifra.
+
+### 8b.1 Cifras de la segunda mitad: productor, pertinencia y reproducibilidad
+
+| Cifra en el documento | Productor | ¿Mide lo definido? | Reproducible en `96e10e0` |
+|---|---|---|---|
+| **H5** piloto **USD 39/año**, nacional **USD 2.160/año** `[pendientes B4]` | `scripts/estimar_costo.py` con `config/tarifas.json` | Sí para «extrapolación documentada» | **No**: hoy el script da **USD 1,15 por quincena de 18 → 29,9/año** y **USD 1.825/año nacional**. La estimación promedia los tokens del Correlacionador sobre **todas** las trazas acumuladas (`estimar_costo.py:175-176`), así que cambia cada vez que se corre algo; el documento no fija ni la fecha ni el corte de trazas (H-035) |
+| H5 «el Correlacionador es el 89 % del gasto» | Derivado de la proyección | Sí | Hoy **86,9 %** (USD 1.586 de 1.825); el 89 % correspondía a otro estado de `traza_agente` |
+| H5 «su salida de razonamiento sola es el 84 % del total» | **Ninguno**: `traza_agente` no tiene columna de tokens de razonamiento (`PRAGMA`); `ResultadoCorrelacion.tokens_razonamiento` existe en memoria y no se persiste | — | **No reproducible** desde la base (H-035) |
+| H5 «Batch (−50 %) y bajarlo a mini (−71 %) se acumulan hasta −86 %» | Aritmética sobre tarifas | Hipotético | 1 − 0,5 × 0,29 = 0,855 ✓, con tarifas de `tarifas.json` |
+| H5 consumo medido: Clasificador 215 llamadas, 1.759.734 / 459.192, 39,5 min; Correlacionador 51, 140.172 / 264.562, 48,6 min `[BD]` | `SELECT` sobre `traza_agente` | Sí | **Sí**, exacto (39,47 y 48,61 min) |
+| H5 ciclo 1 dos veces: 170 llamadas, 1.276.657 / 441.861, 53,6 min; «~638K y ~221K por pasada, ~27 min» | `SELECT` por `id_ciclo=1` | Sí | **Sí**: 170, 1.276.657, 441.861, 53,59 min |
+| H5 «7.628 tras el prefiltro; ~615 por quincena; factor 12» `[CLAUDE §8]` | `medir_prefiltro.py` (7.628 ✓, área 3); 615 = 7.628 / 374 × 14 × … | Sí | 7.628 exacto; **615 sin productor en el repo** (`estimar_costo.py:51` lo lleva como constante `SENALES_POR_QUINCENA_18 = 615`; 7.628/374×14 = 285,5, así que la constante no sale de esa fórmula) |
+| Tokens por señal del Clasificador: **~282 / ~111** `[CLAUDE §8]` | Ninguno | — | **Tres cifras distintas en tres sitios**: `CLAUDE.md` §8 282/111; `estimar_costo.py:48-49` **240/92** (medido sobre Barranquilla ciclo 2, 284 señales); `corrida_agentes` da **225/78** (corridas 7 y 8) y **218/100** (corrida 10). El documento no elige ninguna, el script proyecta con 240/92 |
+| **Hallazgo 1** volteo por municipio: Barranquilla **10 %**, Funza **87,5 %** `[pendientes A6]` | Lógica de `comparar_pasadas.py` por municipio | Sí | **Sí**: 90/897 = 10,0 %; 35/40 = 87,5 % |
+| Hallazgo 1 descartes: `servicios_profesionales` **1.618**, `duplicado` **911**, `evento_capacitacion` **798** `[BD]` | `SELECT motivo, count(*)` | Sí | **No**: exacto 1.290 / 810 / 705; por prefijo 1.637 / 922 / 802. Ninguno de los dos métodos da las cifras del documento, y `descarte` no ha cambiado (5.731 filas) |
+| **Hallazgo 2** (A11): 10 de 71 = 14,1 %; 85/322 = 26,4 %; **14 de 18** municipios; 39 y 42; tipología **23 y 24** | Corridas 11 y 12 | Sí | **Sí**, todo exacto (tipología recalculada con las palabras de `comparar_correlacionador.py:124-128`) |
+| **Hallazgo 3** «0 % / 19,5 % / 26,4 % / 25–50 %» | Compuesto de A6, A11 y la cifra sin productor | — | 0 % ✓ (área 3: scoring reproducido con diferencia 0); 19,5 % ✓; 26,4 % ✓; **25–50 % no** (H-030) |
+| **Hallazgo 4** tabla: v1 pasada 1 **42/20**, pasada 2 39/23, pasada 3 42/24; **v2 40/35** `[pendientes A10]` | `comparar_correlacionador.py`; constantes `PISO_RUIDO` (94-99) | Sí para la compuerta | **Parcial**: 39/23 y 42/24 son las corridas 11 y 12; **42/20 y 40/35 no tienen corrida** —la pasada A del contraste v1/v2 y la pasada v2 no se persistieron— y solo existen como constantes del script y como afirmación del documento (H-036) |
+| Hallazgo 4 «calles 76 y 80», Carepa, corrida 12 | `tests/test_cifras.py:14-18` | Anecdótico | Sí, como caso de prueba |
+| **Hallazgo 5** Apartadó F4 **−43,5 %** en los tres ciclos | `score_municipio.valores_crudos` | Sí | **Sí**: −43,5 en las corridas 22, 23 y 24; F4 idéntico en 18/18 |
+| Hallazgo 5 top 3 antes/después, corridas 16/8/18 → 19/20/21 `[BD]` | `SELECT … ORDER BY ranking LIMIT 3` | Sí | Ciclos 1 y 2 **exactos** (Carepa/Barranquilla/Armenia → Barranquilla/Carepa/Pereira; Ibagué/Carepa/Buenaventura → Carepa/Ibagué/Buenaventura). **Ciclo 3 no**: las corridas 18 y 21 dan Ibagué/Armenia/Funza; el documento escribe «Funza, Buenaventura, Facatativá», que es el top 3 **con el umbral de información activo** (excluidos los cinco del hallazgo 7), sin decirlo |
+| Hallazgo 5 «F1, F3 y F5 varían entre ciclos: 18, 15 y 18 de 18» | Comparación de `valores_crudos` | Sí | F1 18 ✓, F5 18 ✓; **F3: 18 de 18** entre los ciclos 2 y 3 (5 municipios sin F3 en alguno); el 15 no se reproduce con ningún criterio evidente |
+| **Hallazgo 6** seis violaciones de «ausencia de SECOP» `[CLAUDE §7]` | Narrativa sobre A7, `_corte`, A8, A2, B7, P1 | Cualitativo | Las seis tienen correlato en código leído (áreas 3 y 4); no es una cifra |
+| **Hallazgo 7** fracciones informadas **20,10 % o 77,80 %**, cinco municipios fuera, top 5 «apoyado en» `[pendientes P1]` | `score_municipio.factores.fraccion_informada`, corrida 24 | Sí | **Sí**: {0,201, 0,778}; los 5 son Ibagué, Armenia, Barranquilla, Pereira y Cartagena; el top 5 coincide con el payload publicado |
+| **Hallazgo 8** atribución cruzada **0,64 %**; pares 31 / 20 / 10 / 8 `[pendientes A3]` | Ninguno declarado; reimplementado como «nombre de otro municipio del MVP en el objeto SECOP» | Sí como piso | **Aproximado**: 129/19.640 = **0,66 %**; Manizales→La Dorada **32**, Barranquilla→Puerto Colombia 20 ✓, Pereira→Dosquebradas 10 ✓, Apartadó→Chigorodó 8 ✓, más Buenaventura→«Mosquera» 11 que el documento omite (probable apellido). Método no declarado |
+| **Anexo CA-M2.1**: 95,2 % · 94,9 % · 95,3 % `[pendientes B2]` | `ResumenCiclo.reduccion_global` = 1 − validados / señales del ciclo | Sí, tal como CA-M2.1 se reinterpretó (validados sobre crudas) | **Sí**, exacto: 313/6.454, 327/6.454, 322/6.831 |
+| «Qué falta»: «Django sin instalar», «Canal sin decidir `[pendientes 11.4/3]`» | Estado | — | **Desactualizado**: Next.js decidido el 09-21; 11.4/3 cerrado |
+| Hojas de revisión: 45 insights, 5 revisores, 30 estables + 15 volteados | `scripts/generar_hojas_revision.py:113-116` (defaults 30/15/5, corridas 7 vs 8, semilla 20260921) | Sí | El generador existe y es determinista; **las hojas no están en el repositorio** (`data/revision/`, ignorado) y no hay devolución |
+
+### 8b.2 Encargos del dueño sobre esta mitad
+
+**Evidencia no persistida de la promoción de v2.** Confirmado (tabla, hallazgo
+4): de las cuatro filas que justifican la promoción, dos son las corridas 11 y 12
+y dos —la pasada 1 de v1 (42/20) y **la única pasada de v2 (40/35)**— no existen
+en la base. `PISO_RUIDO = {"convergencias": (42, 39, 42), "tipologia": (20, 23,
+24)}` (`comparar_correlacionador.py:94-99`) codifica un valor no persistido, y
+`tests/test_compuertas.py` prueba esas constantes, no una medición. H-036.
+
+**Consolidación de H-033.** Los hallazgos 5, 6 y 7 tratan el scoring con detalle
+—F4 constante, ausencia de SECOP, umbral apagado— pero **ninguno conecta con la
+lectura de H1**: en ninguna línea se dice que lo que las gerencias califican lo
+seleccionó el scoring y que el 54 % de ese score depende del diccionario de
+obra. CA-M4.3 sigue sin aparecer. **H-033 se consolida en Medio** tal como se
+redactó en 8a.
+
+**H5 con la tarifa de `gpt-5.4-mini` sin verificar.** `config/tarifas.json`
+lleva la advertencia en su propio texto («la cotización se pidió para gpt-5-mini.
+Verificar que la tarifa aplique al despliegue que corre de verdad»). La tarifa
+real **no está en el repositorio y no se busca fuera** (decisión del dueño). El
+efecto se calcula como condicional sobre la proyección que el script produce hoy:
+
+| Componente (año nacional, USD) | Con la tarifa aplicada (0,25 / 2,00) |
+|---|---|
+| Correlacionador (`gpt-5`, 1,25 / 10,00) | **1.586** (78,8 M entrada + 148,8 M salida) |
+| Clasificador (`gpt-5.4-mini`, tarifa **sin verificar**) | **239** (235,2 M entrada + 90,1 M salida) |
+| Total | **1.825** |
+
+Si la tarifa real de `gpt-5.4-mini` es *k* veces la aplicada: total = 1.586 +
+239 × *k*. Con *k* = 0,5 → 1.706; *k* = 2 → 2.064 (+13 %); *k* = 5 → 2.782
+(+52 %); *k* = 10 → 3.977 (+118 %). **El total se duplica en *k* ≈ 7,6.** La
+conclusión de H5 —«el costo no es la barrera»— no cambia con ningún *k* dentro
+de un orden de magnitud, porque el Clasificador es el 13 % del gasto; **las
+cifras publicadas sí cambian** con cualquier *k* ≠ 1, y ya no coinciden con el
+script ni con *k* = 1. La tarifa real queda como **P-5**.
+
+### 8b.3 Causa raíz (encargo del dueño): cifras citadas de documentos, no de consultas
+
+El documento declara «cada cifra lleva su procedencia entre corchetes para que se
+pueda volver a comprobar». Recuento de marcas en las 702 líneas: **14 `[BD]`**,
+**36 `[pendientes]`**, **17 `[CLAUDE]`**, 6 `[PRD]`. Es decir, **53 de 67
+procedencias no son la base sino otro documento**, y ninguna de las 14 `[BD]`
+adjunta la consulta. El patrón se confirma en las dos mitades:
+
+| Síntoma | Cifras afectadas |
+|---|---|
+| `[CLAUDE]` que a su vez no tiene productor | «tasa de rechazo 0,0 %» (H-028); «~282/~111 tokens por señal» (tres valores distintos en tres sitios) |
+| `[BD]` falsa o no reproducible con ningún método | «hashes de entrada y de salida» (H-027); descartes 1.618 / 911 / 798 |
+| `[pendientes]` sin método ni corrida | «25–50 % del contenido» (H-030); «F3 varía en 15 de 18»; «0,64 %» (aproximado, método no declarado); top 3 del ciclo 3 con filtro no declarado |
+| Cifra atada a un estado mutable sin corte | USD 39 / 2.160 y 89 % (H-035): dependen de `traza_agente` acumulada |
+| Cifra de una ejecución no persistida | 42/20 y 40/35 de la promoción de v2 (H-036); 615 señales por quincena; 84 % razonamiento |
+| Inventario y estados no refrescados | 10 corridas, 21 de scoring, 1.132 insights, 0 informes, Django, canal sin decidir (H-031) |
+
+Lo que sí se reproduce exactamente —A6, A11, CA-M2.1, consumo medido, F4,
+fracción informada, cruces RSS×SECOP— tiene en común que sale de corridas
+persistidas con un cálculo que el repositorio contiene. **La causa raíz no es un
+error de transcripción: es que el documento se escribió a mano copiando cifras
+de `pendientes.md` y `CLAUDE.md`, que a su vez las recibieron de sesiones de
+trabajo, sin que ninguna cifra quede ligada a la consulta o al script que la
+produce ni al estado de la base (commit + corridas) en que se produjo.** H-034.
+
+### 8b.4 Hallazgos
+
+**H-034 · Alto · Brecha documental (causa raíz) · Confianza Alta · Área 8 · «Cómo leer las cifras» del propio documento; H1–H5 · ⛔ BLOQUEA DECISIÓN GO/NO-GO**
+*Ninguna cifra de `informe_resultados.md` está ligada a la consulta o script que
+la produce ni al estado de la base en que se produjo.* Agrupa H-027, H-028,
+H-030, H-031, H-035 y H-036, y las cifras «método-dependientes» de 8b.1
+(descartes 1.618/911/798, F3 15/18, top 3 del ciclo 3, 0,64 %, 615/quincena,
+282/111). *Escenario:* la compuerta de la semana 8 se decide con un documento en
+el que dos afirmaciones de la sección bloqueante son falsas y una docena no se
+puede rehacer; corregir cifra a cifra reproduce el problema en la próxima
+actualización. **Propuesta para el plan (F0b):** no corregir cifras sueltas sino
+**regenerar el documento** desde un script (`scripts/informe_resultados.py` o
+equivalente) que emita cada cifra con (a) la consulta o función que la produce,
+(b) el commit y (c) los ids de corrida sobre los que se calculó; lo que no tenga
+productor sale del documento o se marca explícitamente como «afirmación sin
+medición». Las 19 cifras que hoy se reproducen exactamente son la semilla de ese
+script.
+
+**H-035 · Alto · Brecha documental · Confianza Alta · Área 8b · H5, CA-M8.3, pendiente B4 · ⛔ BLOQUEA DECISIÓN GO/NO-GO**
+*Las cifras de H5 no se reproducen y dependen de un estado mutable.*
+`estimar_costo.py:175-176` promedia los tokens del Correlacionador sobre todas
+las trazas acumuladas:
+
+```
+scripts/estimar_costo.py:175-176
+    ent_muni = sum((f[3] or 0) for f in corr) / sum(f[2] for f in corr) if corr else 0
+    sal_muni = sum((f[4] or 0) for f in corr) / sum(f[2] for f in corr) if corr else 0
+```
+
+El documento dice USD 39 y 2.160 (2026-09-17); el mismo script en `96e10e0` da
+USD 29,9 y 1.825; el 89 % es hoy 86,9 %; el «84 % de razonamiento» no tiene
+columna que lo sostenga; los tokens por señal valen 282/111, 240/92 o 218–225
+según el sitio. A esto se suma la tarifa de `gpt-5.4-mini` sin verificar
+(8b.2, P-5) y el Sintetizador sin contar, que el documento sí declara. *Escenario:*
+H5 es una de las tres hipótesis que el GO puede contar; su cifra no se puede
+defender ante la compuerta porque quien la rehaga obtendrá otra. La conclusión
+cualitativa («no es la barrera») es robusta; las cifras, no.
+
+**H-036 · Alto · Brecha documental · Confianza Alta · Área 8b · Hallazgo 4 del documento, pendiente A10, CLAUDE.md §2.4**
+*La promoción de v2 se apoya en dos mediciones que no existen en la base.* De la
+tabla 42/20 · 39/23 · 42/24 · **40/35**, solo 39/23 y 42/24 (corridas 11 y 12)
+se reproducen; la pasada A del contraste v1/v2 y la pasada v2 no se persistieron
+y viven como constantes en `comparar_correlacionador.py:94-99` y en el texto.
+`tests/test_compuertas.py:36-67` prueba esas constantes. Alto por la regla del
+área (número sin productor). No lleva la etiqueta go/no-go porque no alimenta
+H1–H5; **pasaría a «Bloquea distribución» si el dueño republicara con v2**
+(§2.8).
+
+**Enmienda a H-031** (Bajo): se añaden como ocurrencias las filas «Django sin
+instalar» y «Canal sin decidir» de «Qué falta», ya cerradas en `pendientes.md`.
+
+### 8b.5 Estado de CA y hipótesis tocados por el área 8
+
+| Elemento | Estado tras el área 8 |
+|---|---|
+| CA-M2.1 | **Cumple**: 95,2 / 94,9 / 95,3 % reproducidos exactamente |
+| CA-M3.3 | **Parcial**: la tasa existe (1,2 % corrida 10) pero el documento publica 0,0 % (H-028) y no declara qué mide (H-029) |
+| CA-M8.3 | **Parcial**: costo por agente agregable a nivel de ciclo desde `traza_agente`; no por corrida (H-006) ni con tokens de razonamiento |
+| H1, H2 | **No medidas** (encuadre del dueño, §0.11.2); el documento lo dice correctamente |
+| H3 | Criterio cumplido (98,8 %), con la salvedad de qué mide (H-029) |
+| H4 | La cadena está verificada al 100 % (área 4), pero **la sección H4 del documento contiene una afirmación falsa (H-027) y una cifra errónea (H-028)** |
+| H5 | Conclusión cualitativa robusta; cifras no reproducibles (H-035); tarifa sin verificar (P-5) |
+
+### 8b.6 No verificable en esta mitad
+
+- Las cifras de la promoción de v2 (42/20, 40/35): no hay corrida; artefacto
+  necesario: volver a correr el contraste con `--persistir` y `registrar_prompt`.
+- El 84 % de tokens de razonamiento: no hay columna; artefacto: persistir
+  `tokens_razonamiento` en `traza_agente`.
+- Las hojas de revisión y su devolución: fuera del repositorio.
+
+*Fin del área 8b.*
+
+---
+
 ## Preguntas abiertas (acumuladas; se consolidan en la sección 9 al cierre)
 
 | # | Pregunta | Decide | Prioridad | Origen |
 |---|---|---|---|---|
+| P-5 | **Tarifa real de `gpt-5.4-mini` en el tenant de Pactia** (`config/tarifas.json` aplica la de `gpt-5-mini` y lo advierte). No está en el repositorio y no se buscó fuera. Sin ella, las cifras de H5 son condicionales (8b.2): total nacional = 1.586 + 239 × *k*. ¿Cuál es *k*? | Dueño / Analítica | Previa a la decisión go/no-go | Área 8b, H-035 |
 | P-4 | **Infografía por municipio (CA-M6.2, CA-M9.4):** no existe en el código ni está especificada ni retirada. ¿Se **implementa**, se **especifica** (contenido, formato y cómo se compone sin cifras del modelo) o se **retira formalmente** del alcance del MVP con registro en `pendientes.md`? | Dueño | Previa a distribución | Área 5, H-020 |
 | P-3 | **¿Qué lectura de CA-M6.3 rige?** (a) La literal del PRD: ninguna cifra *generada* sin fuente → los 15 insights con cifras transcritas cumplen y H-009 es un Riesgo por falta de compuerta. (b) La del propio proyecto (`reglas/contexto.py:3-6`): ninguna cifra *escrita* por el modelo → los 15 son una desviación no registrada y H-009 sube a Crítico. Decide también si la compuerta de `reglas/cifras.py` debe cablearse en `ciclo.py` antes de distribuir | Dueño | **Previa a distribución** | Área 3, H-009 |
 | P-1 | **El informe 5 se compuso con el Correlacionador v1** (corrida 10, `version_correlacionador='v1'`, `id_prompt=2`) mientras `CLAUDE.md` declara vigente v2 desde el 2026-09-21. ¿Se republica el ciclo 3 con una corrida v2 —lo que exige volver a correr M4 y gastar tokens— o se corrige `CLAUDE.md` para que diga que lo publicado es v1? | Dueño | **🔒 Bloquea distribución** | Área 4, §4.3 |
