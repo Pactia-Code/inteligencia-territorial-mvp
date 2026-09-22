@@ -148,6 +148,8 @@ sin volver a abrirlo.
 `web/lib/consultas.ts` · `web/lib/escrituras.ts` · `web/lib/tipos.ts` ·
 `web/lib/tablero.ts` · `web/lib/contrato.generado.ts` · `web/next.config.ts` ·
 `web/package.json` · `docs/prd.md` · `docs/audit-baseline.md` · `CLAUDE.md`.
+*Añadidos al cerrar el área 4:* las 11 migraciones `alembic/versions/*.py` ·
+`alembic.ini` · `scripts/cargar_usuarios.py`.
 
 **Leídos parcialmente:** `docs/addendum-01-fuente-de-datos.md` (§3 D1–D4, §5, §6,
 §7, anexo) · `docs/addendum-02-stack.md` (D5 cabecera, D9, pendientes, anexo) ·
@@ -156,11 +158,11 @@ a 900 caracteres) · `docs/architecture.md` (§0, §6.2, §11) · `docs/informe_
 (solo encabezados; es el objeto del área 8) · `README.md` (solo encabezados) ·
 `tests/test_conexion.py` (líneas con URL) · `tests/*.py` (solo `grep` de fixtures).
 
-**No abiertos:** `alembic/versions/*.py` (11) · `alembic.ini` · `alembic/script.py.mako` ·
-`src/territorial/agentes/prompts/*.md` (6) · `scripts/` restantes (17: `cargar_*`,
-`comparar_*`, `copiar_base`, `dos_pasadas`, `estimar_costo`, `generar_contrato_ts`
-—solo ejecutado—, `generar_hojas_revision`, `medir_prefiltro`, `probar_*`,
-`verificar_*`) · `tests/test_*.py` (13, solo ejecutados) · `web/tsconfig.json` ·
+**No abiertos:** `alembic/script.py.mako` ·
+`src/territorial/agentes/prompts/*.md` (6) · `scripts/` restantes (16: `cargar_snapshot`,
+`cargar_divipola`, `cargar_contexto`, `comparar_*`, `copiar_base`, `dos_pasadas`,
+`estimar_costo`, `generar_contrato_ts` —solo ejecutado—, `generar_hojas_revision`,
+`medir_prefiltro`, `probar_*`, `verificar_*`) · `tests/test_*.py` (13, solo ejecutados) · `web/tsconfig.json` ·
 `web/package-lock.json` · `.gitignore` · `.env.example` (solo nombres) ·
 `docs/territorial_data_cruda_v3.json` · `data/*`.
 
@@ -370,3 +372,276 @@ Se aplican en todas las áreas y en el cierre:
 ---
 
 *Fin de la Fase 0.*
+
+---
+
+## Área 4 — Contrato de estado y datos, con la traza extremo a extremo
+
+**Cerrada el 2026-09-22.** Archivos leídos completos para esta área, además de
+los del Preflight: las 11 migraciones de `alembic/versions/`, `alembic.ini`,
+`scripts/cargar_usuarios.py`. Comprobaciones ejecutadas: solo `SELECT` e
+inspección de esquema sobre SQLite (y una lectura del `informe` publicado en
+Neon); cálculo de SHA-256 sobre el snapshot y los prompts archivados; comparación
+de 12 señales contra el snapshot archivado.
+
+### 4.1 Sondas
+
+| Sonda | Respuesta | Evidencia |
+|---|---|---|
+| ¿El esquema coincide con el modelo de datos del PRD §4.2 tal como lo enmiendan los addenda? | **Parcial** | Ver la tabla 4.2. Las 9 entidades existen; 4 columnas del PRD no (`municipio.features_scoring/score_ciclo/ranking_ciclo` → movidas a `score_municipio`; `seguimiento.responsable` → **ausente**; `informe.ruta_html` → sustituida por `contenido` JSON en `b37b4fd6e183`); 8 tablas añadidas sin correlato en el PRD |
+| ¿`seguimiento` es append-only en la práctica (sin caminos UPDATE/DELETE)? | **Sí** | Web: solo `INSERT` (`web/lib/escrituras.ts:70-78`); Python: ningún `Seguimiento(` fuera del modelo (§0.2 #30); ningún `.delete()` salvo `scripts/copiar_base.py:138` (vaciar destino con `--vaciar`, no es camino de app). Filas: 0 en ambas bases |
+| ¿`sin_respuesta` se distingue de una calificación baja? | **Parcial** | No existe como estado ni fila: `calificacion` tiene `ck_valor_1_5` (`modelos.py:430`), así que una fila siempre es una opinión 1–5, y la ausencia es la no-respuesta. Es distinguible **por derivación**, pero nada la registra ni la calcula (H-005) |
+| ¿Las migraciones están ordenadas? | **Sí** | `alembic history`: 11 revisiones lineales, cada `down_revision` apunta a la anterior; `downgrade()` definido en las 11; FKs en modo batch nombradas (`fk_score_corrida`, `fk_informe_corrida`, `fk_insight_corrida`, `fk_insight_prompt`, `fk_informe_corrida_agentes`); `alembic check` sin diferencias (§0.2 #9). Nota: `41d077a78426` y `cb034d1c967b` migran datos con `sa.text(...)` (SQLAlchemy Core, no SQL de motor) y `b37b4fd6e183:49` añade `contenido NOT NULL` sin default, válido solo porque la tabla estaba vacía (declarado en su docstring) |
+| ¿El contrato `EstadoCiclo` del PRD §4.1 existe? | **No** | No hay clase, esquema ni grafo con ese nombre ni con esos campos; el estado de un ciclo es la suma de tablas más los `dataclass` locales `ResumenMunicipio`/`ResumenCiclo` (`ciclo.py:91-181`), que son un resumen de impresión, no el estado. `municipios_objetivo` es un `select(Municipio)` (`ciclo.py:498-501`), no un campo del estado (H-002) |
+| **Condición del dueño para CA-M3.1:** ¿el contenido ingerido es inmutable y está ligado a su URL y a un hash? | **Sí, con una salvedad** | (a) **URL:** `senal_cruda.url` no nula en las 19.640 de SECOP y las 336 de RSS; nula en las 54 de Bing por diseño (D1). (b) **Hash:** `dataset_version.hash_sha256 = 2bf78050…fa90` **coincide** con el SHA-256 recalculado del blob archivado y con el de `docs/territorial_data_cruda_v3.json`; los tres prompts archivados coinciden con su fuente. Las 12 señales trazadas son **byte a byte idénticas** (`contenido`, `url` y `datos`) al registro del snapshot anclado. (c) **Inmutabilidad:** ningún camino de código escribe sobre `senal_cruda` tras la ingesta (§0.2 #30 y grep de asignaciones); no hay protección en base. **Salvedad:** el hash por señal (`hash_dedup`) cubre la identidad —`sha256(fuente|divipola|id_externo)`, `snapshot.py:99,119`—, no el contenido, y `uri_blob` está NULL en las 20.030 filas: una alteración de `contenido` solo se detectaría re-derivando desde el snapshot archivado (H-001). **Veredicto: la condición se cumple; no es Crítico** |
+
+### 4.2 Esquema real vs. PRD §4.2 (enmendado por D7, D8 y A9)
+
+| Entidad PRD | Estado | Diferencias (evidencia) |
+|---|---|---|
+| `señal_cruda` | Cumple, ampliada | `id_fuente` → `fuente` texto; `fecha_captura` → `capturado_en`; `municipio_inferido` → `divipola` FK; añade `datos` JSON, `uri_blob` (nunca poblado), `id_externo`, `id_ciclo`. Único `(id_ciclo, hash_dedup)` (`modelos.py:235-237`; migración `949a8ff9e15d:180`) |
+| `insight` | Cumple, ampliada | `id_ciclo` retirado a favor de `id_corrida` (`cb034d1c967b:145-164`); añade `origen`, `version_prompt`, `id_prompt`, `ids_insight_origen`, `por_que_convergen`, `confianza`, `contexto_no_verificado` (nunca `True`, §0.2 #23). `evidencia[]` con `{url, fecha, cita_textual, fuente, id_senal}` |
+| `calificacion` | Cumple | `fecha` → `creado_en`; **único `(id_insight, id_gerencia)`** que el PRD presuponía y no escribía (`modelos.py:429`); `ck_valor_1_5` |
+| `municipio` | Parcial | Sin `features_scoring`, `score_ciclo`, `ranking_ciclo`: viven en `score_municipio` por corrida (`41d077a78426`). Añade `elic`, `corredores` |
+| `ciclo` | **Defecto** | Todas las columnas existen; `n_senales`, `n_insights`, `n_validados`, `n_rechazados`, `costo_tokens` valen **0** y `duracion_seg` **NULL** en los 3 ciclos (SELECT), y nadie las escribe (§0.2 #24). H-003 |
+| `traza_agente` | Parcial | Todas las columnas existen; `hash_output` NULL en 266/266, `id_prompt` e `id_dataset` NULL en 266/266, `hash_input` NULL en las 51 del correlacionador; **sin `id_corrida`**. H-006 |
+| `usuario` | Cumple | Idéntica al PRD; `correo` único; `ck_rol` |
+| `seguimiento` | **Parcial** | Falta `responsable`; la gerencia del cambio no se persiste (H-004). `id_usuario` nullable |
+| `informe` | Cumple, enmendada (A9) | `ruta_html` eliminada y `contenido` JSON añadido; `id_corrida` + `id_corrida_agentes` congeladas por `@validates` (`modelos.py:669-684`); índice único parcial `uq_informe_publicado_por_ciclo` **verificado en el esquema real** (inspección). `infografias` siempre `[]` |
+| Añadidas | — | `corrida_scoring`, `corrida_agentes`, `score_municipio`, `descarte`, `prompt_version`, `dataset_version`, `entidad_divipola`, `contexto_municipal`: todas nacen en migraciones con FKs y CHECKs; ninguna contradice el PRD, que no las prohíbe (baseline §10, hueco 19) |
+
+Restricciones verificadas por inspección del esquema real (no solo del modelo):
+`uq_senal_ciclo_hash`, `uq_calificacion_insight_gerencia`, `uq_descarte_corrida_senal`,
+`uq_score_corrida_municipio`, `uq_prompt_agente_version`, `dataset_version.hash_sha256`
+único, `usuario.correo` único, `uq_informe_publicado_por_ciclo` (índice único parcial).
+
+### 4.3 Traza extremo a extremo — elemento real del informe publicado
+
+**Elemento:** insight **1092** (consolidado del Correlacionador, `tipo_pedido =
+correlacionado`), municipio **Ibagué 73001**, puesto 1 del informe **5**
+(publicado 2026-09-22 16:53 UTC, ciclo 3, corridas scoring **24** / agentes **10**).
+Elegido como el primer insight pedido de origen `correlacionador` del primer
+municipio calificable. Cada salto se ejecutó con `SELECT`.
+
+| # | Salto | Dónde se guarda el vínculo | Cómo se consulta de vuelta | Resultado |
+|---|---|---|---|---|
+| 1 | informe → insight | `informe.contenido.municipios[].insights[].id` y `informe.id_corrida_agentes` (`composicion.py:324-336`, `publicacion.py:169-175`) | `SELECT … FROM insight WHERE id=1092` | Existe; `id_corrida=10`, `divipola=73001`, `estado=validado`, `id_prompt=2`, `version_prompt=v1`, 12 evidencias, `ids_senal` idénticos a los del payload |
+| 2 | insight → corrida de agentes | `insight.id_corrida` FK `fk_insight_corrida` | `SELECT … FROM corrida_agentes WHERE id=10` | `(10, ciclo 3, completa, clasificador v4, correlacionador v1, pipeline p2)` |
+| 3 | correlación → insights de origen | `insight.ids_insight_origen = [1087, 1089]` (`persistencia.py:158`) | `SELECT` por cada id | 1087 (`ordenamiento`, 7 señales) y 1089 (`obra_vial`, 5 señales), ambos `validado`, `id_prompt=1` (v4) |
+| 4 | validación | `insight.estado_validacion`, `motivo_rechazo` en la misma fila (`ciclo.py:383-391`) | misma fila | `validado`, motivo `None` en los tres |
+| 5 | insight → señal | `insight.evidencia[].id_senal`, `insight.ids_senal` | `SELECT … FROM senal_cruda WHERE id=…` para las 12 | Las 12 existen, son de `73001` y del ciclo 3; **las 12 citas se localizan en la señal ingerida** (`normalizacion.contiene`), y `url` y `fecha` de la evidencia coinciden con la fila. La unión de `ids_senal` de 1087 y 1089 es exactamente `ids_senal` de 1092 (CA-M4.4) |
+| 6 | señal → fuente archivada | `ciclo.id_dataset` → `dataset_version.hash_sha256`; blob `raw/territorial_data_cruda_v3.json` | Recalcular SHA-256; buscar por `id_externo` (SECOP) y `link` (RSS) en el snapshot | Hash **idéntico** en blob, en `docs/` y en la tabla; las 12 señales son **byte a byte** el registro del snapshot (`contenido`, `url`, `datos`) |
+| 7 | insight → score | **No hay vínculo por fila**: el score lee `senal_cruda`, no insights (`agregacion.py:176-188`); el vínculo es (`divipola`, ciclo) a través de las dos corridas que el informe congela | `SELECT … FROM score_municipio WHERE id_corrida=24 AND divipola='73001'` | `score 0.855951651592403` **igual al payload**, `ranking 1 == puesto 1`, `3/239 días`, `sin_cobertura`; aportes persistidos F4 0,4478 + F5 0,4081, F1/F2/F3/F6 sin cobertura; `fraccion_informada 0,200976` igual al payload; `corrida_scoring 24 = v3+8d8a2954` con pesos verbatim |
+| 8 | insight → calificación | `calificacion.id_insight` FK + único `(id_insight, id_gerencia)`; consulta `consultas.calificacionesDeLaGerencia` (`web/lib/consultas.ts:93-100`) une `calificacion → insight → corrida_agentes.id_ciclo` | `SELECT count(*) FROM calificacion WHERE id_insight=1092` | **0 filas** (0 en toda la tabla, ambas bases). Vínculo verificado **por estructura**, no por dato |
+| 9 | municipio → seguimiento | `seguimiento.divipola` + `id_ciclo_origen`; el tablero deriva los priorizados de `informe.contenido` (`tablero.ts:115-155`) | `SELECT count(*) FROM seguimiento` | **0 filas**. Derivación verificada: el top 3 del informe 5 (73001, 63001, 25286) es lo que el tablero listaría como `priorizado` |
+| 10 | agente → traza | `traza_agente(id_ciclo, agente, tokens, duracion)` **sin `id_corrida`** | `SELECT … WHERE id_ciclo=3 GROUP BY agente` | 71 trazas del clasificador (16:01:02–16:32:49) y 18 del correlacionador; las corridas **9** (16:00:41) y **10** (16:02:54) del mismo ciclo se **solapan en el tiempo**, así que no se puede decir con certeza qué trazas son de la corrida publicada; las corridas 11 y 12 (21:33) **no tienen ninguna traza** |
+
+**Veredicto CA-M8.1:** la cadena `señal → insight → validación → correlación →
+score → informe` es **reconstruible desde datos persistidos y se reconstruyó** sobre
+un elemento real, hasta el snapshot anclado por hash. Los saltos a `calificacion`
+y `seguimiento` están definidos por FK y por consulta, pero **no pueden
+ejercitarse con datos** hasta la ventana de calificación: quedan como *verificados
+por estructura*. El salto `agente → traza` (CA-M8.2, no CA-M8.1) **no** es
+reconstruible con certeza cuando hay dos corridas del mismo ciclo (H-006).
+
+Dos notas para otras áreas que salen de la traza:
+
+- El informe publicado se compone sobre la corrida 10, que corrió el
+  **Correlacionador v1** (`version_correlacionador='v1'`, `id_prompt=2`), no el v2
+  que `CLAUDE.md` declara vigente desde el 2026-09-21. No es un defecto de datos
+  —la corrida es anterior a la promoción—, pero **lo que las gerencias leerán es
+  salida de v1**. Área 2 y área 8.
+- Las corridas 1, 2, 4, 11 y 12 tienen todos sus insights con `id_prompt NULL`
+  (127 filas). Las tres primeras son anteriores a `a6ac249fcec9` (declarado en la
+  migración); **11 y 12 son las corridas de comparación** y no registraron linaje
+  de prompt (D7). Área 2.
+
+### 4.4 Hallazgos
+
+**H-001 · Medio · Riesgo · Confianza Alta · Área 4 · CA-M3.1 (condición del dueño), D7**
+*El contenido ingerido está anclado por hash a nivel de dataset, no de señal.*
+`hash_dedup` es `sha256(fuente|divipola|id_externo)` y no cubre `contenido`:
+
+```
+src/territorial/ingesta/snapshot.py:99
+    "hash_dedup": _hash("SECOP II", divipola, reg.get("id")),
+src/territorial/ingesta/snapshot.py:119
+    "hash_dedup": _hash("RSS", divipola, noticia.get("link")),
+```
+
+`senal_cruda.uri_blob` está NULL en las 20.030 filas (SELECT). La inmutabilidad
+la garantiza la ausencia de código que escriba sobre `senal_cruda` (§0.2 #30) y el
+snapshot archivado con `dataset_version.hash_sha256` verificado (§4.1). *Escenario:*
+una fila de `senal_cruda.contenido` modificada por SQL directo con la credencial de
+Neon —que tiene escritura— no dispararía ninguna comprobación; la cita seguiría
+«localizándose» en un contenido alterado, y solo una re-derivación desde el
+snapshot lo detectaría. *Por qué no es Crítico:* la condición del dueño se cumple
+—contenido reproducible byte a byte desde un raw anclado por hash y ligado a su
+URL—; lo que falta es detección por fila. Ocurrencias: `snapshot.py:99, 119, 136`;
+`modelos.py:229-231`.
+
+**H-002 · Medio · Brecha · Confianza Alta · Área 4 · PRD §4.1, §3.2**
+*El contrato de estado `EstadoCiclo` no existe.* El PRD lo declara «el activo más
+importante del MVP» y el punto de inserción del orquestador. No hay clase, esquema
+ni grafo: el estado de un ciclo es la suma de tablas, y `municipios_objetivo` es una
+consulta:
+
+```
+src/territorial/ciclo.py:498-501
+    consulta = select(Municipio).order_by(Municipio.divipola)
+    if solo:
+        consulta = consulta.where(Municipio.divipola.in_(solo))
+    municipios = sesion_bd.scalars(consulta).all()
+```
+
+`ciclo.py:8-11` lo reconoce: «Cuando se cablee LangGraph (`grafo/`, CA-M8.4) este
+módulo es lo que se convierte en el grafo». *Escenario:* la Fase 0 quiere insertar
+el orquestador «sin cambios en los agentes aguas abajo» (PRD §4.1) y no hay contrato
+contra el que verificarlo. No afecta a H1–H5; afecta a la promesa de escalabilidad
+de §3.2.
+
+**H-003 · Medio · Defecto · Confianza Alta · Área 4 · PRD §4.2 (`ciclo`)**
+*Los contadores de `ciclo` existen, son NOT NULL y nadie los escribe.* SELECT:
+
+```
+(1, '2025-09-01', '2025-10-22', 1, 0, 0, 0, 0, 0.0, None)
+(2, '2025-10-22', '2026-01-14', 1, 0, 0, 0, 0, 0.0, None)
+(3, '2026-01-14', '2026-09-10', 1, 0, 0, 0, 0, 0.0, None)
+```
+
+con 6.419 / 6.669 / 6.548 señales SECOP por ciclo según el Addendum 01 D2. Ningún
+módulo asigna `n_senales`, `n_insights`, `n_validados`, `n_rechazados`,
+`costo_tokens` ni `duracion_seg` (§0.2 #24). *Escenario:* cualquier consulta externa
+o panel que lea `ciclo` reporta cero señales y cero costo para los tres ciclos; es
+dato persistido falso, no ausente. Los valores reales existen en `corrida_agentes`
+y `traza_agente`, pero el PRD los ubica en `ciclo`.
+
+**H-004 · Medio · Brecha · Confianza Alta · Área 4 · PRD §4.2 (`seguimiento.responsable`), CA-M9.10**
+*`seguimiento` no persiste la gerencia del cambio ni tiene `responsable`.*
+`modelos.py:582-600` define `divipola, id_ciclo_origen, estado, nota, id_usuario,
+fecha_cambio`; la gerencia se deriva en consulta:
+
+```
+web/lib/tablero.ts:80-83
+    SELECT s.id, s.estado, s.nota, s.fecha_cambio, u.nombre AS usuario,
+           u.id_gerencia AS gerencia
+      FROM seguimiento s
+      LEFT JOIN usuario u ON u.id = s.id_usuario
+```
+
+CA-M9.10 exige «registra usuario, gerencia, fecha y nota». *Escenario:*
+`scripts/cargar_usuarios.py:116-120` actualiza `usuario.id_gerencia` in situ; un
+usuario que cambie de gerencia entre ciclos reescribe retroactivamente la gerencia
+de todo su historial de seguimiento. `id_usuario` es además nullable.
+
+**H-005 · Alto · Riesgo · Confianza Media · Área 4 · CA-M7.3, H2**
+*`sin_respuesta` no se registra y su denominador no está congelado por ciclo.* La
+no-respuesta es la ausencia de fila en `calificacion` (correcto para distinguirla de
+una nota baja: `ck_valor_1_5`), pero el denominador —qué gerencias estaban
+autorizadas cuando se publicó cada informe— vive solo en el estado **actual** de
+`usuario`:
+
+```
+web/lib/consultas.ts:72-77
+    SELECT id, id_gerencia, nombre, rol
+      FROM usuario
+     WHERE lower(correo) = lower(${correo})
+       AND activo
+```
+
+y `cargar_usuarios.py:116-120` modifica filas in situ (`activo`, `id_gerencia`,
+`rol`). `informe.contenido` congela los insights pedidos y la semilla
+(`composicion.py:416-423`) pero **no la lista de gerencias**. *Escenario:* se
+sustituyen los 2 usuarios de prueba por los 7 reales tras publicar el ciclo 3, o
+una gerencia se desactiva en el ciclo 2: la tasa de respuesta del ciclo 3 se
+recalcula con otro denominador y H2 deja de ser reproducible. Alto porque
+compromete la medición de H2. Confianza Media: estático, y H2 aún no se ha medido.
+Ocurrencia relacionada: ningún código calcula la tasa (CA-M7.5, área 5).
+
+**H-006 · Medio · Brecha · Confianza Alta · Área 4 · CA-M8.2, PRD §4.2 (`traza_agente.output_hash`)**
+*`traza_agente` no enlaza con la corrida y deja vacíos `hash_output`, `id_prompt`
+e `id_dataset`.* SELECT sobre 266 trazas: `hash_output` NULL 266, `id_prompt` NULL
+266, `id_dataset` NULL 266, `hash_input` NULL en las 51 del correlacionador aunque
+`hash_entrada` existe (`correlacionador.py:470-473`) y no se llama:
+
+```
+src/territorial/ciclo.py:443-452
+        guardar_traza(
+            sesion_bd,
+            id_ciclo=id_ciclo,
+            agente="correlacionador",
+            modelo=despliegue_de("correlacionador", cfg),
+            tokens_entrada=corr.tokens_entrada,
+            tokens_salida=corr.tokens_salida,
+            tokens_cache_lectura=corr.tokens_cache_lectura,
+            duracion_ms=corr.duracion_ms,
+        )
+```
+
+*Escenario verificado:* en el ciclo 3 las corridas 9 y 10 se solapan en el tiempo
+(9 abre 16:00:41, 10 abre 16:02:54, trazas del clasificador de 16:01:02 a 16:32:49):
+no se puede atribuir con certeza qué trazas —y qué tokens— son de la corrida
+publicada. Las corridas 11 y 12 no tienen traza alguna, así que su costo no está en
+la tabla. Afecta a CA-M8.3 por corrida y a la reproducibilidad del costo de H5 por
+pasada (área 8); no rompe CA-M8.1, que no incluye la traza.
+
+**H-007 · Medio · Brecha · Confianza Alta · Área 4 · CA-M3.1 («accesible») — decisión del dueño**
+*«URL accesible» se verifica solo por sintaxis.*
+
+```
+src/territorial/reglas/validador.py:68-75
+def _url_valida(valor) -> bool:
+    ...
+    return p.scheme.lower() in ESQUEMAS_VALIDOS and bool(p.netloc)
+```
+
+y `validador.py:149-151`: «El validador nunca consulta la red». Bajo el modelo de
+snapshot (Addendum 01) la URL no se resuelve en ningún punto de la cadena. **Por
+decisión del dueño (§0.11.3): Parcial, severidad Medio.** La otra mitad del criterio
+—«cita localizable»— **cumple**, verificada la condición de inmutabilidad y anclaje
+(§4.1) y ejercitada sobre 12 evidencias reales (§4.3).
+
+**H-008 · Bajo · Riesgo · Confianza Alta · Área 4 · PRD §6 (métrica «tiempo hasta la primera calificación»)**
+*Una calificación corregida no queda fechada.* El upsert conserva `creado_en` y no
+hay `actualizado_en`:
+
+```
+web/lib/escrituras.ts:46-48
+    ON CONFLICT (id_insight, id_gerencia)
+      DO UPDATE SET valor = EXCLUDED.valor,
+                    comentario = COALESCE(EXCLUDED.comentario, calificacion.comentario)
+```
+
+*Escenario:* una gerencia califica 2 el día 1 y corrige a 5 el día 10; la fila dice
+5 con fecha del día 1. La métrica de §6 sobrevive (mide la primera); se pierde la
+trayectoria de la opinión, que RN-03 y el análisis de acuerdo entre gerencias
+podrían necesitar.
+
+### 4.5 Estado de los CA del área
+
+| CA | Estado | Base |
+|---|---|---|
+| CA-M1.3 | **Desviación autorizada** (11.2) | Dedup por restricción real `uq_senal_ciclo_hash`, alcance por ciclo |
+| CA-M2.5 | **Cumple** | Tabla `descarte` con `motivo` y `declarado`; 5.731 filas; FK a señal y corrida |
+| CA-M3.1 | **Parcial (Medio)** — decisión del dueño | «Localizable»: Cumple (condición verificada, 12/12 citas); «accesible»: solo sintaxis (H-007) |
+| CA-M3.2 | **Cumple** | Rechazados persistidos con motivo: 4 en la corrida 10, 27 en el total |
+| CA-M4.4 | **Cumple** | Unión de `ids_senal` verificada en el consolidado 1092; `ids_insight_origen` persistido |
+| CA-M5.3 | **Cumple** | Pesos externos en `config/pesos.json` y persistidos verbatim en `corrida_scoring.pesos` |
+| CA-M5.5 | **Cumple** | `score_municipio.factores.aportes` y `valores_crudos` por municipio y corrida |
+| CA-M7.2 | **Cumple (estructura)** | Único `(id_insight, id_gerencia)` en el esquema real; la independencia bajo la desviación sin autenticación se juzga en el área 5 |
+| CA-M7.3 | **Parcial** | Derivable por ausencia de fila; no registrado; denominador no congelado (H-005) |
+| CA-M8.1 | **Cumple** | Cadena reconstruida sobre un elemento real hasta el snapshot anclado; calificación y seguimiento verificados por estructura, sin datos |
+| CA-M8.2 | **Parcial** | Tokens y duración por agente; sin `hash_output`, sin `id_corrida`, `hash_input` solo en el clasificador (H-006) |
+| CA-M9.10 | **Parcial** | Usuario, fecha y nota persistidos; gerencia derivada en consulta (H-004) |
+| CA-M9.16 (nivel de esquema) | **Cumple (provisional)** | Las únicas escrituras de la app son `calificacion` y `seguimiento`; la enumeración completa de caminos es del área 5 |
+
+### 4.6 No verificable en esta área
+
+- Saltos `insight → calificacion` y `municipio → seguimiento` con datos reales:
+  0 filas. Artefacto necesario: al menos una calificación y un cambio de estado
+  registrados desde la app durante la ventana.
+- Comportamiento del índice único parcial en PostgreSQL bajo concurrencia (dos
+  `publicar()` simultáneos): no se ejecuta nada que escriba. Artefacto: prueba de
+  integración contra una rama de Neon.
+
+*Fin del área 4.*
