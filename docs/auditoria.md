@@ -1632,6 +1632,21 @@ grandes.
 - Efecto real del bloque de contexto bandeado sobre la salida: no existe corrida
   registrada de v2.
 
+### 2.8 Decisión del dueño sobre P-1 (2026-09-22)
+
+**Se mantiene publicado el informe 5 con el Correlacionador v1.** `CLAUDE.md`
+debe corregirse para declarar **v1 como la versión publicada** y **v2 como
+candidata**, pendiente de una comparación con linaje persistido
+(`comparar_correlacionador.py --persistir` con `registrar_prompt`, hoy ausente:
+H-022). La corrección de `CLAUDE.md` **no se hace en esta auditoría**: entra al
+plan de remediación como subfase de F0. P-1 queda cerrada con esta decisión.
+
+**H-022 y H-023 quedan sin la etiqueta «Bloquea distribución».** Condición
+registrada: **si el dueño cambiara la decisión y republicara el ciclo 3 con v2,
+ambos pasarían a «Bloquea distribución»**, porque entonces la corrida publicada
+dependería de una comparación cuyo prompt no está anclado por hash (H-022) y de
+una evidencia de promoción que no está persistida (H-023).
+
 *Fin del área 2.*
 
 ---
