@@ -40,6 +40,7 @@ from territorial.informes.composicion import (
 )
 from territorial.informes.publicacion import (
     PublicacionInvalida,
+    ciclos_publicables,
     informe_vigente,
     publicar,
 )
@@ -393,3 +394,86 @@ def test_el_mapa_de_factor_a_fuente_vive_en_un_solo_sitio():
     cortos = {corto for _, corto in composicion.FUENTES.values()}
     assert set(composicion.ORDEN_FUENTES) == cortos
     assert set(composicion.FUENTES_EN_RESUMEN) <= cortos
+
+
+# --------------------------------------------------------------------------
+# Qué se puede publicar: cubrir los municipios no es haber corrido la cadena
+# --------------------------------------------------------------------------
+
+
+def test_una_corrida_sin_insights_del_clasificador_no_se_publica(bd):
+    """La trampa real: «completa» dice cuántos municipios, no qué pasos.
+
+    Las corridas 11 y 12 del ciclo 3 cubren los 18 y tienen cero insights del
+    Clasificador — las creó `comparar_correlacionador.py --persistir`, que solo
+    guarda correlaciones. Publicar una daría un informe con las convergencias y
+    sin los insights individuales, que son el grueso de lo que se lee.
+    """
+    s, sc, _ = bd
+    solo_m4 = CorridaAgentes(
+        id_ciclo=3, tipo_corrida="completa", version_pipeline="p2",
+        municipios_objetivo=["25286", "73001"],
+        municipios_en_cohorte=["25286", "73001"],
+    )
+    s.add(solo_m4)
+    s.flush()
+    s.add(Insight(
+        id_corrida=solo_m4.id, divipola="73001", categoria="obra_vial+vivienda",
+        resumen="Convergencia", estado_validacion="validado",
+        origen="correlacionador",
+    ))
+    s.flush()
+
+    with pytest.raises(PublicacionInvalida, match="no corrió la cadena"):
+        publicar(s, sc, solo_m4.id)
+
+
+def test_ciclos_publicables_ignora_las_corridas_que_no_corrieron_la_cadena(bd):
+    """No basta con «la más reciente completa»: hay que mirar qué trae."""
+    s, sc, ag = bd
+    solo_m4 = CorridaAgentes(
+        id_ciclo=3, tipo_corrida="completa", version_pipeline="p2",
+        municipios_objetivo=["25286", "73001"],
+        municipios_en_cohorte=["25286", "73001"],
+    )
+    s.add(solo_m4)
+    s.flush()
+
+    publicables = ciclos_publicables(s)
+    # La de solo correlaciones es mas reciente y aun asi no se propone.
+    assert publicables[3]["agentes"] == ag
+    assert publicables[3]["publicable"]
+
+
+def test_un_ciclo_sin_corrida_completa_de_agentes_no_es_publicable(bd):
+    """El caso del ciclo 2: nunca se corrió entero, y no estaba escrito.
+
+    Antes solo se descubría intentando publicar y leyendo el error.
+    """
+    s, sc, _ = bd
+    s.add(Ciclo(id=2, fecha_desde=date(2025, 10, 22), fecha_hasta=date(2026, 1, 14)))
+    s.add(CorridaScoring(
+        id_ciclo=2, tipo_corrida="completa", version_scoring="v3+abc",
+        municipios_objetivo=["25286", "73001"],
+        municipios_en_cohorte=["25286", "73001"], pesos={"F1": 1.0},
+    ))
+    s.add(CorridaAgentes(
+        id_ciclo=2, tipo_corrida="parcial", version_pipeline="p1",
+        municipios_objetivo=["25286", "73001"], municipios_en_cohorte=["73001"],
+    ))
+    s.flush()
+
+    ciclo2 = ciclos_publicables(s)[2]
+    assert not ciclo2["publicable"]
+    assert ciclo2["falta"] == ["agentes"]
+
+
+def test_el_error_de_una_parcial_dice_cuan_parcial(bd):
+    """17 de 18 y 1 de 18 son las dos «parcial», y no piden lo mismo."""
+    s, sc, ag = bd
+    corrida = s.get(CorridaAgentes, ag)
+    corrida.tipo_corrida = "parcial"
+    corrida.municipios_en_cohorte = ["73001"]
+    s.flush()
+    with pytest.raises(PublicacionInvalida, match=r"1 de 2 municipios"):
+        publicar(s, sc, ag)

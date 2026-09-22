@@ -43,7 +43,7 @@ Las mismas filas en la SQLite local y en Neon.
 |---|---|
 | Señales · insights · descartes | 20.030 · 1.213 · 5.731 |
 | Corridas de agentes · de scoring | 12 · 24 |
-| Ciclos con corrida completa de agentes | **1 y 3** (el ciclo 2 nunca se corrió entero) |
+| Ciclos publicables | **1 y 3**. El **ciclo 2 nunca se corrió entero**: su única corrida de agentes tiene 1 de 18 municipios, así que `publicar()` lo rechaza |
 | Informes publicados | **1** — ciclo 3, congelando scoring 24 y agentes 10 |
 | Calificaciones · usuarios | **0 · 0** — por eso H1 y H2 no tienen ningún dato |
 | Nomenclátor · contexto municipal | 1.135 entidades · 1.102 municipios |
