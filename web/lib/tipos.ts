@@ -111,6 +111,18 @@ export interface MunicipioDelInforme {
   composicion_pedida: Record<string, number>;
 }
 
+/**
+ * Una gerencia autorizada a calificar, congelada al publicar (F0.1b).
+ *
+ * `tipo` distingue las 7 del PRD de las anadidas despues: H2 se reporta sobre
+ * las `prd` y los `adicional` van por separado; H1, con y sin ellos. La fuente
+ * de la marca es `config/gerencias.json`, y queda congelada en el payload.
+ */
+export interface GerenciaAutorizada {
+  id_gerencia: string;
+  tipo: "prd" | "adicional";
+}
+
 export interface Informe {
   /**
    * El texto que CA-M6.5 y CA-M9.17 exigen. Va en el payload para que no se
@@ -147,10 +159,11 @@ export interface Informe {
     semilla: number;
     /**
      * El denominador de H2, congelado al publicar (H-005 / F0.1): las
-     * `id_gerencia` autorizadas a calificar en ese momento, ordenadas. La tasa
-     * de respuesta se computa contra esta lista, no contra `usuario` hoy.
+     * gerencias autorizadas a calificar en ese momento, ordenadas y **cada una
+     * con su marca** `prd` o `adicional` (F0.1b). La tasa de respuesta se
+     * computa contra esta lista, no contra `usuario` hoy.
      */
-    gerencias: string[];
+    gerencias: GerenciaAutorizada[];
   };
   municipios: MunicipioDelInforme[];
 }

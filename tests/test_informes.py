@@ -12,7 +12,9 @@ significando lo mismo dentro de seis meses:
 
 from __future__ import annotations
 
+import json
 from datetime import date
+from pathlib import Path
 
 import pytest
 from sqlalchemy import create_engine
@@ -40,6 +42,7 @@ from territorial.informes.composicion import (
     gerencias_autorizadas,
     resumir_fuentes,
 )
+from territorial.informes.gerencias import GerenciasInvalidas, cargar_prd
 from territorial.informes.publicacion import (
     PublicacionInvalida,
     ciclos_publicables,
@@ -554,6 +557,10 @@ def test_la_semilla_queda_congelada_en_el_payload(bd):
 # --------------------------------------------------------------------------
 
 
+def ids(gerencias: list[dict]) -> list[str]:
+    return [g["id_gerencia"] for g in gerencias]
+
+
 def test_el_payload_congela_las_gerencias_autorizadas(bd):
     """Quién podía calificar cuando se publicó, no quién puede hoy.
 
@@ -561,7 +568,7 @@ def test_el_payload_congela_las_gerencias_autorizadas(bd):
     recalculaba la tasa de respuesta del ciclo con otro denominador (H-005).
     """
     s, sc, ag = bd
-    assert componer(s, sc, ag)["calificacion"]["gerencias"] == [
+    assert ids(componer(s, sc, ag)["calificacion"]["gerencias"]) == [
         "activos", "comercial", "desarrollo",
     ]
 
@@ -569,7 +576,7 @@ def test_el_payload_congela_las_gerencias_autorizadas(bd):
 def test_el_denominador_excluye_inactivos_y_administradores(bd):
     """El administrador tiene panel, no papeleta (CA-M9.14); el inactivo, nada."""
     s, _, _ = bd
-    gerencias = gerencias_autorizadas(s)
+    gerencias = ids(gerencias_autorizadas(s))
     assert "antigua" not in gerencias
     assert "analitica" not in gerencias
 
@@ -577,7 +584,7 @@ def test_el_denominador_excluye_inactivos_y_administradores(bd):
 def test_dos_personas_de_una_gerencia_cuentan_una_vez(bd):
     """`calificacion` atribuye por gerencia, así que el denominador también."""
     s, _, _ = bd
-    assert gerencias_autorizadas(s).count("comercial") == 1
+    assert ids(gerencias_autorizadas(s)).count("comercial") == 1
 
 
 def test_el_informe_publicado_guarda_las_gerencias_y_no_cambia_si_usuario_cambia(bd):
@@ -586,17 +593,17 @@ def test_el_informe_publicado_guarda_las_gerencias_y_no_cambia_si_usuario_cambia
     s, sc, ag = bd
     inf = publicar(s, sc, ag)
     congeladas = inf.contenido["calificacion"]["gerencias"]
-    assert congeladas == ["activos", "comercial", "desarrollo"]
+    assert ids(congeladas) == ["activos", "comercial", "desarrollo"]
 
     # Después de publicar: una gerencia nueva, otra se desactiva.
     s.add(Usuario(id_gerencia="nueva", nombre="F", correo="f@p.co"))
     s.query(Usuario).filter_by(correo="c@p.co").one().activo = False
     s.flush()
-    assert gerencias_autorizadas(s) == ["comercial", "desarrollo", "nueva"]
+    assert ids(gerencias_autorizadas(s)) == ["comercial", "desarrollo", "nueva"]
 
     s.expire_all()
     guardado = s.get(Informe, inf.id).contenido["calificacion"]["gerencias"]
-    assert guardado == ["activos", "comercial", "desarrollo"]
+    assert ids(guardado) == ["activos", "comercial", "desarrollo"]
 
 
 def test_sin_usuarios_el_denominador_es_una_lista_vacia_no_un_hueco(bd):
@@ -605,6 +612,135 @@ def test_sin_usuarios_el_denominador_es_una_lista_vacia_no_un_hueco(bd):
     s.query(Usuario).delete()
     s.flush()
     assert componer(s, sc, ag)["calificacion"]["gerencias"] == []
+
+
+# --------------------------------------------------------------------------
+# F0.1b — la marca prd/adicional viaja con cada gerencia congelada
+# --------------------------------------------------------------------------
+
+
+def config_con_prd(tmp_path, *gerencias: str) -> Config:
+    """Un `Config` que declara esas `id_gerencia` como las del PRD."""
+    ruta = tmp_path / "gerencias.json"
+    ruta.write_text(json.dumps({"prd": list(gerencias)}), encoding="utf-8")
+    return Config(ruta_gerencias=ruta)
+
+
+def test_las_declaradas_salen_marcadas_prd_y_el_resto_adicional(bd, tmp_path):
+    """La razón de existir de F0.1b: separar H2 de los calificadores añadidos."""
+    s, sc, ag = bd
+    cfg = config_con_prd(tmp_path, "comercial", "desarrollo", "activos")
+    marcas = {
+        g["id_gerencia"]: g["tipo"]
+        for g in componer(s, sc, ag, config=cfg)["calificacion"]["gerencias"]
+    }
+    assert marcas == {"comercial": "prd", "desarrollo": "prd", "activos": "prd"}
+
+
+def test_una_gerencia_fuera_de_la_lista_es_adicional(bd, tmp_path):
+    """El caso del dueño: Analítica califica y no es una de las 7."""
+    s, sc, ag = bd
+    s.add(Usuario(id_gerencia="analitica_califica", nombre="G", correo="g@p.co"))
+    s.flush()
+    cfg = config_con_prd(tmp_path, "comercial", "desarrollo", "activos")
+    marcas = {
+        g["id_gerencia"]: g["tipo"]
+        for g in componer(s, sc, ag, config=cfg)["calificacion"]["gerencias"]
+    }
+    assert marcas["analitica_califica"] == "adicional"
+    assert marcas["comercial"] == "prd"
+
+
+def test_las_siete_del_prd_salen_todas_como_prd(bd, tmp_path):
+    """Con las 7 declaradas, ninguna de ellas se cuela como adicional."""
+    siete = [f"gerencia_{n}" for n in range(1, 8)]
+    s, sc, ag = bd
+    s.query(Usuario).delete()
+    s.add_all([
+        Usuario(id_gerencia=g, nombre=g, correo=f"{g}@p.co") for g in siete
+    ])
+    s.flush()
+    gerencias = componer(s, sc, ag, config=config_con_prd(tmp_path, *siete))[
+        "calificacion"
+    ]["gerencias"]
+    assert ids(gerencias) == siete
+    assert {g["tipo"] for g in gerencias} == {"prd"}
+
+
+def test_la_marca_queda_congelada_aunque_cambie_la_configuracion(bd, tmp_path):
+    """Lo mismo que la lista: el informe publicado no se mueve.
+
+    Si la marca se recalculara al leer, reclasificar una gerencia después
+    cambiaría a posteriori sobre quién se computó H2 en un ciclo ya cerrado.
+    """
+    s, sc, ag = bd
+    ruta = tmp_path / "gerencias.json"
+    ruta.write_text(json.dumps({"prd": ["comercial"]}), encoding="utf-8")
+    cfg = Config(ruta_gerencias=ruta)
+
+    inf = publicar(s, sc, ag, config=cfg)
+    congeladas = {
+        g["id_gerencia"]: g["tipo"] for g in inf.contenido["calificacion"]["gerencias"]
+    }
+    assert congeladas == {
+        "activos": "adicional", "comercial": "prd", "desarrollo": "adicional",
+    }
+
+    # La configuración cambia: ahora las tres son del PRD.
+    ruta.write_text(
+        json.dumps({"prd": ["comercial", "desarrollo", "activos"]}), encoding="utf-8"
+    )
+    s.expire_all()
+    guardado = {
+        g["id_gerencia"]: g["tipo"]
+        for g in s.get(Informe, inf.id).contenido["calificacion"]["gerencias"]
+    }
+    assert guardado == congeladas
+
+
+def test_sin_archivo_de_configuracion_todas_son_adicionales(bd, tmp_path):
+    """El estado de hoy, y es deliberado: el PRD nunca nombra las 7.
+
+    Se comprueba antes de la republicación definitiva de F0.6; hasta entonces
+    la marca dice la verdad, que es que no hay ninguna declarada.
+    """
+    s, sc, ag = bd
+    cfg = Config(ruta_gerencias=tmp_path / "no-existe.json")
+    tipos = {g["tipo"] for g in componer(s, sc, ag, config=cfg)["calificacion"]["gerencias"]}
+    assert tipos == {"adicional"}
+
+
+def test_el_archivo_de_gerencias_del_repositorio_es_valido():
+    """Se entrega vacío, pero tiene que cumplir el contrato desde el día uno."""
+    assert cargar_prd(Config(ruta_gerencias=Path("config/gerencias.json"))) == frozenset()
+
+
+@pytest.mark.parametrize("contenido, error", [
+    ("[]", "se esperaba un objeto"),
+    ('{"prd": "comercial"}', "lista de id_gerencia"),
+    ('{"prd": ["a", "a"]}', "repetidas"),
+    ('{"prd": ["  "]}', "vacía"),
+    ('{"otra": []}', "claves desconocidas"),
+    ("{", "no es JSON válido"),
+])
+def test_un_archivo_de_gerencias_mal_escrito_falla_en_vez_de_marcar_mal(
+    tmp_path, contenido, error
+):
+    """Marcar mal es peor que no arrancar: H2 se reportaría sobre otro conjunto."""
+    ruta = tmp_path / "gerencias.json"
+    ruta.write_text(contenido, encoding="utf-8")
+    with pytest.raises(GerenciasInvalidas, match=error):
+        cargar_prd(Config(ruta_gerencias=ruta))
+
+
+def test_las_notas_del_archivo_no_estorban(tmp_path):
+    """El JSON no tiene comentarios, así que las notas van en claves `_…`."""
+    ruta = tmp_path / "gerencias.json"
+    ruta.write_text(
+        json.dumps({"_nota": "algo que explicar", "prd": ["comercial"]}),
+        encoding="utf-8",
+    )
+    assert cargar_prd(Config(ruta_gerencias=ruta)) == frozenset({"comercial"})
 
 
 def test_cada_insight_dice_como_llego(bd):

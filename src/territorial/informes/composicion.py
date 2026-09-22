@@ -49,6 +49,7 @@ from territorial.almacen.modelos import (
     Usuario,
 )
 from territorial.config import Config, obtener_config
+from territorial.informes.gerencias import cargar_prd, clasificar
 from territorial.informes.seleccion import PEDIDAS, pedir_calificacion
 
 # CA-M6.5: la marca va en el payload, no en la plantilla, para que ninguna
@@ -242,7 +243,9 @@ def _factores(fila: ScoreMunicipio) -> tuple[list[dict], set[str], set[str]]:
     return detalle, presentes, ausentes - presentes
 
 
-def gerencias_autorizadas(sesion_bd: Session) -> list[str]:
+def gerencias_autorizadas(
+    sesion_bd: Session, config: Config | None = None
+) -> list[dict]:
     """Las gerencias que pueden calificar **en el momento de componer**.
 
     Es el denominador de H2, y se congela en el payload (F0.1 de la
@@ -260,13 +263,21 @@ def gerencias_autorizadas(sesion_bd: Session) -> list[str]:
     Riesgo residual declarado en el plan: un usuario dado de alta a mitad de
     la ventana no cuenta salvo republicación. Es deliberado — el denominador
     es el del informe que las gerencias leyeron.
+
+    **Cada gerencia viaja con su marca `prd` o `adicional`** (F0.1b): el
+    conjunto de calificadores no se cierra a las 7 del PRD, y H2 se reporta
+    sobre las 7 mientras que los adicionales van aparte. De dónde sale la marca:
+    `informes/gerencias.py`.
     """
+    prd = cargar_prd(config)
     filas = sesion_bd.scalars(
         select(Usuario.id_gerencia)
         .where(Usuario.activo.is_(True), Usuario.rol == "gerencia")
         .distinct()
     ).all()
-    return sorted(filas)
+    return [
+        {"id_gerencia": g, "tipo": clasificar(g, prd)} for g in sorted(filas)
+    ]
 
 
 def _trayecto(insight: dict, ids_correlacionados: set[int]) -> str:
@@ -451,7 +462,9 @@ def componer(
             # **El denominador de H2, congelado** (H-005 / F0.1). Quién estaba
             # autorizado a calificar cuando se publicó este informe, no quién
             # lo está hoy. La tasa de respuesta se computa contra esta lista.
-            "gerencias": gerencias_autorizadas(sesion_bd),
+            # Cada una con su marca `prd` o `adicional` (F0.1b): H2 se reporta
+            # sobre las 7 del PRD y los adicionales por separado.
+            "gerencias": gerencias_autorizadas(sesion_bd, config),
         },
         "municipios": municipios,
     }
