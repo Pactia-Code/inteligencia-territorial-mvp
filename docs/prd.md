@@ -1,4 +1,23 @@
 # PRD — MVP Inteligencia Territorial
+
+> ## ⚠ Parte de este documento quedó superada
+>
+> **El PRD sigue siendo la autoridad**, y por eso lleva este aviso: quien lo lea
+> sin él construye «top 3 fijo» y correo con enlace profundo con la confianza de
+> estar siguiendo la especificación. **No se reescribe ningún criterio**: el
+> valor de este documento incluye poder ver qué cambió y por qué, y borrarlo
+> sería perder esa trazabilidad.
+>
+> | Lo que dice aquí | Lo vigente | Dónde se decidió |
+> |---|---|---|
+> | **CA-M5.4** — top 3 fijo | Tope fijo de **10** municipios, sin umbral de información | `P1` |
+> | **CA-M6.7** — «el correo solo notifica con enlace profundo» | **No hay envío de correos** ni canal de notificación. El enlace se comparte a mano | `11.4/3` |
+> | **§7** — «autenticación por enlace mágico» · **3b** — enlace mágico vs SSO | **No hay autenticación.** Leer es abierto; calificar pide el correo contra una lista precargada | `3b` · `M9-acceso` |
+> | **§4.3** — Django o Next.js | **Next.js sobre Vercel** | `M9-fw` |
+>
+> El registro completo está en [pendientes.md](pendientes.md). Lo que este
+> documento dice sobre hipótesis, criterios de aceptación y la regla de decisión
+> de §11 **sigue vigente sin cambios**.
 ## Pactia · Validación de capacidades agénticas
 
 **Versión:** 1.0 (MVP)

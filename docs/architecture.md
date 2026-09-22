@@ -8,6 +8,12 @@
 > enlace se comparte a mano y el correo se usa solo como **identificador que la
 > persona escribe** para poder calificar. Ver el [Design System](design-system.md)
 > §2.4 y el pendiente `M9-acceso`.
+>
+> **Y no solo la distribución.** También quedaron superados: el árbol de
+> carpetas con `web/ Django` (es Next.js), el endpoint `GET /entrar/<token>/`
+> del enlace mágico (no hay autenticación), «ranking[] top 3» (son 10) y la
+> tabla de contenido del correo (no hay correo). Ver
+> [pendientes.md](pendientes.md) y el aviso del [PRD](prd.md).
 
 **Documentos base:** [PRD del MVP](prd.md) · [Addendum 01 — Fuente de datos](addendum-01-fuente-de-datos.md) · [Addendum 02 — Stack](addendum-02-stack.md)
 **Fecha:** 2026-09-11

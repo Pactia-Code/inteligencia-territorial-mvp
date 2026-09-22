@@ -1,5 +1,12 @@
 # Addendum 01 — Fuente de datos del MVP
 
+> **Superado en un punto, el 2026-09-21.** D4 habla de «top 3 fijo»; el tope es
+> ahora **10** y el umbral de información está apagado, así que el informe
+> muestra el score de cada municipio **junto a los factores que lo sostienen y
+> los que no** en vez de excluir al que tiene pocos. Decisión `P1`, registrada en
+> [pendientes.md](pendientes.md). **Todo lo demás de D1–D4 sigue vigente**,
+> incluidos los factores, los pesos y el piso de área de ELIC.
+
 **Documento base:** [PRD — MVP Inteligencia Territorial v1.0](prd.md)
 **Fecha:** 2026-09-11
 **Estado:** Decisiones tomadas

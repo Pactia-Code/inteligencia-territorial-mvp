@@ -1,5 +1,12 @@
 # Addendum 02 — Stack tecnológico
 
+> **Superado en un punto, el 2026-09-21.** D5 elige **Django** para la app web y
+> la app va en **Next.js sobre Vercel**. La razón está en la nota de D5, más
+> abajo. **El resto de D5–D9 sigue vigente**: LangGraph, Langfuse, el reparto
+> entre Blob y SQL, y SQLite en local con PostgreSQL —Neon— en nube.
+>
+> **Si vienes del anexo «Decisiones en una línea», está corregido allí también.**
+
 **Documento base:** [PRD — MVP Inteligencia Territorial v1.0](prd.md) · [Addendum 01 — Fuente de datos](addendum-01-fuente-de-datos.md)
 **Fecha:** 2026-09-11
 **Estado:** Decisiones tomadas
@@ -241,7 +248,7 @@ invoque.
 
 ## Anexo — Decisiones en una línea
 
-- **D5** · Monolito Python: LangGraph + Langfuse + Django, un repo, un lenguaje.
+- **D5** · Monolito Python: LangGraph + Langfuse, un repo. **La app web es Next.js sobre Vercel, no Django** (revisado el 2026-09-21), así que ya no es un solo lenguaje: el pipeline en Python y la superficie en TypeScript.
 - **D6** · LLM vía Azure OpenAI (superficie v1) en el tenant de Pactia. Revisado 2026-09-11. Batch **sí** está disponible, al 50% (ver §96); el caching está disponible pero medido no se activa.
 - **D7** · Blob para lo semi-estructurado e inmutable, SQL para lo consultable. SQL guarda la URI.
 - **D8** · Local: carpeta + SQLite. Nube: Blob + Postgres. Misma interfaz, distinta configuración.
