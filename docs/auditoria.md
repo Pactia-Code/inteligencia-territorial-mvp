@@ -382,6 +382,11 @@ Se aplican en todas las áreas y en el cierre:
    pregunta P-1**, y a lo que las áreas siguientes encuentren con la misma
    propiedad. En el cierre, el plan de remediación empieza por una fase **F0
    «Prerrequisitos de distribución»** con exactamente esos puntos.
+8. **Etiqueta «Bloquea decisión go/no-go»** (añadida tras revisar el área 8a,
+   independiente de la severidad y de la anterior): marca lo que impide usar
+   `docs/informe_resultados.md` ante la compuerta de la semana 8 mientras siga
+   abierto. Se aplica a **H-027, H-028 y H-030**. En el cierre, el plan incluye
+   una fase **F0b «Prerrequisitos de la decisión»** con esos puntos.
 
 ---
 
@@ -1755,7 +1760,7 @@ la interpretación de un tercer ciclo dependería de él. H-033.
 
 ### 8a.4 Hallazgos
 
-**H-027 · Alto · Defecto · Confianza Alta · Área 8a · H4 (bloqueante), CA-M8.2**
+**H-027 · Alto · Defecto · Confianza Alta · Área 8a · H4 (bloqueante), CA-M8.2 · ⛔ BLOQUEA DECISIÓN GO/NO-GO**
 *El informe de resultados afirma en la sección de H4 que las 266 trazas llevan
 «hashes de entrada y de salida» `[BD]`, y no es cierto.*
 
@@ -1771,7 +1776,7 @@ bloqueante, marcada como salida de la base, que la base contradice. Alto por la
 regla del área: un resultado reportado que no se reproduce, en la sección que
 decide el GO.
 
-**H-028 · Alto · Defecto · Confianza Alta · Área 8a · H3, H4, CA-M3.3**
+**H-028 · Alto · Defecto · Confianza Alta · Área 8a · H3, H4, CA-M3.3 · ⛔ BLOQUEA DECISIÓN GO/NO-GO**
 *«La tasa de rechazo del validador es 0,0 %» se afirma dos veces y la base la
 contradice.* Corrida 10: 4/326 = **1,2 %**; corrida 7: 7/320 = 2,2 %; corrida 8:
 15/342 = 4,4 %; solo la corrida 9 (10 insights) da 0,0 %. Las corridas 7, 8 y 10
@@ -1789,7 +1794,7 @@ el contenido ingerido.* Evidencia en 8a.3. Sin esa frase, «≥60 % sobrevive al
 validador» se lee como «≥60 % es verdadero», y no es lo que se midió. Medio: no
 altera la cifra, altera lo que significa.
 
-**H-030 · Alto · Brecha documental · Confianza Alta · Área 8a · H1, A6**
+**H-030 · Alto · Brecha documental · Confianza Alta · Área 8a · H1, A6 · ⛔ BLOQUEA DECISIÓN GO/NO-GO**
 *«Entre el 25 % y el 50 % del contenido del informe del top 3 depende de qué
 pasada se publicó» no tiene productor.* No existe script, consulta ni definición
 de «criterio laxo» y «criterio estricto» en el repositorio ni en `pendientes.md`
