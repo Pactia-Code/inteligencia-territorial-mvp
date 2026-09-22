@@ -83,6 +83,32 @@ toque una hipótesis, actualízalo ahí además de en `pendientes.md`.
 
 ---
 
+## 1.1 Lo que este MVP **no** tiene
+
+Media docena de cosas que el PRD original describe y que **no existen**. Están
+aquí porque tres documentos del repositorio las siguen describiendo como
+vigentes, y construir sobre ellas es trabajo perdido.
+
+| No existe | Qué hay en su lugar | Dónde se decidió |
+|---|---|---|
+| **Envío de correos** y canal de notificación | El enlace se comparte a mano, fuera del sistema. No hay código que mande nada | 11.4/3 |
+| **Autenticación** (enlace mágico, SSO, contraseñas) | Leer es abierto con el enlace. Calificar pide el correo y lo valida contra la lista precargada de `usuario`; quien no esté, solo visualiza | 3b · `M9-acceso` |
+| **Umbral de score** y «criterio de corte» | Tope fijo de **10** municipios | `P1` |
+| **Umbral de información** que excluía municipios | Está en **0**: el informe muestra el score **y en qué se apoya**, y quien lee juzga | `P1` |
+| **Revisión humana previa** a la distribución | El validador determinista más la marca «no validado» (CA-M6.5) | PRD §7, riesgo aceptado |
+| **Umbral de fatiga**, supresiones, clasificación Admiralty | Nada: con ~6 alertas por ciclo no hay fatiga que suprimir | PRD §2.2 |
+| **Django** | **Next.js sobre Vercel**, leyendo Neon. Y **Alembic es la única autoridad del esquema**: la app no migra nada | `M9-fw` · Addendum 02 D5 |
+| **Terracota y tres familias tipográficas** | Navy `#0F4761` y Aptos, de la plantilla corporativa | [Design System](docs/design-system.md) §0 |
+
+**Y la afirmación que ordena todo lo demás:** el **scoring es código
+determinista y es lo único reproducible del sistema**. Todo lo que pasa por un
+modelo —qué señales se ven, qué se agrupa con qué, qué se dice— varía entre el
+19% y el 26% entre pasadas idénticas. La frontera de la reproducibilidad
+coincide exactamente con la frontera entre la capa determinista y la agéntica.
+Cualquier cosa que deba ser reproducible tiene que estar en código.
+
+---
+
 ## 2. Reglas de obligado cumplimiento
 
 ### 2.1 Datos — consecuencia de D8 (SQLite local / PostgreSQL nube)
@@ -377,10 +403,10 @@ en los insights, incluidas las cifras reales de `contexto_municipal`.
 
 ## 5. Problemas abiertos en el repositorio
 
-1. **La tabla «Estado» del [README.md](README.md) está desactualizada.** Declara
-   M2 y M3 como pendientes, cuando ambos están en el repo desde los commits
-   `440fe58` y `6f0b098`. La tabla de §4 de este archivo es la fuente correcta
-   mientras el README no se corrija.
+*Cerrado 2026-09-22:* la tabla «Estado» del README estaba desactualizada —
+declaraba M2 y M3 como pendientes— y además convivía con un bloque de estado más
+nuevo, dos secciones contradiciéndose. Ahora el README abre con el estado
+vigente y §4 de este archivo lleva el detalle por criterio.
 
 *Cerrado 2026-09-17:* Alembic estaba instalado pero sin inicializar. Ya existe
 `alembic/` con la migración de línea base `949a8ff9e15d`, la ingesta migra en

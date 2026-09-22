@@ -3,6 +3,76 @@
 Validación de capacidades agénticas sobre fuentes públicas colombianas.
 Experimento de 8 semanas y 3 ciclos para decidir go/no-go sobre la Fase 0.
 
+## Estado — 2026-09-22
+
+**El pipeline funciona de punta a punta y produce un informe. Lo que falta es la
+mitad que mira a las personas**, y es donde se miden las dos hipótesis que
+deciden el go/no-go.
+
+| Módulo | Estado | |
+|---|---|---|
+| **M1** Ingesta | ✅ | 18 municipios, 20.030 señales |
+| **M2** Clasificación | ✅ | Prompt v4. Reduce 95,2%. **No reproducible**: 19,5% de las señales cambian de destino entre pasadas |
+| **M3** Validación | ✅ | 7 reglas, código puro. Nunca un LLM |
+| **M4** Correlación | ✅ | Prompt v2, con contexto estructural. **No reproducible**: 14,1% de convergencias se repiten |
+| **M5** Scoring | ✅ | F1–F6, top 10, desglose por fuente. **Código determinista: lo único reproducible del sistema** |
+| **M6** Síntesis | 🟡 | Composición y publicación hechas. **Falta el Sintetizador** (la prosa) |
+| **M7** Calificación | ⬜ | En construcción |
+| **M8** Trazabilidad | 🟡 | Linaje y trazas por agente sí. Langfuse y checkpointing **instalados sin cablear** |
+| **M9** Aplicativo web | 🟡 | Vista de ciclo hecha. Faltan calificación, priorizados, histórico y métricas |
+
+### La app
+
+Vive en [`web/`](web/) — Next.js sobre Vercel. De las tres vistas de CA-M9.3
+más el panel:
+
+| Vista | Ruta | Estado |
+|---|---|---|
+| Ciclo actual | `/ciclo/[id]` | ✅ Lista de 10 municipios, score y línea de fuentes |
+| Municipios priorizados | `/priorizados` | ⬜ |
+| Histórico | `/historico` | ⬜ |
+| Métricas (solo administrador) | `/metricas` | ⬜ |
+
+La **calificación** es lo siguiente, y va dentro de la vista de ciclo.
+
+### Qué hay en la base
+
+Las mismas filas en la SQLite local y en Neon.
+
+| | |
+|---|---|
+| Señales · insights · descartes | 20.030 · 1.213 · 5.731 |
+| Corridas de agentes · de scoring | 12 · 24 |
+| Ciclos con corrida completa de agentes | **1 y 3** (el ciclo 2 nunca se corrió entero) |
+| Informes publicados | **1** — ciclo 3, congelando scoring 24 y agentes 10 |
+| Calificaciones · usuarios | **0 · 0** — por eso H1 y H2 no tienen ningún dato |
+| Nomenclátor · contexto municipal | 1.135 entidades · 1.102 municipios |
+
+### Qué se puede correr hoy
+
+| Qué | Comando | Contra qué base |
+|---|---|---|
+| Pipeline de un ciclo | `$py scripts\correr_ciclo.py --ciclo 3 --municipio 05147` | `DATABASE_URL` |
+| Scoring | `$py scripts\calcular_scores.py --ciclo 3` | `DATABASE_URL` |
+| Migraciones | `$py -m alembic upgrade head` · `check` | `DATABASE_URL`, **host directo** |
+| Copiar local → nube | `$py scripts\copiar_base.py` | de SQLite a `DATABASE_URL` |
+| Pruebas | `$py -m pytest -q` | ninguna: aisladas |
+| La app | `cd web` · `npm run dev` | `DATABASE_URL`, **host pooled** |
+
+> ### Dos configuraciones que no se deducen mirando el repositorio
+>
+> **1. La raíz de despliegue en Vercel es `web/`.** Vive solo en el panel, en
+> *Settings → General → Root Directory*. Sin eso Vercel compila desde la raíz,
+> no encuentra `package.json` y falla con un error que no menciona la causa.
+>
+> **2. La cadena de Neon de la app es la del `-pooler`; la del pipeline es la
+> directa.** Las funciones serverless abren muchas conexiones cortas, así que la
+> app va por el pooler; Alembic va por el directo porque **por el pooled no se
+> puede migrar**. Confundirlas falla en sitios distintos: la app agotaría
+> conexiones y la migración se rompería a la mitad.
+>
+> Las dos están explicadas más abajo, en [El aplicativo web](#el-aplicativo-web-m9).
+
 ## Documentos
 
 | Documento | Qué contiene |
@@ -10,6 +80,9 @@ Experimento de 8 semanas y 3 ciclos para decidir go/no-go sobre la Fase 0.
 | [PRD del MVP](docs/prd.md) | Hipótesis H1–H5, alcance, arquitectura, criterios de aceptación |
 | [Addendum 01 — Fuente de datos](docs/addendum-01-fuente-de-datos.md) | Decisiones D1–D4 sobre el snapshot, los ciclos y el scoring |
 | [Addendum 02 — Stack](docs/addendum-02-stack.md) | Decisiones D5–D9 sobre tecnología, almacenamiento y entorno |
+| [Design System](docs/design-system.md) | **Autoridad de color y tipografía.** Navy `#0F4761` y Aptos, de la plantilla corporativa |
+| [Pendientes](docs/pendientes.md) | Registro único de lo que falta decidir, y de lo decidido |
+| [Informe de resultados](docs/informe_resultados.md) | Lo medido por hipótesis, para la compuerta de la semana 8 |
 
 ## Entorno
 
@@ -73,7 +146,7 @@ $py = "$env:LOCALAPPDATA\venvs\territorial\Scripts\python.exe"
 
 & $py scripts\cargar_snapshot.py                              # M1 — ingesta
 & $py scripts\correr_ciclo.py --ciclo 1 --municipio 05147     # M2 → M3 → M4
-& $py scripts\calcular_scores.py --ciclo 1                    # M5 — top 3
+& $py scripts\calcular_scores.py --ciclo 1                    # M5 — top 10
 & $py scripts\estimar_costo.py                                # costo por ciclo
 ```
 
@@ -304,23 +377,22 @@ y PostgreSQL en nube:
 Y una del PRD, que es bloqueante: **ninguna cifra de un informe o infografía
 puede provenir del LLM** (CA-M6.3). Todas se componen desde el almacén de datos.
 
-## Estado
+## Qué falta, y por qué ese orden
 
-Verificado sobre el código el 2026-09-18. Las 139 pruebas de `tests/` pasan.
-El detalle por criterio de aceptación está en [CLAUDE.md](CLAUDE.md) §4.
+**El estado por módulo está arriba.** Lo que queda, en orden de lo que bloquea:
 
-| Módulo | Estado |
-|---|---|
-| Ingesta del snapshot (M1) | ✅ Funcionando |
-| Clasificador (M2) | 🟡 Funciona, persiste, trocea y registra descartes (CA-M2.5) — sigue **variando entre corridas** (A6) |
-| Validador determinista (M3) | ✅ Funcionando — R1 a R7 |
-| Correlacionador (M4) | 🟡 Funciona — CA-M4.3 sin poder probarse: no hay calificaciones |
-| Scoring por reglas (M5) | 🟡 Funciona sobre **5 de 6 factores** — F6 nunca se activa sin calificaciones |
-| Sintetizador (M6) | ⬜ Sin código |
-| Calificación y aplicativo web (M7, M9) | ⬜ Sin código |
-| Trazabilidad (M8) | 🟡 Parcial — linaje de dataset, de prompts (D7) y trazas por agente; falta Langfuse y CA-M8.4 |
-| Esquema con Alembic | ✅ 2 migraciones, sin deriva |
+1. **M7 y M9 — calificación y aplicativo.** Es el único pendiente que bloquea el
+   go/no-go. **H1 y H2 no tienen un solo dato** y ambas se miden ahí; H2 es
+   condición necesaria para el GO según la regla de decisión del PRD §11. No
+   tiene decisiones abiertas: solo código.
+2. **M6 — el Sintetizador.** La composición ya está; falta la prosa. Su costo es
+   además la cifra que falta para cerrar H5.
+3. **Las hojas de revisión del equipo.** Llegan cuando lleguen y destraban A2,
+   A4 y el criterio de frontera del Clasificador.
 
-**M7 es el cuello de botella oculto.** Sin él no hay calificaciones, y sin
-calificaciones ni F6 del scoring ni el bucle de aprendizaje del Correlacionador
-(CA-M4.3) pueden ejercitarse nunca.
+**Lo que no bloquea**: Langfuse y el checkpointing de CA-M8.4 son deuda, no
+cuello — el pipeline ya se reanuda porque confirma municipio a municipio y las
+trazas por agente existen sin Langfuse.
+
+Si la semana 8 llega con un pipeline impecable y cero calificaciones, la
+compuerta es NO-GO por falta de datos, no por el sistema.
