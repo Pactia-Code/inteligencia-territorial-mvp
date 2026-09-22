@@ -81,6 +81,34 @@ export async function gerenciaDelCorreo(
 }
 
 /**
+ * Las calificaciones que figuran **a nombre de esta persona** en el ciclo.
+ *
+ * Distinto de `calificacionesDeLaGerencia`: aquella es lo que la gerencia tiene
+ * registrado —y es lo que la pantalla usa para rellenar los controles, porque
+ * la unicidad es por gerencia—; esta es **quien las escribio**. Con dos
+ * personas en una misma gerencia las dos listas dejan de coincidir, y ver la
+ * propia es lo que permite a alguien comprobar que lo que figura a su nombre es
+ * lo que realmente puso.
+ *
+ * No enseña nada de nadie mas, asi que no roza CA-M7.2.
+ */
+export async function calificacionesDelUsuario(
+  idCiclo: number,
+  idUsuario: number,
+): Promise<{ id_insight: number; valor: number }[]> {
+  const filas = await sql`
+    SELECT c.id_insight, c.valor
+      FROM calificacion c
+      JOIN insight i ON i.id = c.id_insight
+      JOIN corrida_agentes ca ON ca.id = i.id_corrida
+     WHERE ca.id_ciclo = ${idCiclo}
+       AND c.id_usuario = ${idUsuario}
+     ORDER BY c.id_insight
+  `;
+  return filas as { id_insight: number; valor: number }[];
+}
+
+/**
  * Lo que esa gerencia ya califico en ese ciclo.
  *
  * Solo lo suyo: CA-M7.2 prohibe que una gerencia vea la calificacion de otra,

@@ -45,9 +45,16 @@ def test_el_contrato_esta_al_dia(generador):
     )
 
 
-def test_solo_cubre_las_dos_tablas_que_la_app_escribe(generador):
-    """CA-M9.16. Ampliarlo aquí sería ampliar lo que la app puede escribir."""
-    assert generador.TABLAS == ("calificacion", "seguimiento")
+def test_solo_cubre_las_tablas_que_la_app_escribe(generador):
+    """CA-M9.16. Ampliar esta lista es ampliar lo que la app puede escribir.
+
+    Las dos primeras son las del criterio. **`identificacion` se añadió en F0.3**
+    y es dato de sesión —quién se identificó, cuándo y desde qué navegador—, no
+    evidencia del experimento. La ampliación está decidida y registrada en
+    `docs/decisiones-remediacion.md`; esta prueba existe para que la siguiente
+    no pueda colarse sin esa decisión.
+    """
+    assert generador.TABLAS == ("calificacion", "seguimiento", "identificacion")
 
 
 def test_los_valores_del_check_llegan_como_union_de_tipos(generador):

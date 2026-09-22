@@ -415,12 +415,47 @@ class Usuario(Base):
     )
 
 
+class Identificacion(Base):
+    """Cada vez que alguien se identifica en la app. F0.3, residual de H-012.
+
+    **No es autenticación y no la sustituye.** El dueño decidió no adoptar el
+    token (R-A2), así que la identidad sigue siendo un correo tecleado y
+    cualquiera que conozca uno autorizado puede usarlo. Lo que esta tabla añade
+    es **rastro**: si una calificación se discute, hay un registro de cuándo se
+    identificó esa cuenta y desde qué navegador.
+
+    Es **dato de sesión**, la tercera tabla que la app escribe además de
+    `calificacion` y `seguimiento` (CA-M9.16). La ampliación está registrada en
+    `docs/decisiones-remediacion.md`; como todo lo demás, nace en Alembic.
+
+    `ip` va anulable porque **solo llega si el despliegue la pone** en
+    `x-forwarded-for`: en Vercel sí, en local casi nunca. No se configura nada
+    para obtenerla.
+    """
+
+    __tablename__ = "identificacion"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    id_usuario: Mapped[int] = mapped_column(ForeignKey("usuario.id"), index=True)
+    creado_en: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=ahora)
+    user_agent: Mapped[str | None] = mapped_column(String(300))
+    ip: Mapped[str | None] = mapped_column(String(45))
+
+
 class Calificacion(Base):
     __tablename__ = "calificacion"
 
     id: Mapped[int] = mapped_column(primary_key=True)
     id_insight: Mapped[int] = mapped_column(ForeignKey("insight.id"), index=True)
     id_gerencia: Mapped[str] = mapped_column(String(60), index=True)
+    # Quién la escribió, para poder auditar la autoría dentro de una gerencia.
+    #
+    # **Anulable a propósito.** La app la pone siempre; se deja anulable para no
+    # obligar a fabricar un usuario en cada prueba o carga desde Python. Y no
+    # cambia a quién se atribuye: CA-M7.2 atribuye a **gerencia**, que es lo que
+    # sostiene `uq_calificacion_insight_gerencia`. Esto es el registro de quién
+    # tecleó, no un segundo eje de atribución.
+    id_usuario: Mapped[int | None] = mapped_column(ForeignKey("usuario.id"), index=True)
     valor: Mapped[int] = mapped_column(Integer)
     comentario: Mapped[str | None] = mapped_column(Text)
     creado_en: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=ahora)

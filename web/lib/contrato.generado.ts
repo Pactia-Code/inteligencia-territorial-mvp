@@ -15,6 +15,7 @@ export const COLUMNAS_CALIFICACION = [
   "id",
   "id_insight",
   "id_gerencia",
+  "id_usuario",
   "valor",
   "comentario",
   "creado_en",
@@ -24,6 +25,7 @@ export interface FilaCalificacion {
   id: number;
   id_insight: number;
   id_gerencia: string;
+  id_usuario: number | null;
   valor: number;  // 1-5, exigido por la base
   comentario: string | null;
   creado_en: string;
@@ -33,6 +35,7 @@ export type NuevaCalificacion = Pick<
   FilaCalificacion,
   | "id_insight"
   | "id_gerencia"
+  | "id_usuario"
   | "valor"
   | "comentario"
 >;
@@ -76,3 +79,27 @@ export const ESTADO_SEGUIMIENTO = [
   "en_estructuracion",
   "descartado",
 ] as const;
+
+// ---- identificacion ----
+export const COLUMNAS_IDENTIFICACION = [
+  "id",
+  "id_usuario",
+  "creado_en",
+  "user_agent",
+  "ip",
+] as const;
+
+export interface FilaIdentificacion {
+  id: number;
+  id_usuario: number;
+  creado_en: string;
+  user_agent: string | null;
+  ip: string | null;
+}
+
+export type NuevaIdentificacion = Pick<
+  FilaIdentificacion,
+  | "id_usuario"
+  | "user_agent"
+  | "ip"
+>;

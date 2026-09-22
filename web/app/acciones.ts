@@ -11,10 +11,16 @@
  */
 
 import { revalidatePath } from "next/cache";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { gerenciaDelCorreo } from "@/lib/consultas";
-import { calificar, comentar, registrarSeguimiento } from "@/lib/escrituras";
+import {
+  calificar,
+  comentar,
+  registrarIdentificacion,
+  registrarSeguimiento,
+} from "@/lib/escrituras";
 import { ESTADO_SEGUIMIENTO } from "@/lib/contrato.generado";
+import { firmar, haySecreto } from "@/lib/firma";
 import { EXIGEN_NOTA } from "@/lib/tablero";
 import { COOKIE_CORREO, identidadActual } from "@/lib/sesion";
 
@@ -28,15 +34,22 @@ export type ResultadoSeguimiento =
 
 export type ResultadoIdentificacion =
   | { ok: true }
-  | { ok: false; motivo: "vacio" | "no_autorizado"; correo: string };
+  | { ok: false; motivo: "vacio" | "no_autorizado" | "sin_secreto"; correo: string };
 
 /**
- * Guarda el correo si esta en la lista precargada.
+ * Guarda el correo si esta en la lista precargada, en una cookie **firmada**.
  *
  * **No da de alta a nadie** (M9-acceso): quien no este, solo visualiza. El
  * mensaje de rechazo dice que hacer, nunca un error generico — una errata
- * durante la ventana se lleva por delante una respuesta de H2, y con siete
- * gerencias cada una pesa el 14%.
+ * durante la ventana se lleva por delante una respuesta de H2.
+ *
+ * Tres cosas que F0.3 anadio y conviene no deshacer:
+ *
+ * · **Solo se emite cookie para un correo registrado y activo.** Antes tambien
+ *   se comprobaba, pero la cookie era texto plano y se podia poner a mano.
+ * · **La cookie va firmada.** Sin firma valida no hay identidad.
+ * · **Queda rastro** en `identificacion`. No autentica —el dueno no adopto el
+ *   token, R-A2— pero deja algo que mirar si una calificacion se discute.
  */
 export async function identificarse(
   _previo: ResultadoIdentificacion | null,
@@ -45,10 +58,23 @@ export async function identificarse(
   const correo = String(datos.get("correo") ?? "").trim();
   if (!correo) return { ok: false, motivo: "vacio", correo };
 
+  // Fallar cerrado: sin secreto no se emite identidad. Un despliegue mal
+  // configurado no debe degradarse a «cualquiera es quien dice ser».
+  if (!haySecreto()) return { ok: false, motivo: "sin_secreto", correo };
+
   const usuario = await gerenciaDelCorreo(correo);
   if (!usuario) return { ok: false, motivo: "no_autorizado", correo };
 
-  (await cookies()).set(COOKIE_CORREO, correo, {
+  const cabeceras = await headers();
+  await registrarIdentificacion({
+    id_usuario: usuario.id,
+    user_agent: cabeceras.get("user-agent")?.slice(0, 300) ?? null,
+    // Lo que el despliegue ya da, sin configurar nada: en Vercel viene
+    // `x-forwarded-for`; en local no suele venir y queda en nulo.
+    ip: cabeceras.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null,
+  });
+
+  (await cookies()).set(COOKIE_CORREO, firmar(correo), {
     httpOnly: true,
     sameSite: "lax",
     maxAge: DURACION_COOKIE,
@@ -75,7 +101,7 @@ export async function registrarCalificacion(datos: FormData): Promise<void> {
   if (!yo) return;
   const idInsight = Number(datos.get("id_insight"));
   const valor = Number(datos.get("valor"));
-  await calificar(idInsight, yo.id_gerencia, valor);
+  await calificar(idInsight, yo.id_gerencia, valor, yo.id);
   revalidatePath("/ciclo/[id]", "page");
 }
 
