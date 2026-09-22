@@ -403,6 +403,9 @@ class Usuario(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     id_gerencia: Mapped[str] = mapped_column(String(60), index=True)
     nombre: Mapped[str] = mapped_column(String(120))
+    # Opcional a propósito: el CSV lo trae vacío para varias personas y el cargo
+    # no decide nada — no es el rol, que sí gobierna qué se puede hacer.
+    cargo: Mapped[str | None] = mapped_column(String(120))
     correo: Mapped[str] = mapped_column(String(160), unique=True)
     rol: Mapped[str] = mapped_column(String(20), default="gerencia")
     activo: Mapped[bool] = mapped_column(default=True)

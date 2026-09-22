@@ -1,0 +1,9 @@
+nombre;id_gerencia;cargo;correo;puede_calificar;es_administrador
+Andres Bejarano Palacios;general;;abejarano@pactia.com;si;no
+Rodrigo Adolfo Cuentas Rodriguez;juridica;;rcuentas@pactia.com;si;no
+Sandra Patricia Herrera Sanchez;rotacion_portafolio;;sherrera@pactia.com;si;no
+Edwin Gómez Villalobos;producto_logistica;Gerente de Logística;egomez@pactia.com;si;no
+Lina Maria Navarro Villa;producto_hoteles_oficinas;Gerente de Hoteles y Oficinas;lnavarro@pactia.com;si;no
+Juan Antonio Echeverri;administrativa;Administrativo;jecheverri@pactia.com;si;no
+Wilmar Stiven Sanchez Muñoz;analitica;Director de Analítica;wsanchez@pactia.com;si;no
+Wilmar Stiven Sanchez Muñoz;analitica;Director de Analítica;wsanchez+admin@pactia.com;no;si

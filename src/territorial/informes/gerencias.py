@@ -1,109 +1,139 @@
-"""Cuáles de las gerencias que califican son las 7 del PRD y cuáles se añadieron.
+"""El catálogo de gerencias que califican: cuáles son núcleo y cuáles añadidas.
 
 F0.1b de la remediación, que amplía H-005. F0.1 congeló **quién** podía
 calificar cuando se publicó cada informe; esto añade **de qué clase es cada
-uno**, porque el dueño decidió el 2026-09-22 que el conjunto de calificadores
-**no se cierra a las 7 gerencias del PRD** y puede incluir gerencias
-adicionales, por ejemplo Analítica.
+uno**, porque el conjunto de calificadores **no es el del PRD**.
 
-**Por qué hace falta la marca y no basta con la lista.** H2 se reporta siempre
-sobre **las 7 del PRD** y los adicionales **por separado**; H1, con y sin ellos.
-Sin la marca congelada junto a la lista, esas dos cifras no se pueden separar
-después: habría que reconstruir meses más tarde quién era quién, que es
-exactamente el problema que F0.1 vino a resolver. Y hay un motivo concreto para
-poder separarlas: **el operador del pipeline también califica**, así que sus
-calificaciones tienen un conflicto de interés en H1 y deben poder aislarse
-(decisión c del dueño).
+**El núcleo son 5, no 7** (decisión del dueño del 2026-09-22, tercera tanda):
+`general`, `juridica`, `rotacion_portafolio`, `producto_logistica` y
+`producto_hoteles_oficinas`. Financiera no participa, y Oficinas y Hotelería son
+una sola gerencia. `administrativa` y `analitica` califican como **adicionales**.
+Es una **desviación del PRD**, que habla de 7 (§1, CA-M9.1), y está registrada en
+`docs/decisiones-remediacion.md`.
+
+**Por qué hace falta la marca y no basta con la lista.** H2 se reporta sobre las
+`prd` y las adicionales **aparte**; H1, con y sin ellas. Sin la marca congelada
+junto a la lista, esas cifras no se pueden separar después: habría que
+reconstruir meses más tarde quién era quién, que es el problema que F0.1 vino a
+resolver. Y hay un motivo concreto para poder separarlas: **el operador del
+pipeline también califica**, así que sus calificaciones tienen conflicto de
+interés en H1 y deben poder aislarse.
 
 Por qué un archivo de configuración y no una columna en `usuario`
 -----------------------------------------------------------------
-Se eligió lo más simple de las dos opciones que el dueño planteó:
-
-· **Ser una de las 7 es una propiedad del diseño del experimento, no de una
+· **Ser del núcleo es una propiedad del diseño del experimento, no de una
   persona.** Dos usuarios de la misma gerencia no pueden discrepar sobre la
-  marca, y una columna por usuario permite justamente eso: una fila marcada
-  `prd` y otra `adicional` para la misma `id_gerencia`. El archivo lo hace
+  marca, y una columna por usuario permite justamente eso. El archivo lo hace
   imposible por construcción.
 · **No necesita migración** ni regenerar el contrato de TypeScript.
-· Es el mismo patrón que `config/pesos.json` (CA-M5.3): una palanca editable
-  sin tocar código, versionada y revisable en el repositorio.
-· **Los nombres de las gerencias no son datos personales**, así que el archivo
-  sí puede vivir en git — al contrario que el CSV de usuarios, que no viaja
-  (decisión d).
+· Es el mismo patrón que `config/pesos.json` (CA-M5.3): una palanca editable sin
+  tocar código, versionada y revisable.
+· El dueño indicó que **no contiene datos sensibles**, así que se versiona en
+  git — al contrario que la evidencia del pipeline, que no viaja.
 
-**El archivo se entrega vacío, y es a propósito: el PRD nunca nombra las 7.**
-Habla de «las 7 gerencias» y de «7 perfiles de gerencia + 1 administrador»
-(§1, §2.2, CA-M9.1) sin dar ni un `id_gerencia`. Inventarlos aquí sería fabricar
-línea base. **Mientras la lista esté vacía, toda gerencia sale `adicional`**, que
-es visible en el payload y es una de las cosas a comprobar antes de la
-republicación definitiva de F0.6: la lista se llena al decidir quién califica,
-que por decisión (a) ocurre antes de esa republicación.
+**Una gerencia que no esté declarada aquí sale `adicional`.** No es un descarte
+silencioso: `scripts/cargar_usuarios.py` se niega a cargar un usuario cuya
+`id_gerencia` no esté en este archivo, así que la única forma de que aparezca
+una sin declarar es editando la base a mano. Ante eso, lo prudente es no
+contarla como núcleo.
 """
 
 from __future__ import annotations
 
 import json
+from collections.abc import Mapping
+from dataclasses import dataclass
 
 from territorial.config import Config, obtener_config
 
 TIPO_PRD = "prd"
 TIPO_ADICIONAL = "adicional"
+TIPOS = (TIPO_PRD, TIPO_ADICIONAL)
 
-# El PRD no nombra las 7. Ver el encabezado: el valor por defecto es vacío
-# porque no hay línea base que copiar, no porque falte cargarlo.
-GERENCIAS_PRD_POR_DEFECTO: frozenset[str] = frozenset()
+
+@dataclass(frozen=True)
+class Gerencia:
+    """Una gerencia del catálogo, con su nombre para mostrar y su clase."""
+
+    id_gerencia: str
+    nombre: str
+    tipo: str
 
 
 class GerenciasInvalidas(ValueError):
     """El archivo de gerencias no cumple el contrato. Mejor fallar que marcar mal."""
 
 
-def cargar_prd(config: Config | None = None) -> frozenset[str]:
-    """Las `id_gerencia` que son de las 7 del PRD, según `config/gerencias.json`.
+def _exigir(condicion: bool, mensaje: str) -> None:
+    if not condicion:
+        raise GerenciasInvalidas(mensaje)
 
-    Formato: `{"prd": ["comercial", "activos", ...]}`. Las claves que empiezan
-    por `_` se ignoran, que es como se dejan notas en un JSON sin comentarios.
-    Si el archivo no existe, no hay ninguna declarada.
+
+def cargar(config: Config | None = None) -> dict[str, Gerencia]:
+    """El catálogo de `config/gerencias.json`, indexado por `id_gerencia`.
+
+    Formato:
+
+        {"gerencias": [{"id_gerencia": "general", "nombre": "...", "tipo": "prd"}]}
+
+    Las claves que empiezan por `_` se ignoran, que es como se dejan notas en un
+    JSON sin comentarios. Si el archivo no existe, el catálogo está vacío.
     """
     cfg = config or obtener_config()
     ruta = cfg.ruta_absoluta(cfg.ruta_gerencias)
     if not ruta.exists():
-        return GERENCIAS_PRD_POR_DEFECTO
+        return {}
 
     try:
         contenido = json.loads(ruta.read_text(encoding="utf-8"))
     except json.JSONDecodeError as e:
         raise GerenciasInvalidas(f"{ruta} no es JSON válido: {e}") from e
 
-    if not isinstance(contenido, dict):
-        raise GerenciasInvalidas(f'{ruta}: se esperaba un objeto {{"prd": [...]}}')
-
-    desconocidas = sorted(
-        k for k in contenido if k != "prd" and not k.startswith("_")
+    _exigir(
+        isinstance(contenido, dict),
+        f'{ruta}: se esperaba un objeto {{"gerencias": [...]}}',
     )
-    if desconocidas:
-        raise GerenciasInvalidas(
-            f"{ruta}: claves desconocidas {desconocidas}. Solo «prd» (y notas «_…»)"
+    desconocidas = sorted(
+        k for k in contenido if k != "gerencias" and not k.startswith("_")
+    )
+    _exigir(
+        not desconocidas,
+        f"{ruta}: claves desconocidas {desconocidas}. Solo «gerencias» (y notas «_…»)",
+    )
+
+    crudas = contenido.get("gerencias", [])
+    _exigir(isinstance(crudas, list), f'{ruta}: «gerencias» debe ser una lista')
+
+    catalogo: dict[str, Gerencia] = {}
+    for n, fila in enumerate(crudas, start=1):
+        donde = f"{ruta}, gerencia {n}"
+        _exigir(isinstance(fila, dict), f"{donde}: se esperaba un objeto")
+        sobran = sorted(set(fila) - {"id_gerencia", "nombre", "tipo"})
+        _exigir(not sobran, f"{donde}: campos desconocidos {sobran}")
+
+        id_gerencia = str(fila.get("id_gerencia", "")).strip()
+        nombre = str(fila.get("nombre", "")).strip()
+        tipo = str(fila.get("tipo", "")).strip()
+        _exigir(bool(id_gerencia), f"{donde}: falta «id_gerencia»")
+        _exigir(bool(nombre), f"{donde} ({id_gerencia}): falta «nombre»")
+        _exigir(
+            tipo in TIPOS,
+            f"{donde} ({id_gerencia}): «tipo» es «{tipo}» y debe ser {list(TIPOS)}",
         )
+        _exigir(
+            id_gerencia not in catalogo,
+            f"{ruta}: id_gerencia repetida «{id_gerencia}»",
+        )
+        catalogo[id_gerencia] = Gerencia(id_gerencia, nombre, tipo)
 
-    crudas = contenido.get("prd", [])
-    if not isinstance(crudas, list) or not all(isinstance(g, str) for g in crudas):
-        raise GerenciasInvalidas(f'{ruta}: «prd» debe ser una lista de id_gerencia')
-
-    limpias = [g.strip() for g in crudas]
-    if any(not g for g in limpias):
-        raise GerenciasInvalidas(f"{ruta}: hay una id_gerencia vacía en «prd»")
-
-    repes = sorted({g for g in limpias if limpias.count(g) > 1})
-    if repes:
-        raise GerenciasInvalidas(f"{ruta}: id_gerencia repetidas en «prd»: {repes}")
-
-    return frozenset(limpias)
+    return catalogo
 
 
-def clasificar(id_gerencia: str, prd: frozenset[str]) -> str:
-    """`prd` si es una de las 7 declaradas; `adicional` en cualquier otro caso.
+def clasificar(id_gerencia: str, catalogo: Mapping[str, Gerencia]) -> str:
+    """`prd` o `adicional`. Lo que no está declarado no es núcleo.
 
-    Solo dos valores, porque el reporte solo distingue dos cosas (decisión b).
+    Solo dos valores, porque el reporte solo distingue dos cosas: H2 sobre las
+    `prd` y las adicionales aparte.
     """
-    return TIPO_PRD if id_gerencia in prd else TIPO_ADICIONAL
+    gerencia = catalogo.get(id_gerencia)
+    return gerencia.tipo if gerencia is not None else TIPO_ADICIONAL

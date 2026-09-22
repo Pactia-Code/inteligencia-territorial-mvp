@@ -1,6 +1,11 @@
 {
-  "_nota": "Las id_gerencia de las 7 gerencias del PRD. Se entrega VACIA a proposito: el PRD habla de «las 7 gerencias» y nunca da un id_gerencia, asi que inventarlos aqui seria fabricar linea base. Mientras este vacia, toda gerencia sale marcada «adicional» en el payload del informe.",
-  "_cuando_se_llena": "Al decidir quien califica, que por decision (a) del dueno del 2026-09-22 ocurre ANTES de la republicacion definitiva de F0.6. Los id_gerencia deben coincidir exactamente con los del CSV de usuarios.",
-  "_para_que_sirve": "H2 se reporta sobre las 7 del PRD y los calificadores adicionales por separado; H1, con y sin ellos. Ver src/territorial/informes/gerencias.py.",
-  "prd": []
+  "gerencias": [
+    {"id_gerencia": "general", "nombre": "Gerencia General", "tipo": "prd"},
+    {"id_gerencia": "juridica", "nombre": "Gerencia Jurídica", "tipo": "prd"},
+    {"id_gerencia": "rotacion_portafolio", "nombre": "Rotación de Portafolio", "tipo": "prd"},
+    {"id_gerencia": "producto_logistica", "nombre": "Gerencia de Logística", "tipo": "prd"},
+    {"id_gerencia": "producto_hoteles_oficinas", "nombre": "Gerencia de Hoteles y Oficinas", "tipo": "prd"},
+    {"id_gerencia": "administrativa", "nombre": "Gerencia Administrativa", "tipo": "adicional"},
+    {"id_gerencia": "analitica", "nombre": "Área de Analítica", "tipo": "adicional"}
+  ]
 }

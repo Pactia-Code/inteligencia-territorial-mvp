@@ -42,7 +42,8 @@ from territorial.informes.composicion import (
     gerencias_autorizadas,
     resumir_fuentes,
 )
-from territorial.informes.gerencias import GerenciasInvalidas, cargar_prd
+from territorial.informes.gerencias import GerenciasInvalidas
+from territorial.informes.gerencias import cargar as cargar_gerencias
 from territorial.informes.publicacion import (
     PublicacionInvalida,
     ciclos_publicables,
@@ -619,10 +620,21 @@ def test_sin_usuarios_el_denominador_es_una_lista_vacia_no_un_hueco(bd):
 # --------------------------------------------------------------------------
 
 
+def escribir_catalogo(ruta: Path, prd: list[str], adicionales: list[str] = []) -> None:
+    ruta.write_text(
+        json.dumps({"gerencias": [
+            {"id_gerencia": g, "nombre": g.title(), "tipo": tipo}
+            for tipo, lista in (("prd", prd), ("adicional", adicionales))
+            for g in lista
+        ]}),
+        encoding="utf-8",
+    )
+
+
 def config_con_prd(tmp_path, *gerencias: str) -> Config:
-    """Un `Config` que declara esas `id_gerencia` como las del PRD."""
+    """Un `Config` que declara esas `id_gerencia` como núcleo del experimento."""
     ruta = tmp_path / "gerencias.json"
-    ruta.write_text(json.dumps({"prd": list(gerencias)}), encoding="utf-8")
+    escribir_catalogo(ruta, list(gerencias))
     return Config(ruta_gerencias=ruta)
 
 
@@ -675,7 +687,7 @@ def test_la_marca_queda_congelada_aunque_cambie_la_configuracion(bd, tmp_path):
     """
     s, sc, ag = bd
     ruta = tmp_path / "gerencias.json"
-    ruta.write_text(json.dumps({"prd": ["comercial"]}), encoding="utf-8")
+    escribir_catalogo(ruta, ["comercial"], ["activos", "desarrollo"])
     cfg = Config(ruta_gerencias=ruta)
 
     inf = publicar(s, sc, ag, config=cfg)
@@ -686,10 +698,8 @@ def test_la_marca_queda_congelada_aunque_cambie_la_configuracion(bd, tmp_path):
         "activos": "adicional", "comercial": "prd", "desarrollo": "adicional",
     }
 
-    # La configuración cambia: ahora las tres son del PRD.
-    ruta.write_text(
-        json.dumps({"prd": ["comercial", "desarrollo", "activos"]}), encoding="utf-8"
-    )
+    # La configuración cambia: ahora las tres son del núcleo.
+    escribir_catalogo(ruta, ["comercial", "desarrollo", "activos"])
     s.expire_all()
     guardado = {
         g["id_gerencia"]: g["tipo"]
@@ -710,16 +720,35 @@ def test_sin_archivo_de_configuracion_todas_son_adicionales(bd, tmp_path):
     assert tipos == {"adicional"}
 
 
-def test_el_archivo_de_gerencias_del_repositorio_es_valido():
-    """Se entrega vacío, pero tiene que cumplir el contrato desde el día uno."""
-    assert cargar_prd(Config(ruta_gerencias=Path("config/gerencias.json"))) == frozenset()
+def test_el_catalogo_real_es_el_nucleo_de_cinco_mas_dos_adicionales():
+    """Las gerencias que el dueño declaró el 2026-09-22, tal cual.
+
+    El PRD dice 7 y el núcleo son 5: Financiera no participa y Oficinas y
+    Hotelería son una sola. Es desviación registrada, así que la prueba la fija
+    para que un cambio silencioso en el archivo no pase inadvertido.
+    """
+    catalogo = cargar_gerencias(Config(ruta_gerencias=Path("config/gerencias.json")))
+    por_tipo: dict[str, list[str]] = {"prd": [], "adicional": []}
+    for g in catalogo.values():
+        por_tipo[g.tipo].append(g.id_gerencia)
+    assert sorted(por_tipo["prd"]) == [
+        "general", "juridica", "producto_hoteles_oficinas",
+        "producto_logistica", "rotacion_portafolio",
+    ]
+    assert sorted(por_tipo["adicional"]) == ["administrativa", "analitica"]
+    assert all(g.nombre for g in catalogo.values())
 
 
 @pytest.mark.parametrize("contenido, error", [
     ("[]", "se esperaba un objeto"),
-    ('{"prd": "comercial"}', "lista de id_gerencia"),
-    ('{"prd": ["a", "a"]}', "repetidas"),
-    ('{"prd": ["  "]}', "vacía"),
+    ('{"gerencias": {}}', "debe ser una lista"),
+    ('{"gerencias": [{"id_gerencia": "a", "nombre": "A", "tipo": "otra"}]}', "tipo"),
+    ('{"gerencias": [{"nombre": "A", "tipo": "prd"}]}', "falta «id_gerencia»"),
+    ('{"gerencias": [{"id_gerencia": "a", "tipo": "prd"}]}', "falta «nombre»"),
+    ('{"gerencias": [{"id_gerencia": "a", "nombre": "A", "tipo": "prd", "x": 1}]}',
+     "campos desconocidos"),
+    ('{"gerencias": [{"id_gerencia": "a", "nombre": "A", "tipo": "prd"},'
+     ' {"id_gerencia": "a", "nombre": "A2", "tipo": "adicional"}]}', "repetida"),
     ('{"otra": []}', "claves desconocidas"),
     ("{", "no es JSON válido"),
 ])
@@ -730,17 +759,20 @@ def test_un_archivo_de_gerencias_mal_escrito_falla_en_vez_de_marcar_mal(
     ruta = tmp_path / "gerencias.json"
     ruta.write_text(contenido, encoding="utf-8")
     with pytest.raises(GerenciasInvalidas, match=error):
-        cargar_prd(Config(ruta_gerencias=ruta))
+        cargar_gerencias(Config(ruta_gerencias=ruta))
 
 
 def test_las_notas_del_archivo_no_estorban(tmp_path):
     """El JSON no tiene comentarios, así que las notas van en claves `_…`."""
     ruta = tmp_path / "gerencias.json"
     ruta.write_text(
-        json.dumps({"_nota": "algo que explicar", "prd": ["comercial"]}),
+        json.dumps({
+            "_nota": "algo que explicar",
+            "gerencias": [{"id_gerencia": "general", "nombre": "G", "tipo": "prd"}],
+        }),
         encoding="utf-8",
     )
-    assert cargar_prd(Config(ruta_gerencias=ruta)) == frozenset({"comercial"})
+    assert cargar_gerencias(Config(ruta_gerencias=ruta))["general"].tipo == "prd"
 
 
 def test_cada_insight_dice_como_llego(bd):

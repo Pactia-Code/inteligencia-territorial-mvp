@@ -49,7 +49,8 @@ from territorial.almacen.modelos import (
     Usuario,
 )
 from territorial.config import Config, obtener_config
-from territorial.informes.gerencias import cargar_prd, clasificar
+from territorial.informes.gerencias import cargar as cargar_gerencias
+from territorial.informes.gerencias import clasificar
 from territorial.informes.seleccion import PEDIDAS, pedir_calificacion
 
 # CA-M6.5: la marca va en el payload, no en la plantilla, para que ninguna
@@ -269,14 +270,14 @@ def gerencias_autorizadas(
     sobre las 7 mientras que los adicionales van aparte. De dónde sale la marca:
     `informes/gerencias.py`.
     """
-    prd = cargar_prd(config)
+    catalogo = cargar_gerencias(config)
     filas = sesion_bd.scalars(
         select(Usuario.id_gerencia)
         .where(Usuario.activo.is_(True), Usuario.rol == "gerencia")
         .distinct()
     ).all()
     return [
-        {"id_gerencia": g, "tipo": clasificar(g, prd)} for g in sorted(filas)
+        {"id_gerencia": g, "tipo": clasificar(g, catalogo)} for g in sorted(filas)
     ]
 
 
