@@ -2602,3 +2602,409 @@ comparación de prompts hecha con ellos mide un pipeline distinto del que corre
 | P-3 | **¿Qué lectura de CA-M6.3 rige?** (a) La literal del PRD: ninguna cifra *generada* sin fuente → los 15 insights con cifras transcritas cumplen y H-009 es un Riesgo por falta de compuerta. (b) La del propio proyecto (`reglas/contexto.py:3-6`): ninguna cifra *escrita* por el modelo → los 15 son una desviación no registrada y H-009 sube a Crítico. Decide también si la compuerta de `reglas/cifras.py` debe cablearse en `ciclo.py` antes de distribuir | Dueño | **Previa a distribución** | Área 3, H-009 |
 | P-1 | **El informe 5 se compuso con el Correlacionador v1** (corrida 10, `version_correlacionador='v1'`, `id_prompt=2`) mientras `CLAUDE.md` declara vigente v2 desde el 2026-09-21. ¿Se republica el ciclo 3 con una corrida v2 —lo que exige volver a correr M4 y gastar tokens— o se corrige `CLAUDE.md` para que diga que lo publicado es v1? | Dueño | **🔒 Bloquea distribución** | Área 4, §4.3 |
 | P-2 | **H-005 debe resolverse antes de cargar los 7 usuarios reales.** ¿Cómo se congela la lista de gerencias autorizadas por ciclo —en el payload del informe, en una tabla propia o en Alembic— para que el denominador de H2 no dependa del estado actual de `usuario`? | Dueño | **Previa a distribución** | Área 4, H-005 y §4.9 |
+
+
+---
+
+# Cierre de la auditoría
+
+**Cerrada en la sesión 3** sobre el commit `96e10e0`. Las secciones que siguen
+consolidan las diez áreas; no repiten su evidencia, la referencian. Numeración
+según la estructura final: 0 Preflight (arriba) · 1 Resumen ejecutivo · 2 Traza
+extremo a extremo · 3 Tabla de hallazgos · 4 Hallazgos detallados · 5 No
+verificable · 6 Matriz de conformidad · 7 Plan de remediación · 8 Ruta crítica y
+quick wins · 9 Preguntas abiertas · 10 Verificación de consistencia.
+
+## 1. Resumen ejecutivo
+
+**Esta es una auditoría previa a distribución:** con 0 calificaciones y 2
+usuarios de prueba, H1 y H2 **no están medidas**; nada aquí las da por
+cumplidas ni incumplidas.
+
+**Lo demostrado con ejecución.** El linaje de datos del informe
+publicado se reconstruyó al 100 %: 241/241 insights, 933/933 citas localizadas,
+241/241 señales idénticas byte a byte al snapshot anclado por hash, 10/10 scores
+iguales al payload (CA-M8.1 Cumple). El validador reproduce 326/326 veredictos y
+el scoring reproduce las tres corridas publicadas con diferencia 0,00. La corrida
+10 está completa por datos —2.487/2.487 señales contabilizadas, 69 lotes y 17
+llamadas coincidentes con las trazas—. **Ninguna de las 15 cifras que el modelo
+escribió en la prosa publicada es inventada.**
+
+**Lo que no está demostrado.** El **linaje de ejecución** no es atribuible (H-006), y de ahí que **H5 no sea
+reproducible** (H-035). `informe_resultados.md` contiene dos afirmaciones falsas
+en la sección de la hipótesis bloqueante (H-027, H-028) y una cifra sin productor
+(H-030); la causa raíz es que **53 de 67 procedencias apuntan a otro documento y
+ninguna a una consulta** (H-034). La identidad de quien califica es una cookie
+en claro forjable (H-012), las acciones de escritura no verifican alcance
+(H-013), el denominador de H2 no está congelado (H-005) y la compuerta de cifras
+solo existe en calibración (H-009).
+
+**Implicación para el go/no-go.** Ningún hallazgo es Crítico: el **conjunto
+bloqueante** —CA-M3.1–3.4, CA-M6.3, CA-M7.2, CA-M8.1, CA-M9.16— es **criterio
+de esta auditoría, no del PRD**, y no se rompe hoy. Pero la compuerta **no puede
+decidirse con el documento actual** (F0b) y **no debe abrirse la ventana de
+calificación** sin F0: 4 hallazgos y 1 pregunta bloquean la distribución, 5
+bloquean la decisión. 51 hallazgos: 0 Crítico, 12 Alto, 26 Medio, 13 Bajo.
+
+## 2. Traza extremo a extremo
+
+Ejecutada en el área 4: §4.3 (insight 1092, diez saltos) y §4.7 (los 241
+insights del informe 5, Anexo A). Saltos a `calificacion` y `seguimiento`
+verificados por estructura (0 filas). No se repite aquí.
+
+## 3. Tabla de hallazgos
+
+Confianza: Alta en 50 de 51 (ejecutado o inequívoco); Media en H-005. Etiquetas:
+🔒 Bloquea distribución · ⛔ Bloquea decisión go/no-go · ⚠ condicional (pasa a 🔒
+si se republicara con v2, §2.8). Categorías: D Defecto · B Brecha · R Riesgo ·
+BD Brecha documental. Ninguna Desviación no registrada.
+
+| ID | Sev. | Cat. | Conf. | Área | Criterio | Evidencia (sección) | Una línea | Etiq. |
+|---|---|---|---|---|---|---|---|---|
+| H-001 | Medio | R | Alta | 4 | CA-M3.1 (condición del dueño), D7 | §4.1, §4.4 | El hash ancla el dataset, no cada señal; `uri_blob` NULL en 20.030 filas | |
+| H-002 | Medio | B | Alta | 4 | PRD §4.1, §3.2 | §4.4 | `EstadoCiclo` no existe como objeto ni contrato | |
+| H-003 | Medio | D | Alta | 4 | PRD §4.2 `ciclo` | §4.4 | Contadores de `ciclo` persistidos en 0; nadie los escribe | |
+| H-004 | Medio | B | Alta | 4 | PRD §4.2, CA-M9.10 | §4.4 | `seguimiento` sin `responsable`; gerencia derivada en consulta | |
+| H-005 | Alto | R | Media | 4 | CA-M7.3, H2 | §4.4, §4.9 | `sin_respuesta` no registrado; denominador de H2 no congelado por ciclo | 🔒 |
+| H-006 | Alto | R | Alta | 4 | CA-M8.2, CA-M8.3, H5 | §4.4, §4.8 | Linaje de ejecución no atribuible: trazas sin `id_corrida`, corridas 11/12 sin gasto | |
+| H-007 | Medio | B | Alta | 4 | CA-M3.1 «accesible» (decisión del dueño) | §4.4 | URL verificada solo por sintaxis | |
+| H-008 | Bajo | R | Alta | 4 | PRD §6 | §4.4 | Una calificación corregida conserva `creado_en` | |
+| H-009 | Alto | R | Alta | 3 | CA-M6.3, CLAUDE §2.2 | §3.3, §3.6, §3.9 | Cifras del modelo en prosa publicada sin compuerta en producción (15/241, 0 inventadas) | 🔒 |
+| H-010 | Medio | B | Alta | 3 | CA-M3.3 | §3.6 | Tasa de rechazo no se persiste ni reporta (1,2 % corrida 10) | |
+| H-011 | Medio | R | Alta | 3 | D4 F1–F3, A2 | §3.4, §3.6 | Diccionario por subcadena decide el 54 % del score | |
+| H-012 | Alto | R | Alta | 5 | C(ii) M9-acceso → CA-M7.2, CA-M9.1, CA-M9.14, H1, H2 | §5.2, §5.3 | Cookie en claro forjable: cualquiera califica y lee por cualquier gerencia (GET demostrado) | 🔒 |
+| H-013 | Alto | D | Alta | 5 | CA-M7.7, CA-M9.16 | §5.3 | Server Actions sin verificación de alcance: ciclo cerrado ni pertenencia al informe | 🔒 |
+| H-014 | Medio | B | Alta | 5 | CA-M9.3, 9.7, 9.13–15, CA-M7.5 | §5.3 | `/historico` y `/metricas` no existen; recorte no registrado | |
+| H-015 | Medio | D | Alta | 5 | M9-sel, CA-M6.6 | §5.3 | Texto de selección obsoleto renderizado («2 de mayor peso») | |
+| H-016 | Medio | B | Alta | 5 | CA-M9.4, CA-M6.4 | §5.3 | 5 insights y 1 evidencia por insight en pantalla (Funza 49/183) | |
+| H-017 | Medio | B | Alta | 5 | CA-M9.5 | §5.3 | Sin cadena de trazabilidad en interfaz | |
+| H-018 | Medio | B | Alta | 5 | CA-M9.11 | §5.3 | Ficha sin insights acumulados ni promedio | |
+| H-019 | Bajo | R | Alta | 5 | CA-M9.17, M6-aviso | §5.3 | Etiqueta MVP solo en la vista de ciclo | |
+| H-020 | Medio | BD | Alta | 5 | CA-M6.2, CA-M9.4 (criterio B) | §5.3 | Infografía sin código, especificación ni retiro → P-4 | |
+| H-021 | Medio | B | Alta | 2 | D1, CA-M4.4 | §2.3, §2.5, §8a.1 | `contexto_no_verificado` nunca se escribe; medido 0 contagios | |
+| H-022 | Medio | B | Alta | 2 | D7, CA-M8.2 | §2.4, §2.5 | Corridas 11/12 sin linaje de prompt (81 insights) | ⚠ |
+| H-023 | Medio | BD | Alta | 2 | CLAUDE §4, A10, P-1 | §2.1, §2.5 | «v2 vigente» sin corrida registrada; publicado es v1 | ⚠ |
+| H-024 | Bajo | R | Alta | 2 | CLAUDE §9 | §2.5 | Clasificador no usa `techo_de` | |
+| H-025 | Bajo | B | Alta | 2 | Prompt v4, CA-M2.5 | §2.5 | `cambio_fisico` exigido y descartado al persistir | |
+| H-026 | Bajo | D | Alta | 2 | CA-M2.2 | §2.5 | 23/326 insights (7,1 %) en categoría `otro` | |
+| H-027 | Alto | D | Alta | 8a | H4, CA-M8.2 | §8a.2, §8a.4 | «266 trazas con hashes de entrada y salida `[BD]`»: `hash_output` NULL 266/266 | ⛔ |
+| H-028 | Alto | D | Alta | 8a | H3, H4, CA-M3.3 | §8a.4 | «Tasa de rechazo 0,0 %» dos veces; la base da 1,2 / 2,2 / 4,4 % | ⛔ |
+| H-029 | Medio | BD | Alta | 8a | CA-M3.3, H3, H4 | §8a.3, §8a.4 | No declara que la tasa mide fidelidad de cita contra lo ingerido | |
+| H-030 | Alto | BD | Alta | 8a | H1, A6 | §8a.4 | «25–50 % del contenido del top 3» sin productor ni método | ⛔ |
+| H-031 | Bajo | BD | Alta | 8a/8b | §0 del documento | §8a.4, §8b.4 | Inventario y estados desactualizados e inconsistentes | |
+| H-032 | Bajo | BD | Alta | 8a | PRD §9 | §8a.4 | `[PRD §11]` no existe; la compuerta está en §9 | |
+| H-033 | Medio | BD | Alta | 8a/8b | H1, CA-M4.3, H-011 | §8a.3, §8b.2 | Lectura de H1 omite el scoring (54 % diccionario) y CA-M4.3 | |
+| H-034 | Alto | BD | Alta | 8 | «Cómo leer las cifras», H1–H5 | §8b.3, §8b.4 | Causa raíz: 53/67 procedencias son otro documento; ninguna cifra ligada a consulta | ⛔ |
+| H-035 | Alto | BD | Alta | 8b | H5, CA-M8.3, B4 | §8b.1, §8b.2, §8b.4 | H5 no reproducible: USD 39/2.160 vs 29,9/1.825 hoy; 84 % sin columna; tarifa sin verificar | ⛔ |
+| H-036 | Alto | BD | Alta | 8b | Hallazgo 4 del documento, A10, CLAUDE §2.4 | §8b.4 | Promoción de v2 apoyada en 42/20 y 40/35 no persistidos | ⚠ |
+| H-037 | Alto | D | Alta | 7 | CA-M8.4, CA-M6.7, CA-M1.4 | §7.1, §7.2 | Corrida interrumpida queda «completa», sin registro de fallos, publicable y sin reanudación | |
+| H-038 | Medio | D | Alta | 7 | CLAUDE §6 | §7.2 | `correr_ciclo.py --seco` escribe y gasta tokens | |
+| H-039 | Medio | R | Alta | 7 | CA-M8.2, D9 | §7.2 | Sin bloqueo ni estado en curso; corridas 9 y 10 solapadas | |
+| H-040 | Medio | R | Alta | 7 | CA-M6.7, CA-M9.4, H4 | §7.1, §7.2 | Informe no regenerable byte a byte (sin `ORDER BY`) ni ligado al commit | |
+| H-041 | Bajo | R | Alta | 7 | D6 | §7.2 | Reintentos y timeouts del LLM no fijados ni documentados | |
+| H-042 | Bajo | B | Alta | 1 | CA-M1.5, PRD §4.2 | §1.2 | Traza de ingesta solo en stdout; `n_registros` = municipios | |
+| H-043 | Bajo | R | Alta | 1 | D7 | §1.2 | Nomenclátor y contexto no regenerables desde el repo | |
+| H-044 | Medio | B | Alta | 6 | CA-M9.18, DS §6 | §6.3, §6.4 | 0 `@media`; dos columnas fijas en móvil | |
+| H-045 | Medio | B | Alta | 6 | DS §5.2, CA-M7.6 | §6.3, §6.4 | Un fallo al guardar la calificación no se muestra en el sitio | |
+| H-046 | Bajo | B | Alta | 6 | DS §2.2, §5.1, §5.3 | §6.4 | Sin zona de sugerencias, vacío sin fecha, sin `loading`/`not-found` | |
+| H-047 | Bajo | BD | Alta | 6 | DS §2.2 vs §2.3 | §6.4 | El DS se contradice sobre el token de la línea de fuentes | |
+| H-048 | Medio | R | Alta | 10 | D3 | §10.2, sección 3bis | PII de SECOP replicada a Neon sin política de tratamiento (reevaluado con R-A1 abajo) | |
+| H-049 | Medio | R | Alta | 10 | D5/D8 | §10.3 | Sin lockfile; saltos de major en `openai`/`langfuse`/`langgraph`; `postcss` high vía `next` | |
+| H-050 | Medio | B | Alta | 10 | CLAUDE §4, H4 | §10.4 | Sin tests para `snapshot.py`, `agregacion.py`, `procesar_municipio` ni `web/` | |
+| H-051 | Bajo | B | Alta | 10 | Deuda | §10.5 | Código muerto, columnas vacías, scripts de calibración desalineados | |
+
+**Totales:** 51 hallazgos · Crítico 0 · **Alto 12** (H-005, 006, 009, 012, 013,
+027, 028, 030, 034, 035, 036, 037) · **Medio 26** · **Bajo 13** · por categoría:
+Defecto 8 · Brecha 17 · Riesgo 15 · Brecha documental 11 · Desviación no
+registrada 0.
+
+## 3bis. Riesgos aceptados y desviaciones que retiran controles
+
+### R-A1 — Credencial de Neon expuesta y no rotada (decisión del dueño)
+
+Registrado en §0.9 y §10.1. Hechos: no está en el repositorio ni en su historial;
+el rol tiene escritura; la exposición es externa. Depende de su integridad lo que
+solo vive en Neon: el informe 5 publicado (corrida canónica del ciclo 3), la
+tabla `usuario` (denominador de H2) y todas las futuras `calificacion` y
+`seguimiento` (evidencia primaria de H1 y H2). No es un hallazgo a remediar; **sí
+es un tercer camino de escritura sin control** sobre esa evidencia, junto a
+H-012 y H-013.
+
+### Reevaluación de H-048 combinado con R-A1
+
+Datos personales de 19.640 registros de SECOP (`proveedor`, `rep_legal`, D3) están
+en una base gestionada externa cuya credencial de escritura se sabe expuesta y no
+se rotará. **En la escala de esta auditoría —centrada en si los resultados del
+experimento son fiables— la combinación no cambia la severidad: H-048 se mantiene
+en Medio**, porque no afecta a ninguna hipótesis ni a la reproducibilidad. Pero la
+escala no captura lo que la combinación sí crea: un vector conocido hacia datos
+personales de terceros, al que **la carga de los 7 usuarios reales añadirá datos
+personales internos de Pactia** (nombres y correos) bajo la misma credencial. La
+auditoría **no emite juicio legal**; registra la pregunta **P-6** (¿debe jurídica
+revisarlo antes de cargar usuarios?) y la deja como condición opcional de F0.1 a
+criterio del dueño.
+
+### Desviaciones autorizadas que retiran controles (criterio C(ii))
+
+| Desviación (registro) | Implementada como se registró | Control que retira | Criterio o hipótesis dependiente | Dónde está el riesgo |
+|---|---|---|---|---|
+| `3b` / `M9-acceso` — sin autenticación; correo precargado | Sí (§5.1, §5.2) | Identidad verificable de quien escribe | CA-M7.2 (independencia), CA-M9.1, CA-M9.14, atribución de H1 y H2 | **H-012** (Alto, 🔒) |
+| `11.4/3` — sin canal de notificación | Sí (§0.2 #27) | Marca temporal de «notificado» | Métricas del PRD §6 «tiempo hasta la primera calificación tras la notificación» y «% de informes abiertos»: no medibles; CA-M9.2 | Sin H-ID: consecuencia registrada aquí; el PRD §6 las pedía y no habrá dato |
+| `P1` — tope 10 y umbral de información en 0 | Sí (§3.2) | La guarda que impedía que un score de un solo factor encabezara el ciclo | Lectura de H1: Ibagué primero con 0/239 días; el control sustituto es la línea de fuentes (M6-orden) | **H-033** (la lectura de H1 no lo declara), **H-016** (la evidencia que sostendría el juicio se ve parcial) |
+| `M6-aviso` — etiqueta «MVP» en vez de «MVP — contenido no validado por Analítica» | Sí, solo en la vista de ciclo (§5.2) | La advertencia de que **nadie revisó el contenido**, que el PRD §7 usa como compensación del riesgo aceptado «sin revisión humana previa» | PRD §7 (riesgo alto aceptado, compensado por «validador + marca»): la mitad de la compensación se acortó | **H-019** (Bajo); el registro `M6-aviso` ya escribe la consecuencia |
+| `M9-carga` / `M9-sel` — se piden 5 insights en 3 municipios, por tipo | Sí (§5.2) | Ninguno; redefine el denominador de H2 | H2: la tasa se computa sobre lo pedido; hay que declararlo | Sin H-ID; **H-015** (el texto en pantalla describe otro criterio) |
+| `D3` — PII de SECOP conservada | Sí | Minimización del dato | — | **H-048** + R-A1 (arriba) |
+| `11.2` — deduplicación por ciclo | Sí | Unicidad global de señal | CA-M1.3 literal; sin efecto medido (0 duplicados en el snapshot) | — |
+| Addendum 01 D4 — scoring sin TerriData | Sí | La normalización poblacional de CA-M5.2 | CA-M5.2; compensado por factores independientes del tamaño (probado, `test_scoring.py:661-685`) | — |
+
+## 4. Hallazgos detallados
+
+Están en cada área: §4.4 (H-001–H-008), §3.6 (H-009–H-011), §5.3 (H-012–H-020),
+§2.5 (H-021–H-026), §8a.4 (H-027–H-033), §8b.4 (H-034–H-036), §7.2 (H-037–H-041),
+§1.2 (H-042–H-043), §6.4 (H-044–H-047), §10.2–10.5 (H-048–H-051). No se repiten.
+
+## 5. No verificable (consolidado)
+
+| Qué | Por qué | Artefacto que lo resolvería |
+|---|---|---|
+| Saltos `insight → calificacion` y `municipio → seguimiento` con datos reales | 0 filas en ambas tablas | Al menos una calificación y un cambio de estado desde la app en la ventana |
+| Índice único parcial de `informe` bajo concurrencia en PostgreSQL | No se escribe | Prueba de integración en una rama de Neon |
+| CA-M1.4 (fuente caída) y validador ante fuente viva | Sin fuentes vivas (D9) | Conector real de Fase 0 con fallo simulado |
+| CA-M4.3 (bucle de aprendizaje) y F6 con datos reales | 0 calificaciones | Un segundo ciclo publicado tras calificar el primero |
+| Reproducibilidad de M2 y M4 (A6, A11) | Exige llamar al modelo | Solo se verificaron las cifras desde corridas persistidas |
+| Efecto del contexto bandeado (v2) | Sin corrida registrada de v2 | Contraste v1/v2 con `--persistir` y linaje (F2.3) |
+| Escritura real de una Server Action forjada (H-013) | Regla de no escribir | Prueba de integración en rama de Neon |
+| Comportamiento ante caída del proveedor y `database is locked` | Exige ejecutar un ciclo | Cliente simulado que falle en el lote 3 de 6 |
+| Código que publicó los informes 2–4 | No registrado | Guardar commit e invocación en `informe` (F2.4) |
+| Cifras 42/20 y 40/35 de la promoción de v2; 84 % de razonamiento; 615 señales/quincena | Sin corrida, sin columna, sin productor | F2.3, F2.1, F0b.2 |
+| Render a 375 px | Servidor no levantado en la sesión 2 | Relanzar `npm run dev` y capturar |
+| Vulnerabilidades de dependencias Python | Sin herramienta de auditoría instalada; no se instala nada | `pip-audit` en el entorno |
+| Hojas de revisión (45 insights, 5 personas) y su devolución | Fuera del repositorio | Los CSV de `data/revision/` y las respuestas |
+
+## 6. Matriz de conformidad
+
+**59 criterios:** Cumple 23 · Parcial 17 · No cumple 8 · Desviación autorizada 9
+· No verificable 2 · Fuera de alcance 0.
+
+| CA | Estado | Base (área) |
+|---|---|---|
+| CA-M1.1 | Desviación autorizada (Add. 01 §5) | Carga las 4 fuentes del snapshot y particiona; exacto (1) |
+| CA-M1.2 | Cumple | URL y fecha original al 100 % en SECOP y RSS (1) |
+| CA-M1.3 | Desviación autorizada (11.2) | Restricción real por (ciclo, hash de identidad); H-001 (1, 4) |
+| CA-M1.4 | No verificable | Sin fuentes vivas; ingesta atómica (1) |
+| CA-M1.5 | Parcial | Conteos por fuente solo en stdout; H-042 (1) |
+| CA-M2.1 | Cumple | 95,2 / 94,9 / 95,3 % reproducidos exactamente (8b) |
+| CA-M2.2 | Parcial | 7,1 % en `otro`; H-026 (2) |
+| CA-M2.3 | Cumple | Sin restricción de idioma en prompt ni código (2) |
+| CA-M2.4 | Cumple | Sin restricción de tipología (2) |
+| CA-M2.5 | Cumple | Contabilidad señal a señal 2.487 = 2.487; no mencionados registrados (2, 7) |
+| CA-M3.1 | Parcial (Medio) — decisión del dueño | Localizable cumple (933/933); accesible por sintaxis; H-001, H-007 (3, 4) |
+| CA-M3.2 | Cumple | Rechazados persistidos con motivo (3) |
+| CA-M3.3 | Parcial | Tasa derivable (1,2 %), no persistida ni reportada; publicada mal; H-010, H-028, H-029 (3, 8a) |
+| CA-M3.4 | Cumple | 0/170 consolidados con origen rechazado (3) |
+| CA-M4.1 | Cumple | Cruce de ≥ 2 categorías exigido por código (2) |
+| CA-M4.2 | Cumple (v1); v2 sin ejercitar | Implicación obligatoria; contexto bandeado sin corrida; H-023 (2) |
+| CA-M4.3 | No verificable | Cableado, 0 calificaciones; contaminable por H-013 (2) |
+| CA-M4.4 | Cumple | Unión de señales verificada 23/23 consolidados (4) |
+| CA-M5.1 | Cumple | Ranking explicable y reproducido con diferencia 0 (3) |
+| CA-M5.2 | Desviación autorizada (D4) | Features de SECOP/ELIC; F6 sin ejercitar (3) |
+| CA-M5.3 | Cumple | `config/pesos.json` validado y persistido verbatim (3) |
+| CA-M5.4 | Desviación autorizada (P1) | Tope 10, umbral 0 (3) |
+| CA-M5.5 | Cumple | Aportes y crudos persistidos por municipio y corrida (3) |
+| CA-M6.1 | Parcial | Informe con top 10 y desglose; justificación y sugerencias vacías: el Sintetizador no existe (documentado en CLAUDE.md §4, MARCA-tono); H-046 pinta el hueco (3, 6) |
+| CA-M6.2 | No cumple | Infografía sin código; Brecha documental H-020 → P-4 (5) |
+| CA-M6.3 | Parcial — decisión del dueño (P-3) | Estructuradas por código; prosa con cifras transcritas sin compuerta; H-009 (3) |
+| CA-M6.4 | Cumple | Fuente y año en composición y presentación (3, 6) |
+| CA-M6.5 | Desviación autorizada (M6-aviso) | «MVP» en encabezado; H-019 (5, 6) |
+| CA-M6.6 | Cumple | Semilla congelada; misma muestra para las 7 (3, 5); texto obsoleto H-015 |
+| CA-M6.7 | Parcial | Publica y archiva atómicamente; sin punto de entrada ni rastro del código; sin Histórico; H-040, H-014 (7, 5) |
+| CA-M7.1 | Cumple | 1 clic por calificación tras identificarse una vez (5) |
+| CA-M7.2 | Parcial | Estructura sí; independencia no garantizable sin identidad; H-012 (4, 5) |
+| CA-M7.3 | Parcial | `sin_respuesta` por ausencia; denominador no congelado; H-005 (4) |
+| CA-M7.4 | Cumple | Comentario opcional tras calificar (5) |
+| CA-M7.5 | No cumple | Ninguna tasa calculada ni mostrada; H-014 (5) |
+| CA-M7.6 | Cumple | Upsert al clic; fallo no mostrado: H-045 (5, 6) |
+| CA-M7.7 | Parcial | Derivado bien, aplicado solo en la vista; H-013 (5) |
+| CA-M9.1 | Desviación autorizada (3b/M9-acceso) con Riesgo Alto | H-012 (5) |
+| CA-M9.2 | Desviación autorizada (11.4/3) | Sin correo (5) |
+| CA-M9.3 | Parcial | 2 de 3 vistas; enlaces a 404; H-014 (5) |
+| CA-M9.4 | Parcial | 5 insights y 1 evidencia por insight; sin infografías; H-016, H-020 (5) |
+| CA-M9.5 | No cumple | H-017 (5) |
+| CA-M9.6 | Desviación autorizada (M6-src) · cumple | Barras por fuente (5, 6) |
+| CA-M9.7 | No cumple (vista) | Datos correctos; sin Histórico; H-014 (5) |
+| CA-M9.8 | Cumple | Tablero derivado sin alta manual (5) |
+| CA-M9.9 | Cumple | Nota obligatoria verificada en servidor (5) |
+| CA-M9.10 | Parcial | Gerencia derivada en consulta; H-004 (4) |
+| CA-M9.11 | Parcial | Sin insights acumulados ni promedio; H-018 (5) |
+| CA-M9.12 | Cumple | Filtros y orden en la URL (5) |
+| CA-M9.13 | No cumple | Sin `/metricas`; H-014 (5) |
+| CA-M9.14 | No cumple | Nada que proteger; H-014; y forjable H-012 (5) |
+| CA-M9.15 | No cumple | Sin CSV; H-014 (5) |
+| CA-M9.16 | Cumple | Escrituras: `calificacion`, `seguimiento`, cookie; alcance en H-013 (5) |
+| CA-M9.17 | Desviación autorizada (M6-aviso) con nota | Solo en la vista de ciclo; H-019 (5) |
+| CA-M9.18 | Parcial | Usable sin romperse; sin adaptación; H-044 (6) |
+| CA-M8.1 | Cumple | Cadena reconstruida 241/241 hasta el snapshot anclado (4) |
+| CA-M8.2 | Parcial | Sin `hash_output`, `id_corrida`; H-006, H-022 (4, 7) |
+| CA-M8.3 | Parcial | Agregable por ciclo y agente, no por corrida ni con razonamiento; H-006, H-035 (4, 8b) |
+| CA-M8.4 | No cumple | Sin checkpointer ni reanudación; H-037 (7) |
+
+**Reglas de `CLAUDE.md` §2** (área 9): §2.1 regla 1 Cumple (con H-013 como
+matiz de alcance) · regla 2 Cumple · regla 3 Cumple · §2.2 Parcial (P-3, H-009) ·
+§2.3 corolario 1 Cumple en código / Parcial en métrica (H-010, H-028, H-029) ·
+corolario 2 Cumple (H-021 pendiente como implicación de D1) · corolario 3 Cumple
+en `procesar_ciclo` / Parcial en scripts (H-022, H-023) · §2.4 Parcial (H-036).
+
+## 7. Plan de remediación
+
+Convenciones: esfuerzo en **días de un desarrollador** (sin fechas); `>3 d` se
+marca; **Intocable** = protege la vista de informe o la calificación (PRD §7/§8:
+nunca se recortan); **Recortable** = puede caer en el orden del PRD (métricas →
+filtros → histórico). Dependencias de preguntas del dueño con la opción que se
+asume. Cada subfase es un cambio verificable por sí solo.
+
+### F0 — Prerrequisitos de distribución (🔒) · **4,75 d**
+
+| Subfase | Resuelve | Solución (archivos) | Alternativa | Depende de | Esfuerzo | Cierre | Riesgo residual | Protege | |
+|---|---|---|---|---|---|---|---|---|---|
+| **F0.1** | H-005 | Congelar la lista de gerencias autorizadas **en el payload** al publicar: `composicion.componer` añade `calificacion.gerencias = [id_gerencia de usuario activo]`; la tasa de H2 se computa contra esa lista (`informes/composicion.py`, `web/lib/tipos.ts`, `tests/test_informes.py`) | Tabla `gerencia_ciclo` en Alembic (más robusta si la lista cambia dentro de la ventana; +0,5 d) | **P-2** (asume la opción payload) · **P-6** como condición opcional del dueño antes de cargar usuarios | 1 d | El payload del informe publicado lista las gerencias; test que falla si falta; `SELECT` sobre `informe.contenido` | Un usuario dado de alta a mitad de ventana no cuenta salvo republicación | H2 | Intocable |
+| **F0.2** | H-009 | Cablear `reglas.cifras.inventadas` en `ciclo.py` como regla R8 del validador: tras M2, cifras de `resumen`/`implicacion` contra el texto de las señales del insight; tras M4, contra insights de origen + señales; el insight con cifra ajena se **rechaza con motivo** (`reglas/validador.py`, `ciclo.py`, `tests/test_reglas.py`) | Solo marcar (`cifra_no_fuente = true`) sin rechazar: preserva volumen, no cumple la lectura del dueño | — | 1 d | Test con cifra inventada rechazada; recomputar sobre la corrida 10 → 0 rechazos nuevos (15/15 tienen fuente) | Falsos positivos en cifras < 3 dígitos no cubiertas (límite declarado de `cifras.py`) | H4, CA-M6.3 | Intocable |
+| **F0.3** | H-012 | Cookie **firmada** (HMAC con `COOKIE_SECRET` en `.env`, emitida solo por `identificarse`, verificada en `identidadActual`); añadir `calificacion.id_usuario` y `seguimiento` ya lo tiene, para auditar quién escribió por cada gerencia (Alembic + `generar_contrato_ts.py`); `web/lib/sesion.ts`, `web/app/acciones.ts`, `modelos.py` | Enlace mágico por correo (3–5 d): contradice la decisión 3b y exige canal de envío | — (la desviación se mantiene; se cierra el forjado trivial) | 1,5 d | GET con `Cookie: correo=…` sin firma → sin identidad; `test_contrato.py` regenerado en verde; consulta: toda calificación con `id_usuario` | Teclear un correo ajeno sigue siendo posible (registrado en M9-acceso); una persona puede seguir calificando por varias gerencias, pero queda rastro | H1, H2, CA-M7.2 | Intocable |
+| **F0.4** | H-013 | Verificación de alcance en servidor: `registrarCalificacion`/`registrarComentario` exigen que `id_insight` esté en `insights` de un informe `publicado` **del ciclo editable** (`cicloEsEditable`) y `cambiarEstado` que `divipola` esté en el top pedido de un informe publicado (`web/app/acciones.ts`, `web/lib/consultas.ts`) | Restricción en base (trigger) — descartada: rompe la regla 1 de D8 y diverge entre motores | — | 1 d | Acción con `id_insight` de la corrida 11 o de ciclo cerrado devuelve error y no escribe; comprobado en rama de Neon | Ninguno relevante | H1, F6, CA-M4.3 | Intocable |
+| **F0.5** | P-1 (decisión), H-023 (parte documental) | Corregir `CLAUDE.md` §4 (M4): v1 es la versión publicada; v2 candidata pendiente de comparación con linaje persistido; misma nota en `pendientes.md` A10 | — | P-1 cerrada | 0,25 d | Texto corregido; `grep "v2 es la versión vigente"` vacío | — | H4 (lectura) | — |
+
+### F0b — Prerrequisitos de la decisión (⛔) · **5 d**
+
+| Subfase | Resuelve | Solución (archivos) | Alternativa | Depende de | Esfuerzo | Cierre | Riesgo residual | Protege | |
+|---|---|---|---|---|---|---|---|---|---|
+| **F0b.1** | H-034, H-027, H-030, H-031, H-032, H-033 (redacción) | **Regenerar `informe_resultados.md` desde script** (`scripts/informe_resultados.py`): cada cifra sale de una función/consulta identificada, con el commit y los ids de corrida; las 19 cifras ya reproducidas (§8a.2, §8b.1) son la semilla; lo sin productor —«25–50 %», 615/quincena, 84 % razonamiento, 42/20 y 40/35— se **retira o se marca «afirmación sin medición»**; se corrigen «hashes de salida», la cita §9 y la lectura de H1 (H-033: dependencia del scoring y CA-M4.3 sin ejercitar) | Corregir cifra a cifra a mano: reproduce el problema en la próxima actualización | F0b.2, F0b.3 (sus cifras) | **3 d** | `python scripts/informe_resultados.py` produce el archivo commiteado sin diferencias; cada cifra lleva `[consulta: …]` | Las afirmaciones cualitativas siguen siendo prosa humana | H1–H5 (decisión) | — |
+| **F0b.2** | H-035 (+ H-006 en lo que toca a H5) | `estimar_costo.py` acepta `--corridas` y calcula sobre trazas **de esas corridas** (exige F2.1 para `id_corrida`; mientras tanto, por ventana temporal declarada); tokens/señal derivados de `corrida_agentes` (no constante); tarifa condicional publicada como `1.586 + 239·k`; el 84 % pasa a «sin medición» hasta F2.1 | Fijar el corte de trazas por fecha en el documento | **P-5** (asume k = 1 con advertencia impresa) · F2.1 para atribución exacta | 1 d | Dos ejecuciones del script sobre el mismo corte dan las mismas cifras; el documento muestra la condicional | Sin P-5, la cifra absoluta sigue siendo condicional | H5 | — |
+| **F0b.3** | H-028, H-010 | Calcular y persistir la tasa de rechazo por corrida (`corrida_agentes.n_insights`, `n_rechazados` o vista de consulta en el script de F0b.1); corregir `CLAUDE.md` §4 («0,0 %») | Solo consulta en el script, sin columnas | — | 0,5 d | `SELECT` da 4/326 para la corrida 10 y el documento lo publica | — | H3, H4 | — |
+| **F0b.4** | H-030 | Definir «criterio laxo/estricto» y reproducirlo en `comparar_pasadas.py` (contenido del top 3 que cambia entre corridas 7 y 8) **o retirar la cifra** | — | Decisión de Analítica sobre el método (asume retirar si no se define en F0b.1) | 0,5 d | La cifra tiene script o no aparece | — | H1 | — |
+
+### F1 — Contención operativa · **5,1 d**
+
+| Subfase | Resuelve | Solución | Alternativa | Depende | Esfuerzo | Cierre | Residual | Protege | |
+|---|---|---|---|---|---|---|---|---|---|
+| F1.1 | H-037 | Registrar el resultado por municipio en la corrida (`corrida_agentes.resultados` JSON o tabla `corrida_municipio`: estado, error, lotes fallidos); `tipo_corrida` y `senales_procesadas` derivados de lo **procesado**; `publicar()` exige 18 municipios sin error; `correr_ciclo.py --reanudar <corrida>` procesa solo los faltantes (`ciclo.py`, `agentes/persistencia.py`, `informes/publicacion.py`, migración) | LangGraph con checkpointer (CA-M8.4 literal; 4–6 d y cambia la orquestación) | — | **3 d** | Test: corrida interrumpida → `parcial`, no publicable, reanudable sin llamadas repetidas | Un error del proveedor sigue perdiendo el lote; queda registrado | H1, H4 | Intocable |
+| F1.2 | H-038 | `--seco` real: `procesar_ciclo(confirmar=False)` no hace `commit` (o corre en `SAVEPOINT` y revierte); corregir `CLAUDE.md` §6 | Eliminar el flag | — | 0,5 d | `--seco` deja `corrida_agentes` sin filas nuevas | — | Operación | — |
+| F1.3 | H-039 | Marca «en curso» en `corrida_agentes` (columna `estado`) comprobada al arrancar; `registrar_prompt` confirmado antes del bucle | Archivo de bloqueo | F1.1 (misma migración) | 0,5 d | Segundo `correr_ciclo.py` concurrente se niega con mensaje | — | CA-M8.2 | — |
+| F1.4 | H-045 | `registrarCalificacion` devuelve resultado; `Calificar` usa `useActionState` y muestra el error en el sitio conservando la selección; `error.tsx` global (`web/app/ciclo/[id]/Panel.tsx`, `acciones.ts`, `web/app/error.tsx`) | — | — | 1 d | Fallo simulado del driver → mensaje en la fila y selección visible | — | H2 | Intocable |
+| F1.5 | H-015 | Corregir el texto de `Panel.tsx:299-304` para describir 3+1+1 con relleno, leyendo `composicion_pedida` | — | — | 0,1 d | El texto renderizado coincide con `composicion_pedida` | — | H1 (lectura) | Intocable |
+
+### F2 — Trazabilidad e integridad · **6 d**
+
+| Subfase | Resuelve | Solución | Alternativa | Depende | Esfuerzo | Cierre | Residual | Protege | |
+|---|---|---|---|---|---|---|---|---|---|
+| F2.1 | H-006 | Migración: `traza_agente.id_corrida` (FK), `tokens_razonamiento`; poblar `hash_output`, `id_prompt`, `id_dataset`; `hash_input` también en el Correlacionador (`agentes/persistencia.py`, `ciclo.py`) | — | — | 1,5 d | Trazas nuevas con los seis campos; consulta de costo por corrida y agente | Las 266 trazas históricas quedan sin `id_corrida` (se documenta) | H5, CA-M8.2/8.3 | — |
+| F2.2 | H-021 | `InsightCorrelacionado.uso_contexto_bing` y `guardar_correlaciones` escribe `contexto_no_verificado=True` cuando hubo texto Bing en la entrada | Marcar por municipio en la corrida | — | 0,5 d | Consolidados nuevos con la marca; test | Histórico en `False` (se documenta) | D1, H4 | — |
+| F2.3 | H-022, H-023, H-036 | `comparar_correlacionador.py --persistir` llama a `registrar_prompt` y pasa `id_prompt` y `version_clasificador`; **volver a correr el contraste v1/v2 con `--persistir`** para que `PISO_RUIDO` y la evidencia de A10 tengan corrida | Dejar v2 como candidata sin evidencia persistida (es la situación actual) | P-1 (v1 se mantiene; esto solo sustenta la candidatura) | 1 d + tokens (~USD 3) | `prompt_version` con fila v2; corridas con `id_prompt`; `PISO_RUIDO` derivado de corridas citadas | Costo en tokens; la varianza del agente sigue | CLAUDE §2.4 | — |
+| F2.4 | H-040 | `componer`: `ORDER BY Insight.id`; `informe.origen` JSON con commit e invocación; `scripts/publicar_informe.py` como único punto de entrada (`informes/composicion.py`, `publicacion.py`, migración) | — | — | 1 d | `componer` sobre SQLite y Neon da payload idéntico; el informe guarda el commit | Los informes 2–5 quedan sin commit (se documenta) | H4 | — |
+| F2.5 | H-003, H-042 | Escribir `ciclo.n_*` al cerrar `procesar_ciclo` y persistir el `Resumen` de ingesta (o eliminar las columnas por Alembic); corregir `n_registros` | Eliminar columnas | — | 0,5 d | `SELECT` de `ciclo` con valores reales | — | CA-M1.5 | — |
+| F2.6 | H-004 | `seguimiento.id_gerencia` y `responsable` en Alembic; `registrarSeguimiento` los escribe; contrato regenerado | — | F0.3 (mismo lote de migración) | 0,5 d | Historial con gerencia congelada al cambio | — | CA-M9.10 | Recortable (filtros del tablero) |
+| F2.7 | H-001 | `senal_cruda.hash_contenido` (SHA-256 de `contenido`+`datos`) calculado en ingesta; comprobación opcional en el validador | — | — | 0,5 d | Consulta que detecta una fila alterada | — | H4 | — |
+| F2.8 | H-043 | Archivar en el blob y en `dataset_version` el CSV del nomenclátor y el CSV exportado de TerriData con su hash | — | — | 0,5 d | `dataset_version` con tres filas | — | D7 | — |
+
+### F3 — Integridad de la evidencia (resto) · **0,5 d**
+
+| Subfase | Resuelve | Solución | Depende | Esfuerzo | Cierre | Protege | |
+|---|---|---|---|---|---|---|---|
+| F3.1 | H-029 | El script de F0b.1 imprime junto a la tasa de rechazo la frase: «mide fidelidad de cita contra el contenido ingerido, no veracidad» | F0b.1 | 0,25 d | Frase presente en el documento regenerado | H3, H4 | — |
+| F3.2 | H-031, H-032 | Inventario y citas salen del script (ya en F0b.1); `Django` y «canal sin decidir» eliminados | F0b.1 | 0,25 d | Sin menciones obsoletas | — | — |
+
+### F4 — Conformidad funcional · **9,25 d**
+
+| Subfase | Resuelve | Solución | Alternativa | Depende | Esfuerzo | Cierre | Protege | |
+|---|---|---|---|---|---|---|---|---|
+| F4.1 | H-016 | `Panel.tsx` muestra **todos** los insights del municipio (pedidos primero) y **todas** las evidencias por insight (nivel 2 desplegable) | Paginación | — | 1 d | Funza muestra 49 insights y 183 citas | H1 (juicio con evidencia completa) | Intocable |
+| F4.2 | H-014 (métricas) + H-010 en interfaz | `/metricas` para administrador: tasa por gerencia (denominador de F0.1), distribución, tasa de rechazo, costo por corrida (F2.1); CSV (`web/app/metricas/`) | — | F0.1, F2.1 | **3 d** | Cuatro métricas y CSV visibles solo con `rol=administrador` | H2 (reporte) | **Recortable** (primero en el orden del PRD) |
+| F4.3 | H-014 (histórico) | `/historico`: lista de informes publicados por ciclo (`web/app/historico/`) | — | — | 1 d | Ruta 200 con los publicados | CA-M9.7 | Recortable (último) |
+| F4.4 | H-017 | Nivel 3 de evidencia: despliegue o ruta `insight/[id]` con señal cruda, validación, correlación y aporte al score, desde el payload y `senal_cruda` | — | F4.1 | 2 d | Desde cualquier cita se llega a la señal y su trayecto | H4 (en interfaz) | — |
+| F4.5 | H-018 | Ficha con insights acumulados y promedio de calificaciones (`priorizados/page.tsx`) | — | F0.1 | 1 d | Ficha completa | CA-M9.11 | Recortable |
+| F4.6 | H-020 | **Retirar formalmente** la infografía en `pendientes.md` y en el PRD (aviso) **o** especificarla | Implementarla (fuera de estimación: sin especificación) | **P-4** (asume retirar) | 0,25 d | Registro en `pendientes.md` | — | — |
+| F4.7 | H-011 | Diccionario de obra con límite de palabra y lista revisada; medir con `medir_prefiltro.py` antes y después; versionar `VERSION_ALGORITMO` (A7) | — | Decisión de Analítica (A2, hoy congelado por el dueño) | 2 d | Dispersión por municipio y recálculo de las tres corridas convivientes | H1 (selección) | — |
+
+### F5 — Interfaz · **2,2 d**
+
+| Subfase | Resuelve | Solución | Esfuerzo | Cierre | |
+|---|---|---|---|---|---|
+| F5.1 | H-044 | `@media (max-width: 720px)`: lista en tarjetas, detalle a pantalla completa con retorno (`globals.css`, `ciclo/[id]/page.tsx`) | 1,5 d | Render a 375 px conforme al DS §6 | Intocable (calificación) |
+| F5.2 | H-046 | Zona de sugerencias con hueco explícito; vacío con fecha; `loading.tsx`, `not-found.tsx` | 0,5 d | Archivos presentes; vacío con fecha | — |
+| F5.3 | H-019 | Etiqueta MVP en `layout.tsx` para todas las vistas | 0,1 d | `/priorizados` con `etiqueta-aviso` | — |
+| F5.4 | H-047 | Corregir la tabla §2.2 del Design System (`type-h3`, ink) | 0,1 d | DS sin contradicción | — |
+
+### F6 — Endurecimiento · **6,6 d**
+
+| Subfase | Resuelve | Solución | Depende | Esfuerzo | Cierre | |
+|---|---|---|---|---|---|---|
+| F6.1 | H-050 | Tests para `snapshot.py` (partición, hash, dedup), `agregacion.py` (entradas desde base en memoria), `procesar_municipio` con cliente simulado (lote fallido, `salida is None`, error de M4) y `web/` con Vitest (acciones, consultas) | F0.4, F1.1 | **3 d** | Módulos hoy sin test con ≥ 1 caso cada rama de error | — |
+| F6.2 | H-049 | Lockfile (`uv lock` o `pip-compile`); `psycopg` a dependencias base; evaluar `next` 16 o fijar `postcss` parcheado | — | 1 d | Instalación reproducible; `npm audit` limpio o riesgo documentado | — |
+| F6.3 | H-048 | Documento de tratamiento (responsable, retención, minimización: ¿hace falta `rep_legal` en `datos`?) según respuesta de **P-6** | P-6 | 0,5 d | Documento en `docs/` y, si procede, columnas retiradas | — |
+| F6.4 | H-051, H-024, H-025, H-026, H-041 | Retirar `AlmacenAzure` y `escribir_plantilla` o marcarlos; alinear `probar_clasificador`/`comparar_prompts` con `texto_de` y sin prefiltro RSS; `techo_de` en el Clasificador; persistir `cambio_fisico`; reintentar categoría `otro`; fijar `timeout`/`max_retries`; docstrings; `ruff --fix` | — | 1,5 d | `ruff` 0; símbolos muertos fuera; scripts miden el pipeline p2 | — |
+| F6.5 | H-002 | Documentar el contrato `EstadoCiclo` como esquema (Pydantic) y el punto de inserción del orquestador, para la Fase 0 | — | 0,5 d | Esquema en `src/territorial/grafo/` o `docs/` | — |
+| F6.6 | H-008 | `calificacion.actualizado_en` (Alembic + contrato) | F0.3 | 0,1 d | Corrección fechada | — |
+| — | H-007 | **Sin acción en el MVP**: la decisión del dueño lo deja en Parcial (Medio); la URL se resolverá con conectores vivos en Fase 0 | — | 0 | — | — |
+
+## 8. Ruta crítica, quick wins y esfuerzo
+
+**Ruta crítica a la distribución (abrir la ventana de calificación):** P-2 → F0.1
+(1 d) ∥ F0.2 (1 d) ∥ F0.3 (1,5 d) ∥ F0.4 (1 d) → F0.5 (0,25 d) → carga de los 7
+usuarios (condicionada a P-6 si el dueño así lo decide) → F1.4 (recomendado
+antes de la ventana, 1 d). **Duración crítica secuencial mínima: 1,5 d (F0.3);
+esfuerzo total F0: 4,75 d.**
+
+**Ruta crítica a la decisión go/no-go:** F0b.3 (0,5 d) y F0b.2 (1 d, con P-5
+pendiente como condicional) → F0b.1 (3 d) → F0b.4 (0,5 d). **Esfuerzo F0b: 5 d.**
+F2.1 (1,5 d) antes de F0b.2 si se quiere el costo por corrida y el 84 % de
+razonamiento como medición y no como «sin medición».
+
+**Quick wins (≤ 1 d que cierran un Alto):** F0.2 (H-009, 1 d), F0.4 (H-013,
+1 d), F0.1 (H-005, 1 d), F0b.3 (H-028, 0,5 d), F0b.4 (H-030, 0,5 d), F0b.2
+(H-035 en lo reproducible, 1 d). Seis de los doce Alto se cierran en 5 días.
+
+**Esfuerzo total:** F0 **4,75 d** · F0b **5 d** · resto (F1–F6) **29,65 d**
+(F1 5,1 · F2 6 · F3 0,5 · F4 9,25 · F5 2,2 · F6 6,6), de los que **7 d son
+Recortables** por el orden del PRD (F4.2, F4.3, F4.5) y **2 d dependen de una
+decisión congelada** (F4.7, A2). Subfases > 3 d: ninguna; = 3 d: F0b.1, F1.1,
+F4.2, F6.1.
+
+**¿Hay que recomputar resultados reportados tras las correcciones?** Sí: (1)
+**todas** las cifras de H5 (F0b.2) —cambian con el corte de trazas y con P-5—;
+(2) la tasa de rechazo publicada (0,0 % → 1,2 % en la corrida 10; F0b.3); (3) el
+inventario de §0; (4) si F0.2 se aplica a corridas **futuras**, CA-M2.1 y H3
+pueden bajar unas décimas por los rechazos de cifra; sobre la corrida 10 no
+cambia nada (0 inventadas). El linaje de datos (241/241), A6, A11, CA-M2.1 y el
+scoring **no** necesitan recomputarse: se reprodujeron exactamente en `96e10e0`.
+
+## 9. Preguntas abiertas
+
+| # | Pregunta | Estado | Decide | Prioridad |
+|---|---|---|---|---|
+| P-1 | Informe 5 con Correlacionador v1: ¿republicar o corregir `CLAUDE.md`? | **Cerrada** (§2.8): se mantiene v1; `CLAUDE.md` se corrige en F0.5; v2 candidata pendiente de F2.3 | Dueño | 🔒 (la corrección) |
+| P-2 | Cómo congelar la lista de gerencias por ciclo (payload, tabla o Alembic) antes de cargar los 7 usuarios | **Abierta**; F0.1 asume payload | Dueño | 🔒 |
+| P-3 | Qué lectura de CA-M6.3 rige | **Cerrada** (§3.9): «ninguna cifra sin fuente» con compuerta en producción; H-009 Alto, quick win F0.2 | Dueño | — |
+| P-4 | Infografía: implementar, especificar o retirar formalmente | **Abierta**; F4.6 asume retirar | Dueño | Previa a distribución |
+| P-5 | Tarifa real de `gpt-5.4-mini` (factor *k* sobre 0,25 / 2,00) | **Abierta**; F0b.2 asume k = 1 con advertencia | Dueño / Analítica | ⛔ (condiciona H5) |
+| P-6 | ¿Debe jurídica revisar la combinación H-048 + R-A1 —datos personales de SECOP y, tras la carga, de las 7 gerencias, en una base cuya credencial de escritura está expuesta y no se rotará— **antes de cargar los usuarios**? | **Nueva, abierta**; la auditoría no emite juicio legal; F0.1 la trata como condición opcional del dueño | Dueño (con jurídica) | Previa a la carga de usuarios |
+
+## 10. Verificación de consistencia del informe
+
+Ejecutada por script sobre este archivo al cerrar (resultado en el commit de
+cierre): los 51 H-ID aparecen en la tabla de la sección 3 y cada uno en al menos
+una subfase del plan o en la fila «sin acción» (H-007); las etiquetas 🔒 (H-005,
+H-009, H-012, H-013; P-1) y ⛔ (H-027, H-028, H-030, H-034, H-035) coinciden
+entre §0.11, los encabezados de hallazgo, la tabla y las fases F0/F0b; las
+condicionales ⚠ (H-022, H-023, H-036) coinciden con §2.8. Conteos del resumen =
+tabla: 51 · 0 / 12 / 26 / 13 · categorías 8 / 17 / 15 / 11.
+
+**Correcciones hechas al cerrar:** (1) H-006 figura como **Alto · Riesgo** —la
+reevaluación de §4.8 subió la severidad; el encabezado en §4.4 ya lo decía y la
+tabla lo recoge—; (2) H-034 se ubica en «Área 8» (agrupa 8a y 8b); (3) CA-M6.1 se
+marca **Parcial sin H-ID propio**: el Sintetizador no construido es trabajo
+pendiente documentado (`CLAUDE.md` §4, `MARCA-tono`), no una desviación, y su
+efecto visible está en H-046; (4) la consecuencia de `11.4/3` sobre las métricas
+de notificación del PRD §6 se registra en la sección 3bis sin H-ID, porque es
+efecto de una desviación autorizada y no un defecto del código; (5) el resumen
+ejecutivo se recortó de 305 a menos de 300 palabras tras la comprobación.
+Ninguna otra inconsistencia detectada.
+
+*Fin del informe de auditoría.*
