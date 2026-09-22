@@ -2165,6 +2165,28 @@ son razonables; el problema es que nadie los eligió ni los escribió.
 - Qué código exacto publicó los informes 2–4: no está registrado; solo la
   cronología. Artefacto: guardar `commit` e invocación en `informe`.
 
+### 7.5 Anexo (sesión 2, encargo del dueño): ¿la corrida 10 está completa por datos?
+
+El estado `completa` no vale como prueba (H-037). Se verificó con `SELECT`, sin
+usar `tipo_corrida`:
+
+| Comprobación | Resultado |
+|---|---|
+| Municipios en `municipios_objetivo` y en `municipios_en_cohorte` | 18 y 18, idénticos |
+| Municipios con salida persistida | **18 de 18** con insights del Clasificador (mínimo Cartagena: 1 insight, 2 señales enviadas) |
+| Señales enviadas, recomputadas con el prefiltro sobre SECOP del ciclo 3 + todo RSS | **2.487**, igual a `senales_procesadas` |
+| Contabilidad por municipio (en insight ∪ en descarte = enviadas) | **18 de 18 cuadran**; ninguna señal enviada sin destino → ningún lote fallido ni vacío (un lote fallido dejaría sus señales fuera de ambos lados, `ciclo.py:346-351`) |
+| Lotes esperados (`ceil(secop/50) + ceil(rss/50)` por municipio) | **69** para la corrida 10; la corrida 9 (Puerto Colombia: 40 SECOP + 10 RSS) suma 2 → **71 = trazas del Clasificador del ciclo 3** |
+| Llamadas al Correlacionador esperadas (≥ 2 insights validados y ≥ 2 categorías conocidas) | **17** municipios (Cartagena no, con 1 insight); más 1 de la corrida 9 → **18 = trazas del Correlacionador del ciclo 3** |
+| Tokens | `traza_agente` del ciclo 3 menos corrida 9 = **541.852 / 249.767 = `corrida_agentes.tokens`** de la 10, exacto |
+| Trazas del Clasificador con salida mínima | 3 trazas con 36–58 tokens de salida (ids 188, 191, 224): lotes que devolvieron casi solo descartes; sus señales están contabilizadas, así que no son fallos |
+
+**Veredicto: la corrida 10 está completa por datos** —18/18 municipios,
+2.487/2.487 señales contabilizadas, 69 lotes y 17 llamadas a M4 coincidentes con
+las trazas, tokens exactos—. **No se añade ningún hallazgo ni etiqueta.** H-037
+sigue vigente como riesgo estructural: esta verificación tuvo que hacerse a mano
+porque el sistema no la registra.
+
 *Fin del área 7.*
 
 ---
