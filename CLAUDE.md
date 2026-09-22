@@ -106,8 +106,18 @@ toque una hipótesis, actualízalo ahí además de en `pendientes.md`.
    - **Las escrituras de la app pasan por Python, o su forma se verifica contra
      `modelos.py`.** Son las tres de CA-M9.16 —calificación, comentario y
      seguimiento— y viven en dos tablas: `calificacion` (el comentario es una
-     columna suya) y `seguimiento`. Escribirlas desde TypeScript a pelo es donde
-     el desacople muerde: un campo cambia en `modelos.py` y nadie se entera.
+     columna suya) y `seguimiento`.
+
+     **Resuelto generando, no duplicando.** `scripts/generar_contrato_ts.py` lee
+     `modelos.py` y emite `web/lib/contrato.generado.ts` con las columnas, los
+     tipos, la nulabilidad y los valores de los CHECK — el `estado` del
+     seguimiento sale como unión de tipos, así que una errata es error de
+     compilación y no un 500 en la ventana de calificación. **Y
+     `tests/test_contrato.py` falla si alguien toca `modelos.py` sin
+     regenerar**, que es lo que vuelve imposible «un campo cambia y nadie se
+     entera». Mismo papel que `alembic check`, sobre el lenguaje que no comparte
+     el modelo. Una lista escrita a mano en TypeScript habría sido una segunda
+     fuente de verdad que envejece en silencio.
    - **La app no genera migraciones nunca**, ni para sus propias tablas. Si M9
      necesita algo —sesiones de acceso por correo, por ejemplo— esa tabla nace en
      Alembic.
@@ -437,6 +447,8 @@ que mide dos versiones de prompt sobre el mismo lote.
 & $py -m alembic upgrade head                         # aplicar pendientes
 & $py -m alembic revision --autogenerate -m "motivo"  # tras tocar modelos.py
 & $py -m alembic check                                # ¿el esquema y los modelos concuerdan?
+& $py scripts\generar_contrato_ts.py                  # tras tocar calificacion o seguimiento
+& $py scripts\generar_contrato_ts.py --check          # ¿el contrato TS concuerda?
 ```
 
 Cuatro cosas que ahorran un rato:

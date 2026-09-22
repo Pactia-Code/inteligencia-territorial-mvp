@@ -33,6 +33,7 @@ from territorial.almacen.modelos import (
 from territorial.config import Config
 from territorial.informes.composicion import (
     AVISO_MVP,
+    agrupar_por_fuente,
     campos_de_contexto,
     componer,
     resumir_fuentes,
@@ -324,3 +325,71 @@ def test_sin_municipios_no_hay_informe(bd):
     s.flush()
     with pytest.raises(PublicacionInvalida, match="ningún municipio"):
         publicar(s, sc, ag)
+
+
+# --------------------------------------------------------------------------
+# Aportes por fuente — el mismo dato en dos niveles, que no pueden divergir
+# --------------------------------------------------------------------------
+
+
+def test_el_aporte_por_fuente_es_la_suma_de_sus_factores():
+    """La garantía que pidió Analítica: los dos niveles no pueden divergir.
+
+    La vista de ciclo pinta por fuente y el desglose audita factor a factor. Si
+    el agregado no cuadrara con sus partes, el informe diría dos cosas distintas
+    sobre el mismo score y no habría forma de saber cuál.
+    """
+    factores = [
+        aporte("F1", aporte=0.20), aporte("F2", aporte=0.07),
+        aporte("F3", aporte=0.04), aporte("F5", aporte=0.14),
+    ]
+    por_fuente = {f["fuente"]: f for f in agrupar_por_fuente(factores)}
+    assert por_fuente["contratación"]["aporte"] == pytest.approx(0.31)
+    assert por_fuente["prensa"]["aporte"] == pytest.approx(0.14)
+    assert sum(f["aporte"] for f in por_fuente.values()) == pytest.approx(
+        sum(f["aporte"] for f in factores)
+    )
+
+
+def test_cuadra_tambien_sobre_el_payload_completo(bd):
+    """No solo en la función suelta: en lo que de verdad se publica."""
+    s, sc, ag = bd
+    for m in componer(s, sc, ag)["municipios"]:
+        suma_factores = sum(
+            f["aporte"] for f in m["factores"] if not f["sin_cobertura"]
+        )
+        suma_fuentes = sum(f["aporte"] for f in m["aportes_por_fuente"])
+        assert suma_fuentes == pytest.approx(suma_factores), m["nombre"]
+
+
+def test_una_fuente_con_un_factor_vivo_no_cuenta_como_sin_datos():
+    """F1 truncado y F2 con cobertura siguen siendo contratación, y la hay."""
+    factores = [aporte("F1", sin_cobertura=True), aporte("F2", aporte=0.1)]
+    contratacion = agrupar_por_fuente(factores)[0]
+    assert contratacion["fuente"] == "contratación"
+    assert not contratacion["sin_datos"]
+    assert contratacion["aporte"] == pytest.approx(0.1)
+
+
+def test_las_fuentes_sin_datos_se_muestran_al_final_y_no_se_omiten():
+    """§3.4 del design system: la ausencia informa, así que se pinta."""
+    factores = [aporte("F4", aporte=0.3), aporte("F1", sin_cobertura=True)]
+    fuentes = agrupar_por_fuente(factores)
+    assert [f["fuente"] for f in fuentes] == ["licencias", "contratación"]
+    assert fuentes[-1]["sin_datos"]
+    assert fuentes[-1]["aporte"] == 0.0
+
+
+def test_el_mapa_de_factor_a_fuente_vive_en_un_solo_sitio():
+    """M9 lee los nombres del payload; no los vuelve a declarar.
+
+    Si el mapa se duplicara, un cambio en uno de los dos lados daría dos
+    informes que nombran distinto la misma fuente.
+    """
+    from territorial.informes import composicion
+
+    assert set(composicion.FUENTES) == {"F1", "F2", "F3", "F4", "F5", "F6"}
+    # Todo lo que la frase puede nombrar sale del mismo mapa.
+    cortos = {corto for _, corto in composicion.FUENTES.values()}
+    assert set(composicion.ORDEN_FUENTES) == cortos
+    assert set(composicion.FUENTES_EN_RESUMEN) <= cortos

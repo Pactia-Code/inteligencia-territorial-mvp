@@ -159,6 +159,49 @@ def resumir_fuentes(presentes: set[str], ausentes: set[str]) -> str:
     return f"sin {falta}" if falta else "sin datos"
 
 
+def agrupar_por_fuente(factores: list[dict]) -> list[dict]:
+    """Suma los aportes de los factores que comparten fuente.
+
+    La vista de ciclo pinta **por fuente** —«Contratación pública +0.31»— y
+    «contratación pública» son tres factores: F1, F2 y F3. La suma la hace M6 y
+    no M9 porque sumar es componer, y porque así la barra comparativa y el
+    número salen del mismo sitio y no pueden divergir.
+
+    **Va junto al detalle factor a factor, no en su lugar.** Los dos niveles se
+    usan en sitios distintos: esta lista para la vista de ciclo, y los factores
+    sueltos para el desglose del score, que tiene que poder auditarse. Si
+    alguien pregunta por qué «contratación pública» aporta 0,31, la respuesta
+    está en el mismo payload.
+
+    Una fuente cuenta como sin datos solo si **ninguno** de sus factores tiene
+    cobertura: F1 truncado y F2 vivo siguen siendo contratación, y sí la hay.
+    """
+    por_fuente: dict[str, dict] = {}
+    for a in factores:
+        corto = FUENTES.get(a["codigo"], ("desconocida", "desconocida"))[1]
+        caja = por_fuente.setdefault(corto, {
+            "fuente": corto,
+            "etiqueta": FUENTES.get(a["codigo"], ("desconocida", ""))[0],
+            "aporte": 0.0,
+            "peso": 0.0,
+            "codigos": [],
+            "sin_datos": True,
+        })
+        caja["codigos"].append(a["codigo"])
+        if not a.get("sin_cobertura"):
+            caja["aporte"] += a.get("aporte") or 0.0
+            caja["peso"] += a.get("peso") or 0.0
+            caja["sin_datos"] = False
+
+    orden = {f: i for i, f in enumerate(ORDEN_FUENTES)}
+    return sorted(
+        por_fuente.values(),
+        # Primero las que aportan, de mayor a menor; las vacías al final, en el
+        # orden fijo. La ausencia se muestra, no se omite (§3.4 del DS).
+        key=lambda c: (c["sin_datos"], -c["aporte"], orden.get(c["fuente"], 99)),
+    )
+
+
 def _factores(fila: ScoreMunicipio) -> tuple[list[dict], set[str], set[str]]:
     """Los aportes con su fuente, y qué fuentes sostienen el score y cuáles no.
 
@@ -249,6 +292,9 @@ def componer(
                 "resumen": resumir_fuentes(presentes, ausentes),
             },
             "factores": detalle,
+            # Mismo dato en dos niveles: por fuente para la vista de ciclo, y
+            # factor a factor para auditar el desglose. Ver `agrupar_por_fuente`.
+            "aportes_por_fuente": agrupar_por_fuente(detalle),
             "cobertura": {
                 "dias_cubiertos": fila.dias_cubiertos,
                 "dias_ventana": fila.dias_ventana,

@@ -189,7 +189,7 @@ F6 queda fuera de la frase **mientras falte en todos los municipios**: una líne
 
 **Alcance pedido (M9-carga):** la calificación **pedida** es sobre los insights de los tres primeros municipios. Los otros siete son calificables de forma opcional y se cuentan aparte. La distinción tiene que ser visible en la pantalla: si el lector no sabe qué se le pide, la tasa de H2 no significa nada.
 
-**Correo antes de calificar (M9-acceso):** se pide una vez y se recuerda en cookie; pedirlo en cada calificación rompe los ≤2 clics. Quien no esté en la lista precargada no califica, y el mensaje debe decir **«este correo no está en la lista» y a quién escribir** — nunca un error genérico. Una errata durante la ventana de calificación se lleva por delante una respuesta de H2, y con siete gerencias cada una pesa el 14%. Debe existir una forma visible de cambiar el correo sin borrar cookies.
+**Correo antes de calificar (M9-acceso):** se pide una vez y se recuerda en cookie; pedirlo en cada calificación rompe los ≤2 clics. **La atribución es declarativa**: sin autenticación, cualquiera puede teclear un correo ajeno, con cookie o sin ella. El riesgo se aceptó al decidir no autenticar, no al recordar el correo — pero hay que tenerlo presente al leer H2, porque un 80% en una gerencia podría ser una persona calificando por dos. Quien no esté en la lista precargada no califica, y el mensaje debe decir **«este correo no está en la lista» y a quién escribir** — nunca un error genérico. Una errata durante la ventana de calificación se lleva por delante una respuesta de H2, y con siete gerencias cada una pesa el 14%. Debe existir una forma visible de cambiar el correo sin borrar cookies.
 
 **Leer no requiere correo.** El informe se abre con el enlace; el correo solo gobierna la escritura.
 
@@ -316,8 +316,17 @@ Esqueleto con la forma del resultado esperado, en `color-surface-alt`, sin anima
 | Vacío | Mensaje |
 |---|---|
 | Aún no hay informe publicado | «El primer ciclo se publica el [fecha]» |
-| El ciclo no produjo municipios | «Ningún municipio del ciclo tiene señal suficiente. El monitoreo continúa» |
 | Los filtros no devuelven resultados | Mensaje + acción para limpiar filtros |
+
+> **No existe el caso «el ciclo no produjo municipios», y no se repone.** Venía
+> del PRD original, donde había umbral de score y un ciclo podía legítimamente no
+> producir nada por encima del corte. **Ese umbral ya no existe**: el umbral de
+> información está apagado y el tope es fijo en 10 (decisión P1), así que un
+> ciclo sin municipios solo puede significar que **no se procesó ninguno** — un
+> fallo del pipeline, no un resultado del ciclo. Decirle a las gerencias «el
+> monitoreo continúa» cuando lo que pasó es que el ciclo no corrió sería ocultar
+> un fallo con una frase tranquilizadora. `informes/publicacion.py` se niega a
+> publicar un informe sin municipios por esa misma razón.
 
 ---
 

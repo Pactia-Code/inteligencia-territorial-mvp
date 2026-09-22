@@ -180,6 +180,22 @@ autorizados se precargan y quien no está en la lista no puede calificar
 descubrirse al final, que es la forma habitual de que una tasa de respuesta
 acabe siendo indiscutible y a la vez incomparable.
 
+### La atribución es declarativa, y eso hay que decirlo al publicar H2
+
+`[pendientes M9-acceso, decidido 2026-09-22]`
+
+No hay autenticación: se pide el correo antes de calificar y se resuelve la
+gerencia contra la lista precargada. **Cualquiera puede teclear un correo
+ajeno.** El riesgo viene de la decisión de no autenticar, no de recordar el
+correo en cookie —sin cookie el riesgo sería idéntico y además se romperían los
+≤2 clics de CA-M7.1—.
+
+La consecuencia concreta al leer la tasa: **un 80% en una gerencia podría ser
+una persona calificando por dos.** No invalida H2 ni obliga a descartar el
+número, pero convierte la tasa en un límite superior de participación real, no
+en una medida exacta. Si el resultado de H2 cae cerca del 50% exigido, esa
+holgura importa tanto como la de H1.
+
 ---
 
 ## H3 — Las fuentes públicas contienen señal accionable
