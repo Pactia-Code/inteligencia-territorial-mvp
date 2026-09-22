@@ -57,6 +57,9 @@ export interface InsightPublicado {
   resumen: string;
   implicacion_inmobiliaria: string | null;
   origen: string;
+  /** «Directo» o «Correlacionado»: como llego al informe. Trabajo de M4. */
+  trayecto: string;
+  ids_senal: number[];
   evidencia: Evidencia[];
 }
 
@@ -89,6 +92,12 @@ export interface MunicipioDelInforme {
   /** M9-carga: la calificacion PEDIDA es sobre los primeros. */
   calificable: boolean;
   insights: InsightPublicado[];
+  /**
+   * Los que se **piden** calificar. Los elige codigo determinista con la
+   * semilla congelada (`informes/seleccion.py`), asi que las siete gerencias
+   * reciben exactamente los mismos (CA-M6.6). Vacio donde todo es opcional.
+   */
+  insights_pedidos: number[];
 }
 
 export interface Informe {
@@ -110,6 +119,12 @@ export interface Informe {
     por_fuente: Record<string, { corte: string | null; municipios_con_fecha: number }>;
     municipios_sin_fecha: string[];
   };
-  calificacion: { mostrados: number; pedida_hasta_puesto: number };
+  calificacion: {
+    mostrados: number;
+    pedida_hasta_puesto: number;
+    pedidas_por_municipio: number;
+    /** Congelada: con ella se recomputa la muestra y se audita CA-M6.6. */
+    semilla: number;
+  };
   municipios: MunicipioDelInforme[];
 }
