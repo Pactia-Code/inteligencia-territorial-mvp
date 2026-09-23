@@ -5,7 +5,7 @@
 > **Para retomar:** lee esto primero, después
 > [decisiones-remediacion.md](decisiones-remediacion.md).
 
-## Progreso: 8 de 11 pasos
+## Progreso: 9 de 11 pasos
 
 | | Paso | Estado |
 |---|---|---|
@@ -17,8 +17,8 @@
 | 6 | **Migraciones** sobre la base principal | ✅ **Cerrado**: `d5932c3bdc03`, `check` limpio |
 | 7 | **Carga de usuarios** en la base principal | ✅ **Cerrado**: 8 altas, 2 desactivados |
 | 8 | **Republicación y verificación** | ✅ **Cerrado**: informe 8 publicado, traza 241/241 |
-| 9 | **Siguiente** · Fusión del PR **con merge commit** y conexión de Git en Vercel | ⬜ |
-| 10 | **Prueba de humo** sobre el despliegue | ⬜ |
+| 9 | **Fusión del PR y conexión de Git** | ✅ **Cerrado**: producción sirve el merge `bfc1233` |
+| 10 | **Siguiente** · Prueba de humo sobre el despliegue | ⬜ |
 | 11 | **Borrar el branch de Neon** `remediacion-f0` | ⬜ |
 
 > **Los once pasos están acordados por el dueño**, con su numeración y su orden.
@@ -239,6 +239,40 @@ payload. Es la prueba de que la composición no depende de la base contra la que
 corre.
 
 **0 calificaciones y 0 seguimientos**: la ventana no se ha abierto.
+
+## Paso 9 — fusionado y desplegado
+
+**En git.** `origin/main` está en **`bfc1233`**, un **merge commit** de verdad
+—dos padres, `96e10e0` y `ace3124`— y `git merge-base --is-ancestor` confirma
+que **`7bfcc23` es alcanzable desde `main`**. Es lo que la regla protegía: el
+commit que `informe.origen` graba sigue en la historia, así que el informe
+publicado se puede reconstruir con `git checkout 7bfcc23`.
+
+**En Vercel.** El despliegue de producción **actual** es
+`dpl_HCbBxJdRc41WXiQTJ2GpcajNKK7A`: sale de **`main`** con el commit del merge
+**`bfc1233`**, está **READY**, tipo `LAMBDAS`, framework **`nextjs`**, y es el
+que **tiene asignados los alias de producción**, incluido
+`inteligencia-territorial-mvp.vercel.app`. El proyecto lo reporta como
+`latestDeployment`.
+
+**El despliegue anterior, el que salió de `remediacion/f0` (`ace3124`), ya no
+sirve producción.** Sigue existiendo como candidato a rollback, y conviene
+saberlo: revertir a él serviría el mismo código —es el contenido que se
+fusionó— pero desde una rama, no desde `main`.
+
+**La raíz `web` no se puede leer por la API**, ni en el proyecto ni en el
+despliegue. Lo que sí es evidencia: el build **encontró el `package.json` y
+produjo funciones**, cosa que no habría pasado compilando desde la raíz del
+repositorio, que es Python. Más la confirmación visual del dueño en el paso 5.
+
+**La vista previa de `remediacion/f0` no tiene ninguna variable de entorno**,
+`DATABASE_URL` incluida: la consulta filtrada por esa rama devuelve una lista
+vacía. El aislamiento de datos funciona como se diseñó.
+
+**Los errores de runtime no se pudieron consultar:** el conector responde
+**403 Forbidden**, que es lo esperable en el plan Hobby, donde la observabilidad
+no está disponible. Queda pendiente mirarlos en el panel si la prueba de humo
+del paso 10 diera algún problema.
 
 ## Reglas vigentes
 
