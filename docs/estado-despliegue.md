@@ -5,7 +5,7 @@
 > **Para retomar:** lee esto primero, después
 > [decisiones-remediacion.md](decisiones-remediacion.md).
 
-## Progreso: 7 de 11 pasos
+## Progreso: 8 de 11 pasos
 
 | | Paso | Estado |
 |---|---|---|
@@ -16,8 +16,8 @@
 | 5 | **Variables en Vercel** | ✅ **Cerrado**. Raíz `web` confirmada por el dueño en el panel |
 | 6 | **Migraciones** sobre la base principal | ✅ **Cerrado**: `d5932c3bdc03`, `check` limpio |
 | 7 | **Carga de usuarios** en la base principal | ✅ **Cerrado**: 8 altas, 2 desactivados |
-| 8 | **Siguiente** · Republicación y verificación: `publicar_informe.py --seco`, luego real, y la traza **241/241** | ⬜ |
-| 9 | **Fusión del PR y conexión de Git** en Vercel | ⬜ |
+| 8 | **Republicación y verificación** | ✅ **Cerrado**: informe 8 publicado, traza 241/241 |
+| 9 | **Siguiente** · Fusión del PR **con merge commit** y conexión de Git en Vercel | ⬜ |
 | 10 | **Prueba de humo** sobre el despliegue | ⬜ |
 | 11 | **Borrar el branch de Neon** `remediacion-f0` | ⬜ |
 
@@ -208,8 +208,45 @@ calificador activo» con las cinco y compone el payload con **5 `prd` + 2
 `adicional`**. Se revirtió: la base sigue con 4 informes, el 5 publicado y 0
 calificaciones. **No se publicó nada.**
 
+## Paso 8 — informe republicado en la base principal
+
+Publicado el 2026-09-23 desde `remediacion/f0`, con el árbol limpio y la rama
+exactamente en `7bfcc23`, igual que `origin`.
+
+**Informe 8, publicado**, con las corridas **24/10**. Los informes 2, 3, 4 y
+**5 quedan archivados, no borrados**: un solo publicado por ciclo, que es lo que
+garantiza el índice único parcial.
+
+`informe.origen` registra **`7bfcc23`, el HEAD del momento**, y la invocación
+completa. De ahí la regla sobre el merge commit.
+
+**Lista congelada:** 5 `prd` —`general`, `juridica`,
+`producto_hoteles_oficinas`, `producto_logistica`, `rotacion_portafolio`— y 2
+`adicional` —`administrativa`, `analitica`—, con los códigos de
+`config/gerencias.json`.
+
+**`composicion_pedida` en los 3 municipios calificables:** Ibagué y Funza con
+3 correlacionados, 1 de contratación y 1 de prensa; **Armenia con 1, 1 y 3 para
+completar**, que es la regla de relleno funcionando.
+
+**Traza sobre el informe 8: 241/241 insights, 933/933 citas y 10/10 scores.**
+Las mismas cifras que midió la auditoría sobre el informe 5 y que se repitieron
+en el branch.
+
+**Y el payload es idéntico, campo por campo, al que se publicó en el branch en
+F0.6.** Ni una diferencia, tampoco en `origen` ni en fechas, que viven fuera del
+payload. Es la prueba de que la composición no depende de la base contra la que
+corre.
+
+**0 calificaciones y 0 seguimientos**: la ventana no se ha abierto.
+
 ## Reglas vigentes
 
+- **El PR se fusiona con MERGE COMMIT, nunca con squash.** `informe.origen`
+  del informe publicado graba el commit `7bfcc23`, y un squash lo reescribiría:
+  el informe apuntaría a un commit que no existe en `main` y se perdería
+  justamente lo que F0.6 vino a dar, poder reconstruirlo con
+  `git checkout <commit>`.
 - **No conectar Git en Vercel hasta cerrar el paso 4.** Conectarlo antes
   dispara un despliegue con la configuración equivocada.
 - **Un error que falla ANTES de conectar a la base se puede reintentar una vez**,
