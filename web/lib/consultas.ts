@@ -81,6 +81,35 @@ export async function gerenciaDelCorreo(
 }
 
 /**
+ * El ciclo del informe **publicado** que contiene ese insight, o `null`.
+ *
+ * Es la comprobación de alcance de F0.4 (hallazgo H-013). No basta con que el
+ * insight exista: tiene que pertenecer a la corrida de agentes que un informe
+ * publicado congeló. Sin esto, una acción con un `id_insight` cualquiera
+ * —de la corrida 11, de un ciclo que nadie publicó, o inventado a mano en la
+ * peticion— escribia una calificacion igual, y esa fila entraria en H1 sin que
+ * ninguna gerencia la hubiera visto nunca.
+ *
+ * Va por el enlace `informe.id_corrida_agentes`, **no leyendo el JSON del
+ * payload**: los operadores JSONB de PostgreSQL no existen en SQLite y romperian
+ * el entorno local (`CLAUDE.md` §2.1, regla 3).
+ */
+export async function cicloPublicadoDelInsight(
+  idInsight: number,
+): Promise<number | null> {
+  const filas = await sql`
+    SELECT inf.id_ciclo
+      FROM insight i
+      JOIN corrida_agentes ca ON ca.id = i.id_corrida
+      JOIN informe inf ON inf.id_corrida_agentes = ca.id
+     WHERE i.id = ${idInsight}
+       AND inf.estado = 'publicado'
+       AND i.estado_validacion = 'validado'
+  `;
+  return filas.length ? (filas[0].id_ciclo as number) : null;
+}
+
+/**
  * Las calificaciones que figuran **a nombre de esta persona** en el ciclo.
  *
  * Distinto de `calificacionesDeLaGerencia`: aquella es lo que la gerencia tiene

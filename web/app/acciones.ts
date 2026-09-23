@@ -12,7 +12,13 @@
 
 import { revalidatePath } from "next/cache";
 import { cookies, headers } from "next/headers";
-import { gerenciaDelCorreo } from "@/lib/consultas";
+import {
+  cicloEsEditable,
+  cicloPublicadoDelInsight,
+  gerenciaDelCorreo,
+  informeDelCiclo,
+} from "@/lib/consultas";
+import { puedeCalificar, puedeMoverSeguimiento } from "@/lib/alcance";
 import {
   calificar,
   comentar,
@@ -29,7 +35,10 @@ const DURACION_COOKIE = 60 * 60 * 24 * 365;
 
 export type ResultadoSeguimiento =
   | { ok: true }
-  | { ok: false; motivo: "sin_identificar" | "estado_invalido" }
+  | {
+      ok: false;
+      motivo: "sin_identificar" | "estado_invalido" | "fuera_de_alcance";
+    }
   | { ok: false; motivo: "falta_nota"; estado: string };
 
 export type ResultadoIdentificacion =
@@ -91,16 +100,43 @@ export async function cambiarCorreo(): Promise<void> {
 }
 
 /**
+ * Comprueba en el servidor que esta persona puede escribir sobre este insight.
+ *
+ * **Nada de esto se fia del formulario** (F0.4, H-013): el `id_insight` llega en
+ * la peticion y se resuelve contra la base para saber a que informe publicado
+ * pertenece; el ciclo y la lista de gerencias salen de ahi, no del cliente.
+ */
+async function alcanceSobreInsight(
+  idInsight: number,
+  yo: { rol: string; id_gerencia: string } | null,
+) {
+  const idCiclo = await cicloPublicadoDelInsight(idInsight);
+  if (idCiclo === null) return { ok: false as const, motivo: "fuera_de_alcance" as const };
+  const [informe, editable] = await Promise.all([
+    informeDelCiclo(idCiclo),
+    cicloEsEditable(idCiclo),
+  ]);
+  return puedeCalificar(yo, informe?.calificacion.gerencias, editable);
+}
+
+/**
  * Registra una calificacion. Un clic, sin confirmacion ni boton de enviar.
  *
  * Si quien pulsa no esta identificado no se guarda nada y la pantalla pide el
- * correo: **leer es abierto, escribir no**.
+ * correo: **leer es abierto, escribir no**. Y desde F0.4 tampoco se guarda si
+ * el insight no esta en un informe publicado, si el ciclo ya se cerro, si quien
+ * pulsa es administrador o si su gerencia no estaba en la lista congelada.
+ *
+ * **Todavia no se ve el rechazo en pantalla**: esta accion no devuelve
+ * resultado y eso es H-045, que cierra la subfase siguiente (F0.7). Aqui lo que
+ * importa es que **no escriba**; que se vea es lo de despues.
  */
 export async function registrarCalificacion(datos: FormData): Promise<void> {
   const yo = await identidadActual();
-  if (!yo) return;
   const idInsight = Number(datos.get("id_insight"));
   const valor = Number(datos.get("valor"));
+  if (!Number.isInteger(idInsight)) return;
+  if (!(await alcanceSobreInsight(idInsight, yo)).ok || !yo) return;
   await calificar(idInsight, yo.id_gerencia, valor, yo.id);
   revalidatePath("/ciclo/[id]", "page");
 }
@@ -135,6 +171,17 @@ export async function cambiarEstado(
     return { ok: false, motivo: "falta_nota", estado };
   }
 
+  // F0.4 (H-013): el municipio tiene que estar en un informe **publicado**. El
+  // `divipola` y el `id_ciclo` llegan del formulario, asi que se comprueban
+  // contra el payload y no se dan por buenos.
+  const informe = await informeDelCiclo(idCiclo);
+  const alcance = puedeMoverSeguimiento(
+    yo,
+    (informe?.municipios ?? []).map((m) => m.divipola),
+    divipola,
+  );
+  if (!alcance.ok) return { ok: false, motivo: "fuera_de_alcance" };
+
   await registrarSeguimiento({
     divipola,
     id_ciclo_origen: idCiclo,
@@ -146,12 +193,19 @@ export async function cambiarEstado(
   return { ok: true };
 }
 
-/** Comentario libre y opcional (CA-M7.4), despues de haber calificado. */
+/**
+ * Comentario libre y opcional (CA-M7.4), despues de haber calificado.
+ *
+ * Mismo alcance que calificar, y por el mismo motivo: el comentario viaja en la
+ * misma fila de `calificacion` y se lee junto a la nota al analizar H1.
+ */
 export async function registrarComentario(datos: FormData): Promise<void> {
   const yo = await identidadActual();
-  if (!yo) return;
+  const idInsight = Number(datos.get("id_insight"));
+  if (!Number.isInteger(idInsight)) return;
+  if (!(await alcanceSobreInsight(idInsight, yo)).ok || !yo) return;
   await comentar(
-    Number(datos.get("id_insight")),
+    idInsight,
     yo.id_gerencia,
     String(datos.get("comentario") ?? "").trim(),
   );

@@ -110,6 +110,15 @@ esta.
   `config/gerencias.json` y de `usuario`, no de un «5» ni de un «7» escritos a
   mano.
 
+### Nota para F0b.3 (tasa de rechazo)
+
+- **La tasa de rechazo se persiste y se reporta desglosada por regla**, no como
+  un único porcentaje: **R1–R7** son fidelidad de cita —evidencia que no se
+  sostiene— y **R8** es cifra sin fuente en la prosa. Son dos fallos distintos
+  del modelo y mezclarlos en un número impide saber cuál está pasando. CA-M3.3
+  dice que la tasa de rechazo **es** la tasa de alucinación medida, así que el
+  desglose es parte de la medida, no un adorno del informe.
+
 ### Incidente
 
 - **2026-09-22 — `config/gerencias.json` y `config/usuarios.csv` desaparecieron

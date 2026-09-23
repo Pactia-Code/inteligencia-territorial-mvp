@@ -137,6 +137,25 @@ export function CambiarEstado({
           historial guarda qué pasó y no por qué.
         </p>
       )}
+      {resultado?.ok === false && resultado.motivo === "fuera_de_alcance" && (
+        <p
+          className="t-body etiqueta etiqueta-critica"
+          style={{ display: "block", margin: "var(--space-3) 0 0" }}
+        >
+          Este municipio no está en el informe publicado de ese ciclo, así que no
+          se registró nada. Vuelve a cargar la página: es probable que el informe
+          haya cambiado mientras tenías esta abierta.
+        </p>
+      )}
+      {resultado?.ok === false && resultado.motivo === "sin_identificar" && (
+        <p
+          className="t-body etiqueta etiqueta-aviso"
+          style={{ display: "block", margin: "var(--space-3) 0 0" }}
+        >
+          Para registrar un cambio de estado hay que identificarse con el correo.
+          Leer no lo requiere.
+        </p>
+      )}
       {resultado?.ok === true && (
         <p
           className="t-label etiqueta etiqueta-positiva"
