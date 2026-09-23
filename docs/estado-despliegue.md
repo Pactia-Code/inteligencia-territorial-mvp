@@ -5,7 +5,7 @@
 > **Para retomar:** lee esto primero, después
 > [decisiones-remediacion.md](decisiones-remediacion.md).
 
-## Progreso: 4 de 11 pasos
+## Progreso: 5 de 11 pasos
 
 | | Paso | Estado |
 |---|---|---|
@@ -13,8 +13,8 @@
 | 2 | **Revisión de `remediacion/f0` frente a `main`** | ✅ **Cerrado** |
 | 3 | **Push de la rama** a `origin` (sin PR) | ✅ **Cerrado**, en `49ce1e8` |
 | 4 | **Respaldo** de la base principal, fuera del repositorio | ✅ **Cerrado**, pero **no con `pg_dump`**: es una exportación lógica |
-| 5 | **Siguiente** · Variables en Vercel: solo *Production*, base `territorial` con **pooler**, `COOKIE_SECRET`, raíz `web` | ⬜ |
-| 6 | **Migraciones**: `alembic upgrade head` con la cadena **directa**, y confirmar con `current` y `check` | ⬜ |
+| 5 | **Variables en Vercel** | ✅ **Cerrado**, salvo confirmar la raíz `web` en el panel |
+| 6 | **Siguiente** · Migraciones: `alembic upgrade head` con la cadena **directa**, y confirmar con `current` y `check` | ⬜ |
 | 7 | **Carga de usuarios**: `cargar_usuarios.py --previsualizar` y luego `--confirmar` | ⬜ |
 | 8 | **Republicación y verificación**: `publicar_informe.py --seco`, luego real, y la traza **241/241** | ⬜ |
 | 9 | **Fusión del PR y conexión de Git** en Vercel | ⬜ |
@@ -85,7 +85,8 @@ política corporativa, probado en `C:\herramientas`, en
 Se hizo un **plan B acordado**: exportación lógica con Python y psycopg, con la
 conexión puesta en **solo lectura a nivel de servidor**.
 
-`C:\devespaldos	erritorial-antes-de-despliegue-2026-09-23\`, 39 MB:
+`C:\dev
+espaldos	erritorial-antes-de-despliegue-2026-09-23\`, 39 MB:
 
 - `tablas/` — las **18 tablas** en CSV con encabezado, una por archivo, sacadas
   con `COPY ... TO STDOUT (FORMAT CSV, HEADER)`. **29.976 filas**, incluida
@@ -108,6 +109,47 @@ trae el bloque que las repone todas.
 no `head`, que traería columnas que estos datos no tienen— **y cargar los CSV en
 orden de dependencias**, que no es el alfabético. El orden está en el manifiesto
 y en el README.
+
+## Paso 5 — la configuración de Vercel, como quedó
+
+### Parte A, hecha por el dueño en el panel
+
+- **La conexión del store de Neon con el proyecto quedó solo en
+  `Development`.** Era el problema de fondo: esas 18 variables apuntaban a la
+  base `neondb` y estaban en `preview` y `production` a la vez.
+- **Vercel Authentication se mantiene** en Standard Protection **hasta el final
+  del paso 10**. El dueño la desactivará justo antes de compartir la URL.
+- **El plan Hobby no ofrece «Only Preview Deployments»**, así que la protección
+  no se puede acotar a vista previa. **El aislamiento de datos lo dan las
+  variables, que están solo en `Production`**, no la protección.
+
+### Parte B, hecha por el conector
+
+Comprobado por lectura, y **sin valores**:
+
+| Variable | Target | Tipo |
+|---|---|---|
+| `DATABASE_URL` (nueva) | **production** | sensitive |
+| `COOKIE_SECRET` (nueva) | **production** | sensitive |
+| las 18 de la integración de Neon | **development** | encrypted |
+
+- **`DATABASE_URL`** apunta a la base **`territorial`** de la rama `main`, con
+  rol `territorial_owner` y **host con `-pooler`**, que es el que corresponde a
+  las funciones serverless. `hiddenProductionEnvCount` es 0.
+- **`COOKIE_SECRET`** se generó con `secrets.token_urlsafe(48)` y **no se guardó
+  en ningún archivo**: existe solo en Vercel.
+- **No hubo conflicto de clave**, al contrario de lo previsto: la `DATABASE_URL`
+  de la integración quedó en `development` y la nueva en `production`, así que
+  conviven. Eso sí, **en desarrollo local la de la integración sigue apuntando a
+  `neondb`**; el pipeline y la app local usan el `.env`, no esa.
+- **Framework: `nextjs`**, confirmado por lectura.
+
+**Lo que falta confirmar del paso 5:** la **raíz de despliegue `web`**. Se envió
+en la misma llamada que fijó el framework y la API la aceptó sin error, pero el
+conector **no devuelve `rootDirectory`** al leer el proyecto, así que no se pudo
+verificar. Hay que mirarlo en *Settings → Build and Deployment → Root
+Directory*. Si estuviera vacío, el primer despliegue fallaría con un error que
+no menciona la causa.
 
 ## Reglas vigentes
 
