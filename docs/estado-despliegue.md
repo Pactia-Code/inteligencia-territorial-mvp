@@ -106,7 +106,7 @@ permite, `winget search PostgreSQL` lo resuelve.
 Después de instalar, comprobar que la versión es la correcta:
 
 ```powershell
-$env:Path += ";C:\herramientas\pgsqlin"
+$env:Path += ";C:\herramientas\pgsql\bin"
 pg_dump --version      # tiene que decir 18.x o superior
 ```
 
