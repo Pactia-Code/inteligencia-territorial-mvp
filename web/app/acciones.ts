@@ -18,7 +18,7 @@ import {
   gerenciaDelCorreo,
   informeDelCiclo,
 } from "@/lib/consultas";
-import { puedeCalificar, puedeMoverSeguimiento } from "@/lib/alcance";
+import { esInsightPedido, puedeCalificar, puedeMoverSeguimiento } from "@/lib/alcance";
 import type { MotivoCalificacion } from "@/lib/mensajes";
 import {
   calificar,
@@ -131,7 +131,14 @@ async function alcanceSobreInsight(
     informeDelCiclo(idCiclo),
     cicloEsEditable(idCiclo),
   ]);
-  return puedeCalificar(yo, informe?.calificacion.gerencias, editable);
+  return puedeCalificar(
+    yo,
+    informe?.calificacion.gerencias,
+    editable,
+    // Se califica solo lo pedido, y se comprueba **aquí**: ocultar el botón en
+    // la pantalla no impide el POST.
+    esInsightPedido(informe?.municipios ?? [], idInsight),
+  );
 }
 
 /**

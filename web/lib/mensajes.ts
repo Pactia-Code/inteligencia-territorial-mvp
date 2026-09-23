@@ -32,6 +32,8 @@ export function mensajeDeCalificacion(motivo: MotivoCalificacion): string {
       return "No se guardó: esta cuenta es de administración y no califica. Entra con el correo de tu gerencia.";
     case "gerencia_no_congelada":
       return "No se guardó: tu gerencia no figura entre las autorizadas en este informe. Escribe a quien te compartió el enlace.";
+    case "insight_no_pedido":
+      return "No se guardó: este insight es de consulta. Se califican solo los que el informe pide, para que todas las gerencias respondan sobre los mismos.";
     case "fuera_de_alcance":
       return "No se guardó: este insight no pertenece al informe publicado. Vuelve a cargar la página, es probable que haya cambiado mientras la tenías abierta.";
     case "valor_invalido":
@@ -74,6 +76,7 @@ export const MOTIVOS_CALIFICACION: MotivoCalificacion[] = [
   "ciclo_cerrado",
   "rol_no_califica",
   "gerencia_no_congelada",
+  "insight_no_pedido",
   "fuera_de_alcance",
   "valor_invalido",
   "error_al_guardar",

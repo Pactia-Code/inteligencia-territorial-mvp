@@ -136,16 +136,21 @@ esta.
   motivo es que **H1 y H2 tienen que comparar sobre la misma base**; si cada
   gerencia calificara un subconjunto distinto de los 49 insights de Funza, el
   «≥30% con promedio ≥4» mediría también qué eligió mirar cada quien.
-- **Lo que esto deja pendiente, y conviene decidir aparte.** En el informe
-  publicado hay **3 municipios calificables de 10**. En los **7 restantes** la
-  pantalla sigue mostrando controles en sus **primeros 5 insights** —35 en
-  total— aunque **no se pidió ninguno**: viene de antes de F4.1 y F4.1 no lo
-  tocó, porque su cierre exigía que los botones quedaran exactamente donde
-  estaban. Con la decisión de arriba, eso es una excepción sin motivo: son
-  calificaciones sobre insights que nadie pidió, en municipios que nadie pidió.
-  **Quitarlos es una línea** —pasar `conCalificacion` solo cuando el municipio
-  es calificable— y hoy no cuesta nada, porque no hay ni una calificación
-  emitida.
+- **Resuelto el 2026-09-22, y la regla vive en los dos sitios.** Quedaba la
+  excepción de los **7 municipios de 10 que el informe no pide calificar**,
+  donde la pantalla mostraba controles en sus primeros 5 insights —35 en total—
+  sin que se hubiera pedido ninguno. Ya no:
+  - **En pantalla**, `Panel.tsx` pasa `conCalificacion` solo cuando el municipio
+    es calificable, así que los controles salen únicamente en los **15 insights
+    pedidos** de los 3 municipios que sí se piden.
+  - **En el servidor**, `lib/alcance.ts` exige además que el `id_insight` esté
+    entre los `insights_pedidos` de un municipio calificable del payload
+    publicado, con su propio motivo, `insight_no_pedido`, y su mensaje. **Ocultar
+    el botón no impide el POST**, así que la regla no podía vivir solo en la
+    vista.
+  - **Comentar sigue exactamente la misma regla que calificar.** Hoy no
+    difieren: las dos acciones pasan por la misma comprobación de alcance, y el
+    comentario viaja en la misma fila de `calificacion`.
 
 ### Un informe sin lista congelada no admite calificaciones
 

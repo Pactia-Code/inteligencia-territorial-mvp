@@ -36,7 +36,33 @@ export type MotivoSinAlcance =
   | "fuera_de_alcance"
   | "ciclo_cerrado"
   | "rol_no_califica"
-  | "gerencia_no_congelada";
+  | "gerencia_no_congelada"
+  | "insight_no_pedido";
+
+/** Lo mínimo que hace falta de un municipio para saber qué se le pidió. */
+export interface MunicipioPedido {
+  calificable: boolean;
+  insights_pedidos: number[];
+}
+
+/**
+ * Si ese insight es uno de los que el informe **pidió** calificar.
+ *
+ * `insights_pedidos` son los ids; `composicion_pedida`, del que habla la
+ * decisión, es el recuento por tipo de esos mismos. Se mira la lista de ids
+ * porque es la que identifica insights.
+ *
+ * Solo cuentan los municipios **calificables**: en los demás no se pidió nada,
+ * y su lista viene vacía de todos modos.
+ */
+export function esInsightPedido(
+  municipios: MunicipioPedido[],
+  idInsight: number,
+): boolean {
+  return municipios.some(
+    (m) => m.calificable && m.insights_pedidos.includes(idInsight),
+  );
+}
 
 export type Veredicto = { ok: true } | { ok: false; motivo: MotivoSinAlcance };
 
@@ -52,11 +78,18 @@ const no = (motivo: MotivoSinAlcance): Veredicto => ({ ok: false, motivo });
  * `rol_no_califica` deja fuera al **administrador**: CA-M9.14 le da el panel de
  * metricas, no papeleta. Si calificara, su voto entraria en H1 y ademas seria
  * el unico que ve el avance de las demas gerencias mientras opina.
+ *
+ * `insight_no_pedido` es la decision del dueno del 2026-09-22: **se califica
+ * solo lo pedido**, para que H1 y H2 comparen sobre la misma base. Si cada
+ * gerencia calificara un subconjunto distinto de los 49 insights de Funza, el
+ * «≥30% con promedio ≥4» mediria tambien que eligio mirar cada quien. La regla
+ * vive **aqui y no solo en la pantalla**: ocultar el boton no impide el POST.
  */
 export function puedeCalificar(
   yo: QuienEscribe | null,
   gerenciasCongeladas: GerenciaCongelada[] | undefined,
   cicloEditable: boolean,
+  insightPedido: boolean,
 ): Veredicto {
   if (!yo) return no("sin_identificar");
   if (!cicloEditable) return no("ciclo_cerrado");
@@ -69,6 +102,9 @@ export function puedeCalificar(
   if (!congeladas.some((g) => g.id_gerencia === yo.id_gerencia)) {
     return no("gerencia_no_congelada");
   }
+  // Lo ultimo porque es lo mas especifico: quien llega hasta aqui podia
+  // calificar, pero no **esto**.
+  if (!insightPedido) return no("insight_no_pedido");
   return SI;
 }
 

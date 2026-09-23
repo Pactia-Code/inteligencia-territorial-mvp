@@ -308,11 +308,15 @@ export function Panel({
         )}
 
         {principales.map((i) => (
+          // Controles solo donde el informe pidió calificación: en los demás
+          // municipios estos cinco son de consulta, como el resto. La misma
+          // regla vive en el servidor (`lib/alcance.ts`), que es lo que la
+          // hace regla y no apariencia.
           <Ficha
             key={i.id}
             i={i}
             valor={calificaciones[i.id]?.valor}
-            conCalificacion
+            conCalificacion={m.calificable}
             puede={puedeCalificar}
           />
         ))}

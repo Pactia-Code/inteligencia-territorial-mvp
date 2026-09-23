@@ -22,7 +22,7 @@ function comprobar(etiqueta: string, condicion: boolean, detalle = "") {
 
 console.log("--- mensajes ---");
 const textos = MOTIVOS_CALIFICACION.map(mensajeDeCalificacion);
-comprobar("los 7 motivos tienen texto", textos.every((t) => t.trim().length > 20));
+comprobar("los 8 motivos tienen texto", textos.every((t) => t.trim().length > 20));
 comprobar("ningun texto se repite", new Set(textos).size === textos.length,
   `${new Set(textos).size} distintos de ${textos.length}`);
 comprobar("todos dicen que no se guardo", textos.every((t) => t.startsWith("No se guardó")));
