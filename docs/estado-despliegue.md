@@ -5,7 +5,7 @@
 > **Para retomar:** lee esto primero, después
 > [decisiones-remediacion.md](decisiones-remediacion.md).
 
-## Progreso: 5 de 11 pasos
+## Progreso: 6 de 11 pasos
 
 | | Paso | Estado |
 |---|---|---|
@@ -13,9 +13,9 @@
 | 2 | **Revisión de `remediacion/f0` frente a `main`** | ✅ **Cerrado** |
 | 3 | **Push de la rama** a `origin` (sin PR) | ✅ **Cerrado**, en `49ce1e8` |
 | 4 | **Respaldo** de la base principal, fuera del repositorio | ✅ **Cerrado**, pero **no con `pg_dump`**: es una exportación lógica |
-| 5 | **Variables en Vercel** | ✅ **Cerrado**, salvo confirmar la raíz `web` en el panel |
-| 6 | **Siguiente** · Migraciones: `alembic upgrade head` con la cadena **directa**, y confirmar con `current` y `check` | ⬜ |
-| 7 | **Carga de usuarios**: `cargar_usuarios.py --previsualizar` y luego `--confirmar` | ⬜ |
+| 5 | **Variables en Vercel** | ✅ **Cerrado**. Raíz `web` confirmada por el dueño en el panel |
+| 6 | **Migraciones** sobre la base principal | ✅ **Cerrado**: `d5932c3bdc03`, `check` limpio |
+| 7 | **Siguiente** · Carga de usuarios: `cargar_usuarios.py --previsualizar` y luego `--confirmar` | ⬜ |
 | 8 | **Republicación y verificación**: `publicar_informe.py --seco`, luego real, y la traza **241/241** | ⬜ |
 | 9 | **Fusión del PR y conexión de Git** en Vercel | ⬜ |
 | 10 | **Prueba de humo** sobre el despliegue | ⬜ |
@@ -144,12 +144,42 @@ Comprobado por lectura, y **sin valores**:
   `neondb`**; el pipeline y la app local usan el `.env`, no esa.
 - **Framework: `nextjs`**, confirmado por lectura.
 
-**Lo que falta confirmar del paso 5:** la **raíz de despliegue `web`**. Se envió
-en la misma llamada que fijó el framework y la API la aceptó sin error, pero el
-conector **no devuelve `rootDirectory`** al leer el proyecto, así que no se pudo
-verificar. Hay que mirarlo en *Settings → Build and Deployment → Root
-Directory*. Si estuviera vacío, el primer despliegue fallaría con un error que
-no menciona la causa.
+**Raíz de despliegue `web`: confirmada por el dueño en el panel.** El conector
+no devuelve `rootDirectory` al leer el proyecto, así que la comprobación tuvo
+que ser visual.
+
+## Paso 6 — migraciones sobre la base principal
+
+Aplicadas el 2026-09-23 desde `remediacion/f0`, con la cadena **directa** de la
+base `territorial` de la rama `main`.
+
+    b37b4fd6e183 -> 63531e6d5a5f  cargo del usuario
+    63531e6d5a5f -> dd0101cc28ae  identidad: autor de la calificacion y registro
+    dd0101cc28ae -> d5932c3bdc03  origen del informe: commit e invocacion
+
+`alembic current` dice **`d5932c3bdc03 (head)`** y `alembic check` responde «No
+new upgrade operations detected», que es la comprobación que vale: el `upgrade`
+puede mentir y el `check` no.
+
+**Lo que la migración creó, verificado por lectura:** `usuario.cargo`
+(anulable), `calificacion.id_usuario` (entero anulable), `informe.origen` (JSON
+no nulo) y la tabla `identificacion` con sus cinco columnas.
+
+**Lo que la migración NO movió**, que es lo que había que demostrar: las **18
+tablas conservan exactamente las filas del manifiesto** del respaldo lógico
+—29.976 en total— e `identificacion` nace con **0 filas**. La base pasa a 19
+tablas.
+
+`informe.origen` quedó relleno en los **4 informes**, con `{}`: los cuatro son
+anteriores a F0.6 y no tienen origen que declarar. Es un hecho registrado, no un
+hueco; la migración lo rellena así a propósito para poder cerrar la columna como
+NOT NULL.
+
+**Un tropiezo, y no fue de la base.** El primer intento de `upgrade` falló al
+conectar con `bad value for connect_timeout: "('3', '5')"`: el `.env` ya trae
+`connect_timeout=3` y la invocación le añadió otro. **No llegó a ejecutarse
+ningún DDL** —falló antes de abrir la conexión— y se comprobó que la revisión
+seguía en `b37b4fd6e183` antes de repetir.
 
 ## Reglas vigentes
 
