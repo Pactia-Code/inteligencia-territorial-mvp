@@ -5,7 +5,7 @@
 > **Para retomar:** lee esto primero, después
 > [decisiones-remediacion.md](decisiones-remediacion.md).
 
-## Progreso: 6 de 11 pasos
+## Progreso: 7 de 11 pasos
 
 | | Paso | Estado |
 |---|---|---|
@@ -15,8 +15,8 @@
 | 4 | **Respaldo** de la base principal, fuera del repositorio | ✅ **Cerrado**, pero **no con `pg_dump`**: es una exportación lógica |
 | 5 | **Variables en Vercel** | ✅ **Cerrado**. Raíz `web` confirmada por el dueño en el panel |
 | 6 | **Migraciones** sobre la base principal | ✅ **Cerrado**: `d5932c3bdc03`, `check` limpio |
-| 7 | **Siguiente** · Carga de usuarios: `cargar_usuarios.py --previsualizar` y luego `--confirmar` | ⬜ |
-| 8 | **Republicación y verificación**: `publicar_informe.py --seco`, luego real, y la traza **241/241** | ⬜ |
+| 7 | **Carga de usuarios** en la base principal | ✅ **Cerrado**: 8 altas, 2 desactivados |
+| 8 | **Siguiente** · Republicación y verificación: `publicar_informe.py --seco`, luego real, y la traza **241/241** | ⬜ |
 | 9 | **Fusión del PR y conexión de Git** en Vercel | ⬜ |
 | 10 | **Prueba de humo** sobre el despliegue | ⬜ |
 | 11 | **Borrar el branch de Neon** `remediacion-f0` | ⬜ |
@@ -181,10 +181,42 @@ conectar con `bad value for connect_timeout: "('3', '5')"`: el `.env` ya trae
 ningún DDL** —falló antes de abrir la conexión— y se comprobó que la revisión
 seguía en `b37b4fd6e183` antes de repetir.
 
+## Paso 7 — usuarios cargados en la base principal
+
+Previsualización y carga el 2026-09-23, desde `remediacion/f0`, con
+`config/usuarios.csv` y `config/gerencias.json` versionados.
+
+**La previsualización coincidió exactamente con lo autorizado** —8 altas con sus
+`id_gerencia`, 2 desactivaciones, 0 cambios y ningún error de validación— así
+que se confirmó. Resultado: `8 altas · 0 cambios · 0 reactivados · 2
+desactivados · 0 sin cambios`.
+
+| | |
+|---|---|
+| Activos, rol `gerencia` | `abejarano` (general), `rcuentas` (juridica), `sherrera` (rotacion_portafolio), `egomez` (producto_logistica), `lnavarro` (producto_hoteles_oficinas), `jecheverri` (administrativa), `wsanchez` (analitica) |
+| Activo, rol `administrador` | `wsanchez+admin` (analitica) |
+| Inactivos, **no borrados** | `prueba@territorial.local`, `admin@territorial.local` |
+
+Verificado por lectura: **10 filas, 8 activas y 2 inactivas**; **cada una de las
+5 gerencias `prd` tiene un calificador activo**; y **ningún administrador figura
+con rol `gerencia`**, incluidos los dos usuarios del dueño, que son filas
+separadas con correos distintos (decisión c: el operador del pipeline también
+califica y sus notas tienen que poder aislarse en H1).
+
+**La guarda pasa.** `publicar_informe.py --seco` imprime «gerencias «prd» con
+calificador activo» con las cinco y compone el payload con **5 `prd` + 2
+`adicional`**. Se revirtió: la base sigue con 4 informes, el 5 publicado y 0
+calificaciones. **No se publicó nada.**
+
 ## Reglas vigentes
 
 - **No conectar Git en Vercel hasta cerrar el paso 4.** Conectarlo antes
   dispara un despliegue con la configuración equivocada.
+- **Un error que falla ANTES de conectar a la base se puede reintentar una vez**,
+  tras comprobar que el estado no cambió. **Cualquier error que ya tocó la base:
+  detenerse.** La distinción no es teórica: el primer `upgrade` del paso 6 falló
+  en la validación de la cadena de conexión, sin abrir sesión ni ejecutar DDL, y
+  reintentarlo era seguro; un `upgrade` que falla a mitad, no.
 - **Migrar y republicar antes de fusionar.** El código viejo tolera el esquema
   nuevo; el nuevo no funciona sin él.
 - **Nunca publicar desde `main` después de migrar.** Su `publicar()` no escribe
