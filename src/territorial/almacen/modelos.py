@@ -684,6 +684,12 @@ class Informe(Base):
     # almacén**; ni una cifra sale del modelo (CA-M6.3). M9 lo pinta y no
     # necesita conocer los códigos de factor.
     contenido: Mapped[dict] = mapped_column(JSON, default=dict)
+    # De dónde salió este informe: `{commit, invocacion, publicado_en}` (F0.6,
+    # H-040). Sin esto, un informe publicado no se puede atar al código que lo
+    # compuso, y regenerarlo meses después es un acto de fe: el payload depende
+    # de `composicion.py`, que cambia. Los informes 2 a 5 se publicaron antes de
+    # que existiera la columna y la llevan vacía.
+    origen: Mapped[dict] = mapped_column(JSON, default=dict)
     infografias: Mapped[list] = mapped_column(JSON, default=list)  # [{divipola, uri}]
     estado: Mapped[str] = mapped_column(String(20), default="publicado")
     fecha_publicacion: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=ahora)

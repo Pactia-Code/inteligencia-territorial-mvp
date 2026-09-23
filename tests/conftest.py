@@ -19,17 +19,46 @@ que tiene prioridad sobre esto.
 from __future__ import annotations
 
 import hashlib
+import json
 from pathlib import Path
 
 import pytest
 
+from territorial.config import obtener_config
+
 CONFIG = Path(__file__).resolve().parents[1] / "config"
+
+# El catálogo con el que corren las pruebas. **No es el de producción**, por la
+# misma razón que los pesos: `config/gerencias.json` es una palanca de negocio
+# —quién forma el núcleo del experimento— y si además moviera el suite, cada
+# cambio de gerencias rompería pruebas por algo que no es un defecto. Las que
+# quieran otro catálogo lo construyen con `Config(ruta_gerencias=...)`, que
+# tiene prioridad; y la que fija el catálogo **real** lo hace a propósito.
+GERENCIAS_DE_PRUEBA = {
+    "gerencias": [
+        {"id_gerencia": "comercial", "nombre": "Comercial", "tipo": "prd"},
+        {"id_gerencia": "desarrollo", "nombre": "Desarrollo", "tipo": "prd"},
+        {"id_gerencia": "activos", "nombre": "Activos", "tipo": "adicional"},
+    ]
+}
 
 
 @pytest.fixture(autouse=True)
 def pesos_de_d4(monkeypatch):
     """Apunta `ruta_pesos` a un archivo que no existe: rigen los de `pesos.py`."""
     monkeypatch.setenv("RUTA_PESOS", "config/pesos-que-no-existe-en-pruebas.json")
+
+
+@pytest.fixture(autouse=True)
+def catalogo_de_prueba(tmp_path_factory, monkeypatch):
+    """Apunta `ruta_gerencias` a un catálogo de prueba, no al de producción."""
+    ruta = tmp_path_factory.mktemp("config") / "gerencias.json"
+    ruta.write_text(json.dumps(GERENCIAS_DE_PRUEBA), encoding="utf-8")
+    monkeypatch.setenv("RUTA_GERENCIAS", str(ruta))
+    # `obtener_config` está cacheada: sin limpiar, la variable no llegaría.
+    obtener_config.cache_clear()
+    yield
+    obtener_config.cache_clear()
 
 
 def _huella_config() -> dict[str, str]:

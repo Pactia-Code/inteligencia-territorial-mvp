@@ -338,10 +338,18 @@ def componer(
 
     insights_por_muni: dict[str, list[Insight]] = {}
     for ins in sesion_bd.scalars(
-        select(Insight).where(
+        select(Insight)
+        .where(
             Insight.id_corrida == id_corrida_agentes,
             Insight.estado_validacion == "validado",
         )
+        # **Orden explícito, y no es cosmético** (H-040). Sin `ORDER BY`, cada
+        # motor devuelve las filas en el orden que le conviene: SQLite y
+        # PostgreSQL daban payloads distintos para las mismas corridas, y un
+        # informe que no se puede regenerar byte a byte no es auditable. El id
+        # sirve porque es el orden de inserción, que es el orden en que el
+        # Clasificador los produjo.
+        .order_by(Insight.id)
     ).all():
         insights_por_muni.setdefault(ins.divipola, []).append(ins)
 

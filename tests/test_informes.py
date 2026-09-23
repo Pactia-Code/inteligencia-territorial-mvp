@@ -47,6 +47,7 @@ from territorial.informes.gerencias import cargar as cargar_gerencias
 from territorial.informes.publicacion import (
     PublicacionInvalida,
     ciclos_publicables,
+    exigir_calificadores,
     informe_vigente,
     publicar,
 )
@@ -773,6 +774,111 @@ def test_las_notas_del_archivo_no_estorban(tmp_path):
         encoding="utf-8",
     )
     assert cargar_gerencias(Config(ruta_gerencias=ruta))["general"].tipo == "prd"
+
+
+# --------------------------------------------------------------------------
+# F0.6 — publicación reproducible: orden, origen y guarda de calificadores
+# --------------------------------------------------------------------------
+
+
+def test_los_insights_salen_ordenados_por_id(bd):
+    """H-040: sin `ORDER BY`, SQLite y PostgreSQL daban payloads distintos.
+
+    Un informe que no se puede regenerar byte a byte no es auditable, y la
+    diferencia no se ve mirando: el contenido es el mismo y el orden no.
+    """
+    s, sc, ag = bd
+    for resumen in ("Tercero", "Segundo", "Primero"):
+        s.add(Insight(
+            id_corrida=ag, divipola="25286", categoria="obra_vial",
+            resumen=resumen, estado_validacion="validado", origen="clasificador",
+            evidencia=[{"url": "http://x", "fecha": "2026-03-01", "cita_textual": "c"}],
+        ))
+    s.flush()
+    funza = next(m for m in componer(s, sc, ag)["municipios"] if m["divipola"] == "25286")
+    ids = [i["id"] for i in funza["insights"]]
+    assert ids == sorted(ids)
+
+
+def test_el_informe_guarda_con_que_codigo_se_compuso(bd):
+    """`origen` es lo que permite regenerarlo: `git checkout <commit>` y componer."""
+    s, sc, ag = bd
+    inf = publicar(s, sc, ag, invocacion="scripts/publicar_informe.py --ciclo 3")
+    assert inf.origen["invocacion"] == "scripts/publicar_informe.py --ciclo 3"
+    assert inf.origen["publicado_en"]
+    # En un clon con git, el commit está; sin git, es `None` y queda declarado.
+    assert "commit" in inf.origen
+
+
+def test_el_origen_va_fuera_del_payload(bd):
+    """El payload tiene que salir idéntico en dos motores para poder compararse.
+
+    El commit describe **cómo** se compuso, no **qué** se compuso; si viajara
+    dentro, dos publicaciones del mismo contenido dejarían de ser comparables.
+    """
+    s, sc, ag = bd
+    inf = publicar(s, sc, ag)
+    assert "origen" not in inf.contenido
+    assert inf.contenido == componer(s, sc, ag)
+
+
+def test_no_se_publica_sin_ninguna_gerencia_prd(bd, tmp_path):
+    """Sin núcleo declarado, H2 no se podría reportar sobre nadie."""
+    s, sc, ag = bd
+    ruta = tmp_path / "gerencias.json"
+    escribir_catalogo(ruta, [], ["comercial", "desarrollo", "activos"])
+    with pytest.raises(PublicacionInvalida, match="ninguna gerencia «prd»"):
+        publicar(s, sc, ag, config=Config(ruta_gerencias=ruta))
+
+
+def test_no_se_publica_si_una_prd_no_tiene_quien_califique(bd, tmp_path):
+    """Su denominador quedaría congelado sin nadie que pueda responder."""
+    s, sc, ag = bd
+    ruta = tmp_path / "gerencias.json"
+    escribir_catalogo(ruta, ["comercial", "sin_nadie"])
+    with pytest.raises(PublicacionInvalida, match="sin_nadie"):
+        publicar(s, sc, ag, config=Config(ruta_gerencias=ruta))
+
+
+def test_un_usuario_inactivo_no_cubre_a_su_gerencia(bd, tmp_path):
+    """Dar de baja al único calificador de una «prd» bloquea la publicación."""
+    s, sc, ag = bd
+    s.query(Usuario).filter_by(id_gerencia="desarrollo").one().activo = False
+    s.flush()
+    ruta = tmp_path / "gerencias.json"
+    escribir_catalogo(ruta, ["comercial", "desarrollo"])
+    with pytest.raises(PublicacionInvalida, match="desarrollo"):
+        publicar(s, sc, ag, config=Config(ruta_gerencias=ruta))
+
+
+def test_un_administrador_no_cubre_a_su_gerencia(bd, tmp_path):
+    """Tiene panel, no papeleta: no puede ser el calificador de una «prd»."""
+    s, sc, ag = bd
+    ruta = tmp_path / "gerencias.json"
+    escribir_catalogo(ruta, ["analitica"])  # solo la tiene el administrador
+    with pytest.raises(PublicacionInvalida, match="analitica"):
+        publicar(s, sc, ag, config=Config(ruta_gerencias=ruta))
+
+
+def test_la_guarda_devuelve_las_prd_cubiertas(bd, tmp_path):
+    s, sc, ag = bd
+    ruta = tmp_path / "gerencias.json"
+    escribir_catalogo(ruta, ["comercial", "desarrollo"], ["activos"])
+    assert exigir_calificadores(s, Config(ruta_gerencias=ruta)) == ["comercial", "desarrollo"]
+
+
+def test_la_guarda_no_lleva_ningun_numero_fijo(bd, tmp_path):
+    """Si mañana el núcleo son seis gerencias, esto no se toca."""
+    s, sc, ag = bd
+    seis = [f"g{n}" for n in range(6)]
+    s.add_all([
+        Usuario(id_gerencia=g, nombre=g, correo=f"{g}@p.co", rol="gerencia")
+        for g in seis
+    ])
+    s.flush()
+    ruta = tmp_path / "gerencias.json"
+    escribir_catalogo(ruta, seis)
+    assert exigir_calificadores(s, Config(ruta_gerencias=ruta)) == seis
 
 
 def test_cada_insight_dice_como_llego(bd):

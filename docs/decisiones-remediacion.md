@@ -110,6 +110,16 @@ esta.
   `config/gerencias.json` y de `usuario`, no de un «5» ni de un «7» escritos a
   mano.
 
+### `VERSION_PROMPT` del Correlacionador sigue en v2, y eso tiene filo
+
+- **Registrado el 2026-09-22, y no se cambia ahora.** El valor por defecto del
+  código es **v2**, aunque lo publicado se compuso con **v1** (F0.5). La
+  consecuencia práctica: **cualquier ciclo nuevo correría con v2**, es decir con
+  un prompt cuya comparación **no está validada con linaje persistido** —eso es
+  la subfase **F2.3**—. No afecta a lo ya publicado ni a la republicación de
+  F0.6, que usan la corrida 10, que es v1. Queda dicho para que, si alguien
+  corre un ciclo antes de F2.3, sepa que está estrenando prompt sin red.
+
 ### Un informe sin lista congelada no admite calificaciones
 
 - **Comportamiento conservador, aceptado por el dueño** (F0.4). Un informe
