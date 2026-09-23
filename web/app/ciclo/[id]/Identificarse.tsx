@@ -69,6 +69,17 @@ export function Identificarse() {
         gerencias cada una pesa el 14%. El mensaje dice que pasa y a quien
         escribir.
       */}
+      {resultado?.ok === false && resultado.motivo === "sin_secreto" && (
+        <p
+          className="t-body etiqueta etiqueta-aviso"
+          style={{ display: "block", margin: "var(--space-3) 0 0" }}
+        >
+          Este despliegue no tiene configurada la firma de identificación
+          (COOKIE_SECRET), así que no puede identificar a nadie. Leer el informe
+          sigue funcionando; avisa a quien te compartió el enlace.
+        </p>
+      )}
+
       {resultado?.ok === false && resultado.motivo === "no_autorizado" && (
         <p
           className="t-body etiqueta etiqueta-aviso"

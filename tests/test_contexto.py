@@ -290,8 +290,20 @@ def test_solo_las_versiones_declaradas_reciben_el_contexto():
 
     assert "v2" in co.VERSIONES_CON_CONTEXTO
     assert "v1" not in co.VERSIONES_CON_CONTEXTO
-    # La vigente tiene que entenderlo: si no, el contexto no llegaría a nadie.
-    assert co.VERSION_PROMPT in co.VERSIONES_CON_CONTEXTO
+
+    # **Antes esto exigía que la versión por defecto entendiera el bloque**, con
+    # el argumento de que si no, el contexto no llegaría a nadie. Desde el
+    # 2026-09-22 el valor por defecto es v1 hasta que F2.3 valide v2, así que el
+    # contexto **deliberadamente no viaja**: es el mismo comportamiento que la
+    # corrida 10, la del informe publicado. Lo que sigue siendo invariante es que
+    # el bloque solo llega a una versión que lo documente, se elija como se elija.
+    if co.VERSION_PROMPT in co.VERSIONES_CON_CONTEXTO:
+        assert co.VERSION_PROMPT == "v2", "solo v2 documenta el bloque"
+    else:
+        assert co.VERSION_PROMPT == "v1", (
+            "si el valor por defecto no entiende el contexto, tiene que ser v1: "
+            "cualquier otra versión sin bloque sería una tercera, sin decidir"
+        )
 
 
 def test_el_prompt_v1_se_conserva_como_linea_base():

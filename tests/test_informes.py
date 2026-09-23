@@ -12,7 +12,9 @@ significando lo mismo dentro de seis meses:
 
 from __future__ import annotations
 
+import json
 from datetime import date
+from pathlib import Path
 
 import pytest
 from sqlalchemy import create_engine
@@ -29,6 +31,7 @@ from territorial.almacen.modelos import (
     Insight,
     Municipio,
     ScoreMunicipio,
+    Usuario,
 )
 from territorial.config import Config
 from territorial.informes.composicion import (
@@ -36,11 +39,15 @@ from territorial.informes.composicion import (
     agrupar_por_fuente,
     campos_de_contexto,
     componer,
+    gerencias_autorizadas,
     resumir_fuentes,
 )
+from territorial.informes.gerencias import GerenciasInvalidas
+from territorial.informes.gerencias import cargar as cargar_gerencias
 from territorial.informes.publicacion import (
     PublicacionInvalida,
     ciclos_publicables,
+    exigir_calificadores,
     informe_vigente,
     publicar,
 )
@@ -111,6 +118,17 @@ def bd():
             id_corrida=ag.id, divipola="73001", categoria="obra_vial",
             resumen="Rechazado", estado_validacion="rechazado", origen="clasificador",
         ))
+        # Tres gerencias activas (una con dos personas), una desactivada y un
+        # administrador: el denominador de H2 tiene que ser exactamente tres.
+        s.add_all([
+            Usuario(id_gerencia="comercial", nombre="A", correo="a@p.co"),
+            Usuario(id_gerencia="comercial", nombre="A2", correo="a2@p.co"),
+            Usuario(id_gerencia="desarrollo", nombre="B", correo="b@p.co"),
+            Usuario(id_gerencia="activos", nombre="C", correo="c@p.co"),
+            Usuario(id_gerencia="antigua", nombre="D", correo="d@p.co", activo=False),
+            Usuario(id_gerencia="analitica", nombre="E", correo="e@p.co",
+                    rol="administrador"),
+        ])
         s.commit()
         yield s, sc.id, ag.id
 
@@ -534,6 +552,333 @@ def test_la_semilla_queda_congelada_en_el_payload(bd):
     d = componer(s, sc, ag)
     assert d["calificacion"]["semilla"] == d["ciclo"]
     assert d["calificacion"]["pedidas_por_municipio"] == 5
+
+
+# --------------------------------------------------------------------------
+# H-005 / F0.1 — el denominador de H2 se congela en el payload
+# --------------------------------------------------------------------------
+
+
+def ids(gerencias: list[dict]) -> list[str]:
+    return [g["id_gerencia"] for g in gerencias]
+
+
+def test_el_payload_congela_las_gerencias_autorizadas(bd):
+    """Quién podía calificar cuando se publicó, no quién puede hoy.
+
+    Sin esto, sustituir los usuarios de prueba por los reales tras publicar
+    recalculaba la tasa de respuesta del ciclo con otro denominador (H-005).
+    """
+    s, sc, ag = bd
+    assert ids(componer(s, sc, ag)["calificacion"]["gerencias"]) == [
+        "activos", "comercial", "desarrollo",
+    ]
+
+
+def test_el_denominador_excluye_inactivos_y_administradores(bd):
+    """El administrador tiene panel, no papeleta (CA-M9.14); el inactivo, nada."""
+    s, _, _ = bd
+    gerencias = ids(gerencias_autorizadas(s))
+    assert "antigua" not in gerencias
+    assert "analitica" not in gerencias
+
+
+def test_dos_personas_de_una_gerencia_cuentan_una_vez(bd):
+    """`calificacion` atribuye por gerencia, así que el denominador también."""
+    s, _, _ = bd
+    assert ids(gerencias_autorizadas(s)).count("comercial") == 1
+
+
+def test_el_informe_publicado_guarda_las_gerencias_y_no_cambia_si_usuario_cambia(bd):
+    """La garantía completa: lo que quedó en `informe.contenido` es inmune a
+    altas, bajas y cambios posteriores en `usuario`."""
+    s, sc, ag = bd
+    inf = publicar(s, sc, ag)
+    congeladas = inf.contenido["calificacion"]["gerencias"]
+    assert ids(congeladas) == ["activos", "comercial", "desarrollo"]
+
+    # Después de publicar: una gerencia nueva, otra se desactiva.
+    s.add(Usuario(id_gerencia="nueva", nombre="F", correo="f@p.co"))
+    s.query(Usuario).filter_by(correo="c@p.co").one().activo = False
+    s.flush()
+    assert ids(gerencias_autorizadas(s)) == ["comercial", "desarrollo", "nueva"]
+
+    s.expire_all()
+    guardado = s.get(Informe, inf.id).contenido["calificacion"]["gerencias"]
+    assert ids(guardado) == ["activos", "comercial", "desarrollo"]
+
+
+def test_sin_usuarios_el_denominador_es_una_lista_vacia_no_un_hueco(bd):
+    """Explícito y vacío: el lector del payload ve que no había nadie."""
+    s, sc, ag = bd
+    s.query(Usuario).delete()
+    s.flush()
+    assert componer(s, sc, ag)["calificacion"]["gerencias"] == []
+
+
+# --------------------------------------------------------------------------
+# F0.1b — la marca prd/adicional viaja con cada gerencia congelada
+# --------------------------------------------------------------------------
+
+
+def escribir_catalogo(ruta: Path, prd: list[str], adicionales: list[str] = []) -> None:
+    ruta.write_text(
+        json.dumps({"gerencias": [
+            {"id_gerencia": g, "nombre": g.title(), "tipo": tipo}
+            for tipo, lista in (("prd", prd), ("adicional", adicionales))
+            for g in lista
+        ]}),
+        encoding="utf-8",
+    )
+
+
+def config_con_prd(tmp_path, *gerencias: str) -> Config:
+    """Un `Config` que declara esas `id_gerencia` como núcleo del experimento."""
+    ruta = tmp_path / "gerencias.json"
+    escribir_catalogo(ruta, list(gerencias))
+    return Config(ruta_gerencias=ruta)
+
+
+def test_las_declaradas_salen_marcadas_prd_y_el_resto_adicional(bd, tmp_path):
+    """La razón de existir de F0.1b: separar H2 de los calificadores añadidos."""
+    s, sc, ag = bd
+    cfg = config_con_prd(tmp_path, "comercial", "desarrollo", "activos")
+    marcas = {
+        g["id_gerencia"]: g["tipo"]
+        for g in componer(s, sc, ag, config=cfg)["calificacion"]["gerencias"]
+    }
+    assert marcas == {"comercial": "prd", "desarrollo": "prd", "activos": "prd"}
+
+
+def test_una_gerencia_fuera_de_la_lista_es_adicional(bd, tmp_path):
+    """El caso del dueño: Analítica califica y no es una de las 7."""
+    s, sc, ag = bd
+    s.add(Usuario(id_gerencia="analitica_califica", nombre="G", correo="g@p.co"))
+    s.flush()
+    cfg = config_con_prd(tmp_path, "comercial", "desarrollo", "activos")
+    marcas = {
+        g["id_gerencia"]: g["tipo"]
+        for g in componer(s, sc, ag, config=cfg)["calificacion"]["gerencias"]
+    }
+    assert marcas["analitica_califica"] == "adicional"
+    assert marcas["comercial"] == "prd"
+
+
+def test_las_siete_del_prd_salen_todas_como_prd(bd, tmp_path):
+    """Con las 7 declaradas, ninguna de ellas se cuela como adicional."""
+    siete = [f"gerencia_{n}" for n in range(1, 8)]
+    s, sc, ag = bd
+    s.query(Usuario).delete()
+    s.add_all([
+        Usuario(id_gerencia=g, nombre=g, correo=f"{g}@p.co") for g in siete
+    ])
+    s.flush()
+    gerencias = componer(s, sc, ag, config=config_con_prd(tmp_path, *siete))[
+        "calificacion"
+    ]["gerencias"]
+    assert ids(gerencias) == siete
+    assert {g["tipo"] for g in gerencias} == {"prd"}
+
+
+def test_la_marca_queda_congelada_aunque_cambie_la_configuracion(bd, tmp_path):
+    """Lo mismo que la lista: el informe publicado no se mueve.
+
+    Si la marca se recalculara al leer, reclasificar una gerencia después
+    cambiaría a posteriori sobre quién se computó H2 en un ciclo ya cerrado.
+    """
+    s, sc, ag = bd
+    ruta = tmp_path / "gerencias.json"
+    escribir_catalogo(ruta, ["comercial"], ["activos", "desarrollo"])
+    cfg = Config(ruta_gerencias=ruta)
+
+    inf = publicar(s, sc, ag, config=cfg)
+    congeladas = {
+        g["id_gerencia"]: g["tipo"] for g in inf.contenido["calificacion"]["gerencias"]
+    }
+    assert congeladas == {
+        "activos": "adicional", "comercial": "prd", "desarrollo": "adicional",
+    }
+
+    # La configuración cambia: ahora las tres son del núcleo.
+    escribir_catalogo(ruta, ["comercial", "desarrollo", "activos"])
+    s.expire_all()
+    guardado = {
+        g["id_gerencia"]: g["tipo"]
+        for g in s.get(Informe, inf.id).contenido["calificacion"]["gerencias"]
+    }
+    assert guardado == congeladas
+
+
+def test_sin_archivo_de_configuracion_todas_son_adicionales(bd, tmp_path):
+    """El estado de hoy, y es deliberado: el PRD nunca nombra las 7.
+
+    Se comprueba antes de la republicación definitiva de F0.6; hasta entonces
+    la marca dice la verdad, que es que no hay ninguna declarada.
+    """
+    s, sc, ag = bd
+    cfg = Config(ruta_gerencias=tmp_path / "no-existe.json")
+    tipos = {g["tipo"] for g in componer(s, sc, ag, config=cfg)["calificacion"]["gerencias"]}
+    assert tipos == {"adicional"}
+
+
+def test_el_catalogo_real_es_el_nucleo_de_cinco_mas_dos_adicionales():
+    """Las gerencias que el dueño declaró el 2026-09-22, tal cual.
+
+    El PRD dice 7 y el núcleo son 5: Financiera no participa y Oficinas y
+    Hotelería son una sola. Es desviación registrada, así que la prueba la fija
+    para que un cambio silencioso en el archivo no pase inadvertido.
+    """
+    catalogo = cargar_gerencias(Config(ruta_gerencias=Path("config/gerencias.json")))
+    por_tipo: dict[str, list[str]] = {"prd": [], "adicional": []}
+    for g in catalogo.values():
+        por_tipo[g.tipo].append(g.id_gerencia)
+    assert sorted(por_tipo["prd"]) == [
+        "general", "juridica", "producto_hoteles_oficinas",
+        "producto_logistica", "rotacion_portafolio",
+    ]
+    assert sorted(por_tipo["adicional"]) == ["administrativa", "analitica"]
+    assert all(g.nombre for g in catalogo.values())
+
+
+@pytest.mark.parametrize("contenido, error", [
+    ("[]", "se esperaba un objeto"),
+    ('{"gerencias": {}}', "debe ser una lista"),
+    ('{"gerencias": [{"id_gerencia": "a", "nombre": "A", "tipo": "otra"}]}', "tipo"),
+    ('{"gerencias": [{"nombre": "A", "tipo": "prd"}]}', "falta «id_gerencia»"),
+    ('{"gerencias": [{"id_gerencia": "a", "tipo": "prd"}]}', "falta «nombre»"),
+    ('{"gerencias": [{"id_gerencia": "a", "nombre": "A", "tipo": "prd", "x": 1}]}',
+     "campos desconocidos"),
+    ('{"gerencias": [{"id_gerencia": "a", "nombre": "A", "tipo": "prd"},'
+     ' {"id_gerencia": "a", "nombre": "A2", "tipo": "adicional"}]}', "repetida"),
+    ('{"otra": []}', "claves desconocidas"),
+    ("{", "no es JSON válido"),
+])
+def test_un_archivo_de_gerencias_mal_escrito_falla_en_vez_de_marcar_mal(
+    tmp_path, contenido, error
+):
+    """Marcar mal es peor que no arrancar: H2 se reportaría sobre otro conjunto."""
+    ruta = tmp_path / "gerencias.json"
+    ruta.write_text(contenido, encoding="utf-8")
+    with pytest.raises(GerenciasInvalidas, match=error):
+        cargar_gerencias(Config(ruta_gerencias=ruta))
+
+
+def test_las_notas_del_archivo_no_estorban(tmp_path):
+    """El JSON no tiene comentarios, así que las notas van en claves `_…`."""
+    ruta = tmp_path / "gerencias.json"
+    ruta.write_text(
+        json.dumps({
+            "_nota": "algo que explicar",
+            "gerencias": [{"id_gerencia": "general", "nombre": "G", "tipo": "prd"}],
+        }),
+        encoding="utf-8",
+    )
+    assert cargar_gerencias(Config(ruta_gerencias=ruta))["general"].tipo == "prd"
+
+
+# --------------------------------------------------------------------------
+# F0.6 — publicación reproducible: orden, origen y guarda de calificadores
+# --------------------------------------------------------------------------
+
+
+def test_los_insights_salen_ordenados_por_id(bd):
+    """H-040: sin `ORDER BY`, SQLite y PostgreSQL daban payloads distintos.
+
+    Un informe que no se puede regenerar byte a byte no es auditable, y la
+    diferencia no se ve mirando: el contenido es el mismo y el orden no.
+    """
+    s, sc, ag = bd
+    for resumen in ("Tercero", "Segundo", "Primero"):
+        s.add(Insight(
+            id_corrida=ag, divipola="25286", categoria="obra_vial",
+            resumen=resumen, estado_validacion="validado", origen="clasificador",
+            evidencia=[{"url": "http://x", "fecha": "2026-03-01", "cita_textual": "c"}],
+        ))
+    s.flush()
+    funza = next(m for m in componer(s, sc, ag)["municipios"] if m["divipola"] == "25286")
+    ids = [i["id"] for i in funza["insights"]]
+    assert ids == sorted(ids)
+
+
+def test_el_informe_guarda_con_que_codigo_se_compuso(bd):
+    """`origen` es lo que permite regenerarlo: `git checkout <commit>` y componer."""
+    s, sc, ag = bd
+    inf = publicar(s, sc, ag, invocacion="scripts/publicar_informe.py --ciclo 3")
+    assert inf.origen["invocacion"] == "scripts/publicar_informe.py --ciclo 3"
+    assert inf.origen["publicado_en"]
+    # En un clon con git, el commit está; sin git, es `None` y queda declarado.
+    assert "commit" in inf.origen
+
+
+def test_el_origen_va_fuera_del_payload(bd):
+    """El payload tiene que salir idéntico en dos motores para poder compararse.
+
+    El commit describe **cómo** se compuso, no **qué** se compuso; si viajara
+    dentro, dos publicaciones del mismo contenido dejarían de ser comparables.
+    """
+    s, sc, ag = bd
+    inf = publicar(s, sc, ag)
+    assert "origen" not in inf.contenido
+    assert inf.contenido == componer(s, sc, ag)
+
+
+def test_no_se_publica_sin_ninguna_gerencia_prd(bd, tmp_path):
+    """Sin núcleo declarado, H2 no se podría reportar sobre nadie."""
+    s, sc, ag = bd
+    ruta = tmp_path / "gerencias.json"
+    escribir_catalogo(ruta, [], ["comercial", "desarrollo", "activos"])
+    with pytest.raises(PublicacionInvalida, match="ninguna gerencia «prd»"):
+        publicar(s, sc, ag, config=Config(ruta_gerencias=ruta))
+
+
+def test_no_se_publica_si_una_prd_no_tiene_quien_califique(bd, tmp_path):
+    """Su denominador quedaría congelado sin nadie que pueda responder."""
+    s, sc, ag = bd
+    ruta = tmp_path / "gerencias.json"
+    escribir_catalogo(ruta, ["comercial", "sin_nadie"])
+    with pytest.raises(PublicacionInvalida, match="sin_nadie"):
+        publicar(s, sc, ag, config=Config(ruta_gerencias=ruta))
+
+
+def test_un_usuario_inactivo_no_cubre_a_su_gerencia(bd, tmp_path):
+    """Dar de baja al único calificador de una «prd» bloquea la publicación."""
+    s, sc, ag = bd
+    s.query(Usuario).filter_by(id_gerencia="desarrollo").one().activo = False
+    s.flush()
+    ruta = tmp_path / "gerencias.json"
+    escribir_catalogo(ruta, ["comercial", "desarrollo"])
+    with pytest.raises(PublicacionInvalida, match="desarrollo"):
+        publicar(s, sc, ag, config=Config(ruta_gerencias=ruta))
+
+
+def test_un_administrador_no_cubre_a_su_gerencia(bd, tmp_path):
+    """Tiene panel, no papeleta: no puede ser el calificador de una «prd»."""
+    s, sc, ag = bd
+    ruta = tmp_path / "gerencias.json"
+    escribir_catalogo(ruta, ["analitica"])  # solo la tiene el administrador
+    with pytest.raises(PublicacionInvalida, match="analitica"):
+        publicar(s, sc, ag, config=Config(ruta_gerencias=ruta))
+
+
+def test_la_guarda_devuelve_las_prd_cubiertas(bd, tmp_path):
+    s, sc, ag = bd
+    ruta = tmp_path / "gerencias.json"
+    escribir_catalogo(ruta, ["comercial", "desarrollo"], ["activos"])
+    assert exigir_calificadores(s, Config(ruta_gerencias=ruta)) == ["comercial", "desarrollo"]
+
+
+def test_la_guarda_no_lleva_ningun_numero_fijo(bd, tmp_path):
+    """Si mañana el núcleo son seis gerencias, esto no se toca."""
+    s, sc, ag = bd
+    seis = [f"g{n}" for n in range(6)]
+    s.add_all([
+        Usuario(id_gerencia=g, nombre=g, correo=f"{g}@p.co", rol="gerencia")
+        for g in seis
+    ])
+    s.flush()
+    ruta = tmp_path / "gerencias.json"
+    escribir_catalogo(ruta, seis)
+    assert exigir_calificadores(s, Config(ruta_gerencias=ruta)) == seis
 
 
 def test_cada_insight_dice_como_llego(bd):

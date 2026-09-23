@@ -403,6 +403,9 @@ class Usuario(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     id_gerencia: Mapped[str] = mapped_column(String(60), index=True)
     nombre: Mapped[str] = mapped_column(String(120))
+    # Opcional a propósito: el CSV lo trae vacío para varias personas y el cargo
+    # no decide nada — no es el rol, que sí gobierna qué se puede hacer.
+    cargo: Mapped[str | None] = mapped_column(String(120))
     correo: Mapped[str] = mapped_column(String(160), unique=True)
     rol: Mapped[str] = mapped_column(String(20), default="gerencia")
     activo: Mapped[bool] = mapped_column(default=True)
@@ -412,12 +415,47 @@ class Usuario(Base):
     )
 
 
+class Identificacion(Base):
+    """Cada vez que alguien se identifica en la app. F0.3, residual de H-012.
+
+    **No es autenticación y no la sustituye.** El dueño decidió no adoptar el
+    token (R-A2), así que la identidad sigue siendo un correo tecleado y
+    cualquiera que conozca uno autorizado puede usarlo. Lo que esta tabla añade
+    es **rastro**: si una calificación se discute, hay un registro de cuándo se
+    identificó esa cuenta y desde qué navegador.
+
+    Es **dato de sesión**, la tercera tabla que la app escribe además de
+    `calificacion` y `seguimiento` (CA-M9.16). La ampliación está registrada en
+    `docs/decisiones-remediacion.md`; como todo lo demás, nace en Alembic.
+
+    `ip` va anulable porque **solo llega si el despliegue la pone** en
+    `x-forwarded-for`: en Vercel sí, en local casi nunca. No se configura nada
+    para obtenerla.
+    """
+
+    __tablename__ = "identificacion"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    id_usuario: Mapped[int] = mapped_column(ForeignKey("usuario.id"), index=True)
+    creado_en: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=ahora)
+    user_agent: Mapped[str | None] = mapped_column(String(300))
+    ip: Mapped[str | None] = mapped_column(String(45))
+
+
 class Calificacion(Base):
     __tablename__ = "calificacion"
 
     id: Mapped[int] = mapped_column(primary_key=True)
     id_insight: Mapped[int] = mapped_column(ForeignKey("insight.id"), index=True)
     id_gerencia: Mapped[str] = mapped_column(String(60), index=True)
+    # Quién la escribió, para poder auditar la autoría dentro de una gerencia.
+    #
+    # **Anulable a propósito.** La app la pone siempre; se deja anulable para no
+    # obligar a fabricar un usuario en cada prueba o carga desde Python. Y no
+    # cambia a quién se atribuye: CA-M7.2 atribuye a **gerencia**, que es lo que
+    # sostiene `uq_calificacion_insight_gerencia`. Esto es el registro de quién
+    # tecleó, no un segundo eje de atribución.
+    id_usuario: Mapped[int | None] = mapped_column(ForeignKey("usuario.id"), index=True)
     valor: Mapped[int] = mapped_column(Integer)
     comentario: Mapped[str | None] = mapped_column(Text)
     creado_en: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=ahora)
@@ -646,6 +684,12 @@ class Informe(Base):
     # almacén**; ni una cifra sale del modelo (CA-M6.3). M9 lo pinta y no
     # necesita conocer los códigos de factor.
     contenido: Mapped[dict] = mapped_column(JSON, default=dict)
+    # De dónde salió este informe: `{commit, invocacion, publicado_en}` (F0.6,
+    # H-040). Sin esto, un informe publicado no se puede atar al código que lo
+    # compuso, y regenerarlo meses después es un acto de fe: el payload depende
+    # de `composicion.py`, que cambia. Los informes 2 a 5 se publicaron antes de
+    # que existiera la columna y la llevan vacía.
+    origen: Mapped[dict] = mapped_column(JSON, default=dict)
     infografias: Mapped[list] = mapped_column(JSON, default=list)  # [{divipola, uri}]
     estado: Mapped[str] = mapped_column(String(20), default="publicado")
     fecha_publicacion: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=ahora)

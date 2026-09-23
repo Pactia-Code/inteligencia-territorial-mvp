@@ -1,0 +1,11 @@
+{
+  "gerencias": [
+    {"id_gerencia": "general", "nombre": "Gerencia General", "tipo": "prd"},
+    {"id_gerencia": "juridica", "nombre": "Gerencia Jurídica", "tipo": "prd"},
+    {"id_gerencia": "rotacion_portafolio", "nombre": "Rotación de Portafolio", "tipo": "prd"},
+    {"id_gerencia": "producto_logistica", "nombre": "Gerencia de Logística", "tipo": "prd"},
+    {"id_gerencia": "producto_hoteles_oficinas", "nombre": "Gerencia de Hoteles y Oficinas", "tipo": "prd"},
+    {"id_gerencia": "administrativa", "nombre": "Gerencia Administrativa", "tipo": "adicional"},
+    {"id_gerencia": "analitica", "nombre": "Área de Analítica", "tipo": "adicional"}
+  ]
+}

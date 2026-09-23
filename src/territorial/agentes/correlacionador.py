@@ -57,18 +57,37 @@ from territorial.config import Config, obtener_config
 from territorial.reglas.contexto import ContextoBandeado
 
 PROMPTS = Path(__file__).parent / "prompts"
-# **v2 es la versión vigente desde el 2026-09-21.** Añade el contexto estructural
-# bandeado (CA-M4.2). Se promovió tras el control v1 contra v1, que midió el piso
-# de ruido del agente: sus 40 convergencias caen dentro del rango 39-42 que v1
-# produce consigo mismo, y su tipología sube a 35 frente a un máximo de 24 en tres
-# pasadas de v1. Once puntos por encima del ruido en el efecto buscado, y dentro
-# del ruido en el que preocupaba. v1 se conserva como línea base.
-VERSION_PROMPT = "v2"
+
+# **v1 es el valor por defecto, y es una decisión, no un descuido.**
+#
+# v2 añade el contexto estructural bandeado (CA-M4.2) y se promovió el
+# 2026-09-21 tras el control v1 contra v1: sus 40 convergencias caen dentro del
+# rango 39-42 que v1 produce consigo mismo, y su tipología sube a 35 frente a un
+# máximo de 24 en tres pasadas de v1. Pero **aquella promoción se quedó en esta
+# constante**: ninguna corrida se ejecutó nunca con v2, `prompt_version` no tiene
+# fila suya y **el informe publicado se compuso con v1**.
+#
+# Mientras eso siga así, dejar v2 por defecto significaba que **el próximo ciclo
+# estrenaría un prompt sin comparación validada con linaje persistido**, que es
+# justo lo que la subfase F2.3 existe para hacer. Así que el valor por defecto
+# vuelve a v1 —lo que hay publicado— hasta que F2.3 valide v2.
+#
+# **v2 no se borra ni se degrada**: sigue en `prompts/correlacionador_v2.md` y se
+# elige pasando `version="v2"` a `correlacionar()` o a los scripts de
+# comparación. Lo que cambia es qué corre cuando nadie elige.
+#
+# `tests/test_version_prompt.py` falla si este valor cambia sin actualizar
+# `docs/decisiones-remediacion.md`.
+VERSION_PROMPT = "v1"
 
 # Qué versiones entienden el bloque de contexto estructural. Mandar el bloque a
 # un prompt que no lo documenta es peor que no mandarlo: el modelo recibe datos
 # sin ninguna regla sobre qué puede hacer con ellos, y la regla «el contexto
 # explica, nunca crea» es justo lo que hay que sostener.
+#
+# Consecuencia de que el valor por defecto sea v1: **por defecto el contexto no
+# viaja**, igual que en la corrida que produjo el informe publicado. Al validar
+# v2 en F2.3, volverá a viajar.
 VERSIONES_CON_CONTEXTO = frozenset({"v2"})
 
 CONFIANZAS = {"alta", "media", "baja"}

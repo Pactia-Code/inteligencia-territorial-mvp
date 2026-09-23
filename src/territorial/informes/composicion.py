@@ -46,8 +46,11 @@ from territorial.almacen.modelos import (
     Insight,
     Municipio,
     ScoreMunicipio,
+    Usuario,
 )
 from territorial.config import Config, obtener_config
+from territorial.informes.gerencias import cargar as cargar_gerencias
+from territorial.informes.gerencias import clasificar
 from territorial.informes.seleccion import PEDIDAS, pedir_calificacion
 
 # CA-M6.5: la marca va en el payload, no en la plantilla, para que ninguna
@@ -241,6 +244,43 @@ def _factores(fila: ScoreMunicipio) -> tuple[list[dict], set[str], set[str]]:
     return detalle, presentes, ausentes - presentes
 
 
+def gerencias_autorizadas(
+    sesion_bd: Session, config: Config | None = None
+) -> list[dict]:
+    """Las gerencias que pueden calificar **en el momento de componer**.
+
+    Es el denominador de H2, y se congela en el payload (F0.1 de la
+    remediación, H-005; decisión P-2 del dueño). Sin esto el denominador vivía
+    solo en el estado *actual* de `usuario`: sustituir los usuarios de prueba
+    por los reales, o desactivar una gerencia en el ciclo siguiente, recalculaba
+    la tasa de respuesta de un informe ya publicado con otro denominador.
+
+    Entran los usuarios **activos con rol `gerencia`**, deduplicados por
+    `id_gerencia` y en orden fijo. El administrador no cuenta: CA-M9.14 le da el
+    panel de métricas, no una papeleta, y H2 se define sobre las 7 gerencias.
+    Dos usuarios de la misma gerencia son una sola gerencia: `calificacion`
+    atribuye al nivel de gerencia (`uq_calificacion_insight_gerencia`).
+
+    Riesgo residual declarado en el plan: un usuario dado de alta a mitad de
+    la ventana no cuenta salvo republicación. Es deliberado — el denominador
+    es el del informe que las gerencias leyeron.
+
+    **Cada gerencia viaja con su marca `prd` o `adicional`** (F0.1b): el
+    conjunto de calificadores no se cierra a las 7 del PRD, y H2 se reporta
+    sobre las 7 mientras que los adicionales van aparte. De dónde sale la marca:
+    `informes/gerencias.py`.
+    """
+    catalogo = cargar_gerencias(config)
+    filas = sesion_bd.scalars(
+        select(Usuario.id_gerencia)
+        .where(Usuario.activo.is_(True), Usuario.rol == "gerencia")
+        .distinct()
+    ).all()
+    return [
+        {"id_gerencia": g, "tipo": clasificar(g, catalogo)} for g in sorted(filas)
+    ]
+
+
 def _trayecto(insight: dict, ids_correlacionados: set[int]) -> str:
     """Cómo llegó esa señal al informe: sola, o vía una convergencia.
 
@@ -298,10 +338,18 @@ def componer(
 
     insights_por_muni: dict[str, list[Insight]] = {}
     for ins in sesion_bd.scalars(
-        select(Insight).where(
+        select(Insight)
+        .where(
             Insight.id_corrida == id_corrida_agentes,
             Insight.estado_validacion == "validado",
         )
+        # **Orden explícito, y no es cosmético** (H-040). Sin `ORDER BY`, cada
+        # motor devuelve las filas en el orden que le conviene: SQLite y
+        # PostgreSQL daban payloads distintos para las mismas corridas, y un
+        # informe que no se puede regenerar byte a byte no es auditable. El id
+        # sirve porque es el orden de inserción, que es el orden en que el
+        # Clasificador los produjo.
+        .order_by(Insight.id)
     ).all():
         insights_por_muni.setdefault(ins.divipola, []).append(ins)
 
@@ -420,6 +468,12 @@ def componer(
             # Congelada: con esto se recomputa la muestra y se comprueba que fue
             # idéntica para las siete gerencias (CA-M6.6).
             "semilla": semilla,
+            # **El denominador de H2, congelado** (H-005 / F0.1). Quién estaba
+            # autorizado a calificar cuando se publicó este informe, no quién
+            # lo está hoy. La tasa de respuesta se computa contra esta lista.
+            # Cada una con su marca `prd` o `adicional` (F0.1b): H2 se reporta
+            # sobre las 7 del PRD y los adicionales por separado.
+            "gerencias": gerencias_autorizadas(sesion_bd, config),
         },
         "municipios": municipios,
     }

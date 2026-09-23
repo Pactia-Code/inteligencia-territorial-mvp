@@ -17,9 +17,11 @@ regenera, el suite falla. Es el mismo mecanismo que `alembic check` —comparar 
 declarado contra lo real y fallar si divergen— aplicado al lenguaje que no
 comparte el modelo.
 
-**Solo las dos tablas que M9 escribe** (CA-M9.16): `calificacion` y
-`seguimiento`. El resto del esquema la app solo lo lee, y una lectura no puede
-corromper nada.
+**Solo las tablas que M9 escribe.** CA-M9.16 enumera `calificacion` y
+`seguimiento`; F0.3 añadió `identificacion`, que es **dato de sesión** —quién se
+identificó, cuándo y desde qué navegador— y está registrada como ampliación
+deliberada en `docs/decisiones-remediacion.md`. El resto del esquema la app solo
+lo lee, y una lectura no puede corromper nada.
 
 Uso:
 
@@ -51,7 +53,7 @@ from territorial.almacen.modelos import Base  # noqa: E402
 
 # Exactamente las de CA-M9.16. Añadir una aquí es ampliar lo que la app puede
 # escribir, así que no se hace sin decidirlo.
-TABLAS: tuple[str, ...] = ("calificacion", "seguimiento")
+TABLAS: tuple[str, ...] = ("calificacion", "seguimiento", "identificacion")
 
 DESTINO = Path("web/lib/contrato.generado.ts")
 

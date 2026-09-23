@@ -14,7 +14,7 @@ deciden el go/no-go.
 | **M1** Ingesta | ✅ | 18 municipios, 20.030 señales |
 | **M2** Clasificación | ✅ | Prompt v4. Reduce 95,2%. **No reproducible**: 19,5% de las señales cambian de destino entre pasadas |
 | **M3** Validación | ✅ | 7 reglas, código puro. Nunca un LLM |
-| **M4** Correlación | ✅ | Prompt v2, con contexto estructural. **No reproducible**: 14,1% de convergencias se repiten |
+| **M4** Correlación | ✅ | **Publicado con el prompt v1**; v2 es el valor por defecto del código pero no ha corrido nunca (candidata, P-1). **No reproducible**: 14,1% de convergencias se repiten |
 | **M5** Scoring | ✅ | F1–F6, top 10, desglose por fuente. **Código determinista: lo único reproducible del sistema** |
 | **M6** Síntesis | 🟡 | Composición y publicación hechas. **Falta el Sintetizador** (la prosa) |
 | **M7** Calificación | ⬜ | En construcción |
@@ -57,7 +57,7 @@ Las mismas filas en la SQLite local y en Neon.
 | Migraciones | `$py -m alembic upgrade head` · `check` | `DATABASE_URL`, **host directo** |
 | Copiar local → nube | `$py scripts\copiar_base.py` | de SQLite a `DATABASE_URL` |
 | Pruebas | `$py -m pytest -q` | ninguna: aisladas |
-| La app | `cd web` · `npm run dev` | `DATABASE_URL`, **host pooled** |
+| La app | `cd web` · `npm run dev` | `DATABASE_URL` **host pooled**, `COOKIE_SECRET` |
 
 > ### Dos configuraciones que no se deducen mirando el repositorio
 >
@@ -308,8 +308,33 @@ Alembic va por el directo, porque por el pooled no se puede migrar. Son dos
 cadenas para dos usos opuestos, y confundirlas falla en sitios distintos: la app
 agotaría conexiones, y la migración se rompería a la mitad.
 
-El `&connect_timeout=3` que lleva la cadena local **no hace falta en Vercel**:
-allí sí hay ruta IPv6. No molesta si se queda.
+El `&connect_timeout=3` que lleva la cadena local **no hace falta en Vercel**, y
+de hecho ahí no hace nada: `connect_timeout` es un parámetro de libpq, y la app
+usa el driver **HTTP** de Neon (`@neondatabase/serverless`), que no lo mira. No
+molesta si se queda.
+
+### Y la app necesita `COOKIE_SECRET`, o no identifica a nadie
+
+Es el secreto con el que se firma la cookie de identificación (HMAC-SHA256).
+**Sin él la app falla cerrado a propósito**: no emite identidad, la pantalla
+explica por qué y leer el informe sigue funcionando. Es decir, **si falta en
+Vercel, nadie puede calificar** aunque todo lo demás esté bien.
+
+Se genera una sola vez, largo y aleatorio:
+
+```powershell
+python -c "import secrets; print(secrets.token_urlsafe(48))"
+```
+
+En local va en `.env`; en producción, en *Settings → Environment Variables* del
+proyecto de Vercel. **Nunca en el repositorio**: `.env.example` lo lista vacío.
+Cambiarlo invalida las cookies emitidas, así que quien estuviera identificado
+tendrá que volver a escribir su correo — no se pierde ninguna calificación.
+
+**No es autenticación.** La identidad sigue siendo un correo tecleado, contra la
+lista precargada de `usuario`; el riesgo está aceptado y registrado como R-A2 en
+[decisiones-remediacion.md](docs/decisiones-remediacion.md). Lo que la firma
+impide es falsificar la cookie editándola en el navegador.
 
 ### Lo que la app puede escribir
 

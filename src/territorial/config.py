@@ -83,6 +83,13 @@ class Config(BaseSettings):
     # los decide Gerencia General.
     ruta_pesos: Path = Path("config/pesos.json")
 
+    # --- Quiénes califican (F0.1b, H-005) ---
+    # Las `id_gerencia` que son de las 7 del PRD. El resto de calificadores son
+    # «adicionales» y se reportan por separado (decisión del dueño del
+    # 2026-09-22). Se entrega vacío: el PRD nunca nombra las 7. Ver
+    # `informes/gerencias.py`.
+    ruta_gerencias: Path = Path("config/gerencias.json")
+
     # Cuántos municipios muestra el informe. CA-M5.4 dice "top 3 fijo"; se
     # amplió a 10 el 2026-09-21 por decisión de producto. El criterio es que el
     # informe **muestre el score y en qué se apoya** y que quien lee juzgue, en

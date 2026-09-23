@@ -81,6 +81,63 @@ export async function gerenciaDelCorreo(
 }
 
 /**
+ * El ciclo del informe **publicado** que contiene ese insight, o `null`.
+ *
+ * Es la comprobación de alcance de F0.4 (hallazgo H-013). No basta con que el
+ * insight exista: tiene que pertenecer a la corrida de agentes que un informe
+ * publicado congeló. Sin esto, una acción con un `id_insight` cualquiera
+ * —de la corrida 11, de un ciclo que nadie publicó, o inventado a mano en la
+ * peticion— escribia una calificacion igual, y esa fila entraria en H1 sin que
+ * ninguna gerencia la hubiera visto nunca.
+ *
+ * Va por el enlace `informe.id_corrida_agentes`, **no leyendo el JSON del
+ * payload**: los operadores JSONB de PostgreSQL no existen en SQLite y romperian
+ * el entorno local (`CLAUDE.md` §2.1, regla 3).
+ */
+export async function cicloPublicadoDelInsight(
+  idInsight: number,
+): Promise<number | null> {
+  const filas = await sql`
+    SELECT inf.id_ciclo
+      FROM insight i
+      JOIN corrida_agentes ca ON ca.id = i.id_corrida
+      JOIN informe inf ON inf.id_corrida_agentes = ca.id
+     WHERE i.id = ${idInsight}
+       AND inf.estado = 'publicado'
+       AND i.estado_validacion = 'validado'
+  `;
+  return filas.length ? (filas[0].id_ciclo as number) : null;
+}
+
+/**
+ * Las calificaciones que figuran **a nombre de esta persona** en el ciclo.
+ *
+ * Distinto de `calificacionesDeLaGerencia`: aquella es lo que la gerencia tiene
+ * registrado —y es lo que la pantalla usa para rellenar los controles, porque
+ * la unicidad es por gerencia—; esta es **quien las escribio**. Con dos
+ * personas en una misma gerencia las dos listas dejan de coincidir, y ver la
+ * propia es lo que permite a alguien comprobar que lo que figura a su nombre es
+ * lo que realmente puso.
+ *
+ * No enseña nada de nadie mas, asi que no roza CA-M7.2.
+ */
+export async function calificacionesDelUsuario(
+  idCiclo: number,
+  idUsuario: number,
+): Promise<{ id_insight: number; valor: number }[]> {
+  const filas = await sql`
+    SELECT c.id_insight, c.valor
+      FROM calificacion c
+      JOIN insight i ON i.id = c.id_insight
+      JOIN corrida_agentes ca ON ca.id = i.id_corrida
+     WHERE ca.id_ciclo = ${idCiclo}
+       AND c.id_usuario = ${idUsuario}
+     ORDER BY c.id_insight
+  `;
+  return filas as { id_insight: number; valor: number }[];
+}
+
+/**
  * Lo que esa gerencia ya califico en ese ciclo.
  *
  * Solo lo suyo: CA-M7.2 prohibe que una gerencia vea la calificacion de otra,

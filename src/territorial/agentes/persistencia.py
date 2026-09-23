@@ -131,15 +131,23 @@ def guardar_correlaciones(
     divipola: str,
     mapa_ids: dict[int, int],
     id_prompt: int | None = None,
+    motivos: list[str | None] | None = None,
 ) -> list[Insight]:
     """Persiste los consolidados de M4.
 
     `mapa_ids` traduce el id temporal que vio el agente al id real de la base.
     Sin esa traducción, `ids_insight_origen` apuntaría a números de lote que no
     significan nada fuera del proceso, y CA-M4.4 quedaría en nada.
+
+    `motivos` es el veredicto de R8 (F0.2), **alineado posicionalmente** con
+    `resultado.correlacionados`: `None` donde el consolidado pasa, y el motivo
+    donde trae una cifra que no estaba en su entrada. Un consolidado rechazado
+    **se guarda igual, marcado**: borrarlo dejaría sin rastro que el modelo
+    escribió un número de su cosecha, que es justo lo que CA-M6.3 quiere ver.
     """
+    veredictos = motivos or [None] * len(resultado.correlacionados)
     filas: list[Insight] = []
-    for c in resultado.correlacionados:
+    for c, motivo in zip(resultado.correlacionados, veredictos, strict=True):
         origenes = sorted(mapa_ids[i] for i in c.ids_insight if i in mapa_ids)
         fila = Insight(
             id_corrida=id_corrida,
@@ -149,9 +157,11 @@ def guardar_correlaciones(
             implicacion_inmobiliaria=c.implicacion_inmobiliaria,
             evidencia=c.evidencia,
             ids_senal=c.ids_senal,
-            # Nace validado: su evidencia es la de insights que ya pasaron M3,
-            # y el código la copió sin que el modelo la tocara.
-            estado_validacion="validado",
+            # Su evidencia es la de insights que ya pasaron M3 y el código la
+            # copió sin que el modelo la tocara, así que R1–R7 no vuelven a
+            # aplicarse. Lo que sí se juzga es su **prosa**, con R8.
+            estado_validacion="rechazado" if motivo else "validado",
+            motivo_rechazo=motivo,
             origen=ORIGEN_CORRELACIONADOR,
             version_prompt=resultado.version_prompt,
             id_prompt=id_prompt,

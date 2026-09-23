@@ -1,18 +1,24 @@
 /**
- * Identificacion por correo. **No hay sesion ni autenticacion.**
+ * Identificacion por correo. **No hay autenticacion.**
  *
  * El correo se guarda en una cookie por conveniencia: pedirlo en cada
- * calificacion rompe los <=2 clics de CA-M7.1. **La cookie no anade riesgo**:
- * sin autenticacion cualquiera puede teclear un correo ajeno con ella o sin
- * ella. El riesgo viene de la decision de no autenticar, y esta registrado —
- * la atribucion es declarativa y hay que decirlo al publicar H2.
+ * calificacion rompe los <=2 clics de CA-M7.1. **La atribucion es
+ * declarativa** y hay que decirlo al publicar H1 y H2: el dueno decidio no
+ * adoptar el token (R-A2), asi que H-012 sigue abierto y quien conozca un
+ * correo autorizado puede calificar por esa gerencia.
  *
- * Y se resuelve a **gerencia, no a persona**: `calificacion` atribuye asi
- * (CA-M7.2), y mostrar un nombre propio sugeriria algo que el sistema no
- * guarda.
+ * Lo que F0.3 si cierra: **la cookie va firmada** (`lib/firma.ts`), asi que ya
+ * no se falsifica editandola en el navegador, y **solo se emite para correos
+ * que estan en `usuario` y activos**. Sin firma valida no hay identidad.
+ *
+ * La calificacion se atribuye a **gerencia** (CA-M7.2) y ademas se registra
+ * **quien** la escribio en `calificacion.id_usuario`. No son dos ejes de
+ * atribucion: el analisis de H1 y H2 va por gerencia; el autor esta para poder
+ * auditar una calificacion discutida.
  */
 import { cookies } from "next/headers";
 import { gerenciaDelCorreo } from "./consultas";
+import { verificar } from "./firma";
 
 export const COOKIE_CORREO = "correo";
 
@@ -34,9 +40,17 @@ export interface Identidad {
   rol: string;
 }
 
-/** Quien esta calificando, o `null` si nadie se ha identificado todavia. */
+/**
+ * Quien esta calificando, o `null` si nadie se ha identificado todavia.
+ *
+ * Dos filtros, y los dos tienen que pasar: la cookie **tiene que estar
+ * firmada** por este servidor, y el correo **tiene que seguir en `usuario` y
+ * activo**. Lo segundo importa tanto como lo primero: a quien se le retira el
+ * acceso deja de tener identidad en su siguiente peticion, sin tocar su
+ * navegador.
+ */
 export async function identidadActual(): Promise<Identidad | null> {
-  const correo = (await cookies()).get(COOKIE_CORREO)?.value;
+  const correo = verificar((await cookies()).get(COOKIE_CORREO)?.value);
   if (!correo) return null;
   const usuario = await gerenciaDelCorreo(correo);
   return usuario ? { correo, ...usuario } : null;

@@ -501,7 +501,9 @@ Las 40 convergencias de v2 están **dentro** del rango de v1. Su tipología est�
 **muy por encima**. El efecto que v2 buscaba es real; el que la compuerta midió
 era varianza.
 
-**Desenlace:** la compuerta se rediseñó y **v2 se promovió**. El criterio va
+**Desenlace:** la compuerta se rediseñó y **v2 se promovió en el código**.
+**Ojo con lo que eso significa y lo que no** (precisión del 2026-09-22, P-1):
+la promoción cambió el valor por defecto de `VERSION_PROMPT`, y **ahí se quedó**. Ninguna corrida se ha ejecutado con v2 —las corridas 10, 11 y 12 llevan `version_correlacionador = v1`— y **el informe publicado se compuso con v1**. Las cifras de esta sección salen de una comparación **sin linaje persistido**: `prompt_version` no tiene fila de v2. v2 es candidata, no lo publicado. El criterio va
 ahora sobre el agregado, el umbral es el rango observado de la versión contra sí
 misma —no un margen sobre la pasada A, que tiene filo: si A cae en el fondo de
 su rango y B en lo alto, el mismo prompt se suspende— y **sin piso medido para

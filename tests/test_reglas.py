@@ -14,7 +14,7 @@ import pytest
 from territorial.reglas import cobertura as cob
 from territorial.reglas import prefiltro
 from territorial.reglas.normalizacion import contiene, normalizar
-from territorial.reglas.validador import Senal, validar
+from territorial.reglas.validador import Senal, validar, validar_cifras
 
 DIVIPOLA = "25286"
 CICLO = 1
@@ -179,6 +179,119 @@ def test_rechaza_senal_de_otro_ciclo():
     r = validar([evidencia_valida()], DIVIPOLA, 3, SENALES)
     assert not r.valido
     assert "no del 3" in r.motivo
+
+
+# --------------------------------------------------------------------------
+# Validador — R8 (CA-M6.3): ninguna cifra de la prosa falta en la entrada
+# --------------------------------------------------------------------------
+
+SENAL_CON_CIFRAS = Senal(
+    id=3,
+    divipola=DIVIPOLA,
+    id_ciclo=CICLO,
+    fuente="SECOP II",
+    contenido="MEJORAMIENTO DE 1.250 METROS DE VÍA POR VALOR DE 3.480.000.000 PESOS",
+    url="https://community.secop.gov.co/x",
+    fecha_publicacion=date(2025, 9, 15),
+)
+SENALES_R8 = {**SENALES, 3: SENAL_CON_CIFRAS}
+
+
+def evidencia_de_cifras(**cambios):
+    base = {
+        "id_senal": 3,
+        "fuente": "SECOP II",
+        "url": SENAL_CON_CIFRAS.url,
+        "fecha": "2025-09-15",
+        "cita_textual": "MEJORAMIENTO DE 1.250 METROS DE VÍA",
+    }
+    base.update(cambios)
+    return base
+
+
+def test_una_cifra_que_esta_en_la_senal_pasa():
+    """Repetir un número de la fuente es lo que se le pide al agente."""
+    r = validar(
+        [evidencia_de_cifras()], DIVIPOLA, CICLO, SENALES_R8,
+        prosa=("Obra de 1.250 metros", "Habilita suelo"),
+    )
+    assert r.valido, r.motivos
+
+
+def test_una_cifra_inventada_rechaza_el_insight():
+    """Aunque fuera correcta: si no estaba en la entrada, se la inventó."""
+    r = validar(
+        [evidencia_de_cifras()], DIVIPOLA, CICLO, SENALES_R8,
+        prosa=("Obra de 1.250 metros que beneficia a 45.000 habitantes", None),
+    )
+    assert not r.valido
+    assert "45000" in r.motivo
+    assert "CA-M6.3" in r.motivo
+
+
+def test_la_cifra_puede_venir_escrita_de_otra_forma():
+    """3.480.000.000 y 3480000000 son el mismo número; no es una invención."""
+    r = validar(
+        [evidencia_de_cifras()], DIVIPOLA, CICLO, SENALES_R8,
+        prosa=("Contrato por 3480000000 pesos", None),
+    )
+    assert r.valido, r.motivos
+
+
+def test_los_numeros_cortos_no_se_persiguen():
+    """Límite declarado de `cifras.py`: «2 frentes» no es una cifra inventada."""
+    r = validar(
+        [evidencia_de_cifras()], DIVIPOLA, CICLO, SENALES_R8,
+        prosa=("Son 2 frentes de obra en 15 días", None),
+    )
+    assert r.valido, r.motivos
+
+
+def test_vale_una_senal_declarada_solo_en_ids_senal():
+    """El insight referencia señales por dos vías y las dos cuentan como entrada."""
+    r = validar(
+        [evidencia_valida()], DIVIPOLA, CICLO, SENALES_R8,
+        prosa=("Obra de 1.250 metros", None),
+        ids_senal=[1, 3],
+    )
+    assert r.valido, r.motivos
+
+
+def test_la_prosa_de_m4_se_juzga_contra_sus_insights_de_origen():
+    """Un consolidado no ve las señales crudas: ve los insights que le pasaron."""
+    fallos = validar_cifras(
+        ("Convergen 1.250 metros de vía con 890 licencias", None),
+        [evidencia_de_cifras()],
+        SENALES_R8,
+        texto_extra="El municipio otorgó 890 licencias en el trimestre",
+    )
+    assert fallos == []
+
+
+def test_una_cifra_que_no_esta_ni_en_los_origenes_se_rechaza():
+    fallos = validar_cifras(
+        ("Convergen con 890 licencias", None),
+        [evidencia_de_cifras()],
+        SENALES_R8,
+        texto_extra="El municipio otorgó licencias en el trimestre",
+    )
+    assert fallos and "890" in fallos[0]
+
+
+def test_sin_prosa_r8_no_opina():
+    """Quien solo quiera juzgar evidencia sigue pudiendo."""
+    assert validar_cifras((), [evidencia_de_cifras()], SENALES_R8) == []
+
+
+def test_r8_no_se_aplica_si_la_evidencia_ya_falla():
+    """El motivo útil es el de la evidencia; añadir cifras solo alarga."""
+    r = validar(
+        [evidencia_de_cifras(url="no-es-una-url")], DIVIPOLA, CICLO, SENALES_R8,
+        prosa=("Beneficia a 45.000 habitantes", None),
+    )
+    assert not r.valido
+    assert "url mal formada" in r.motivo
+    assert "45000" not in r.motivo
 
 
 # --------------------------------------------------------------------------

@@ -12,6 +12,7 @@
 import { notFound } from "next/navigation";
 import {
   calificacionesDeLaGerencia,
+  calificacionesDelUsuario,
   cicloEsEditable,
   informeDelCiclo,
 } from "@/lib/consultas";
@@ -192,6 +193,9 @@ export default async function VistaCiclo({
   const misCalificaciones = yo
     ? await calificacionesDeLaGerencia(idCiclo, yo.id_gerencia)
     : {};
+  // A **su nombre**, no a nombre de su gerencia: con dos personas en una misma
+  // gerencia las dos listas dejan de coincidir (F0.3).
+  const aMiNombre = yo ? await calificacionesDelUsuario(idCiclo, yo.id) : [];
 
   const abierto: MunicipioDelInforme | null =
     informe.municipios.find((x) => x.divipola === divipolaSel) ?? null;
@@ -203,6 +207,14 @@ export default async function VistaCiclo({
     mun.insights.filter((i) => mun.insights_pedidos.includes(i.id));
 
   const faltaProsa = informe.municipios.every((x) => !x.justificacion);
+
+  /** Donde vive cada insight calificado, para poder nombrarlo. */
+  const ubicacion = new Map<number, { municipio: string; categoria: string }>();
+  for (const mun of informe.municipios) {
+    for (const ins of mun.insights) {
+      ubicacion.set(ins.id, { municipio: mun.nombre, categoria: ins.categoria });
+    }
+  }
 
   return (
     <main style={{ padding: "var(--space-6)" }}>
@@ -228,13 +240,11 @@ export default async function VistaCiclo({
           <span className="t-label etiqueta">Ciclo cerrado · no se califica</span>
         )}
         {/*
-          CA-M6.5 y CA-M9.17 piden el texto completo; se muestra el corto por
-          decision de producto (pendiente `M6-aviso`). El largo sigue en el
-          payload: `informe.aviso`.
+          **La etiqueta MVP ya no se pinta aquí**: la pone el layout, para que
+          esté en toda pantalla y no solo en esta (F5.3, H-019). El payload
+          sigue trayendo `aviso` y `aviso_corto`, que es donde queda registrado
+          lo que se mostró en cada informe publicado.
         */}
-        <span className="t-label etiqueta etiqueta-aviso" style={{ marginLeft: "auto" }}>
-          ⚠ {informe.aviso_corto}
-        </span>
       </header>
 
       {faltaProsa && (
@@ -243,6 +253,48 @@ export default async function VistaCiclo({
           escribe el Sintetizador, que todavía no está construido. Las cifras,
           las fuentes y la evidencia sí están completas.
         </p>
+      )}
+
+      {/*
+        Lo que figura **a nombre de quien mira**. Es la contrapartida visible de
+        `calificacion.id_usuario`: si la atribucion es declarativa (R-A2, H-012
+        abierto), lo menos que puede hacer el sistema es ensenarle a cada quien
+        lo que consta como suyo, para que un error se vea el mismo dia y no al
+        analizar H1. No muestra nada de nadie mas (CA-M7.2).
+      */}
+      {yo && (
+        <details
+          className="superficie"
+          style={{ padding: "var(--space-4)", marginBottom: "var(--space-4)" }}
+        >
+          <summary className="t-h3" style={{ cursor: "pointer" }}>
+            {aMiNombre.length === 0
+              ? "Aún no figura ninguna calificación a tu nombre en este ciclo"
+              : `${aMiNombre.length} ${
+                  aMiNombre.length === 1 ? "calificación figura" : "calificaciones figuran"
+                } a tu nombre en este ciclo`}
+          </summary>
+          <p className="t-meta" style={{ margin: "var(--space-2) 0 0" }}>
+            Se identifican por el correo con el que entraste ({yo.correo}), y
+            cuentan para tu gerencia: {yo.id_gerencia}.
+          </p>
+          {aMiNombre.length > 0 && (
+            <ul className="t-body" style={{ margin: "var(--space-2) 0 0", paddingLeft: "var(--space-5)" }}>
+              {aMiNombre.map((c) => {
+                const donde = ubicacion.get(c.id_insight);
+                return (
+                  <li key={c.id_insight}>
+                    <span className="t-data">{c.valor}</span>
+                    {" · "}
+                    {donde ? `${donde.municipio} · ${donde.categoria}` : "insight"}
+                    {" · "}
+                    <span className="t-meta">#{c.id_insight}</span>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </details>
       )}
 
       <div
@@ -287,7 +339,7 @@ export default async function VistaCiclo({
                 Se pide calificar {informe.calificacion.pedidas_por_municipio}{" "}
                 insights en cada uno de los{" "}
                 {informe.calificacion.pedida_hasta_puesto} primeros. Los demás
-                quedan abiertos y se cuentan aparte.
+                municipios se muestran para consulta.
               </p>
             </div>
           )}
