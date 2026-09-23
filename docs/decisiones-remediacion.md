@@ -171,6 +171,15 @@ esta.
   de F0.4 por Next.js, con las Server Actions corriendo. Se usa también para
   F0.6. **Si al llegar a F0.6 la variable no existe, la ejecución se detiene y
   se avisa.**
+- **El branch `remediacion-f0` no es fuente de datos. Es desechable.** Lo que
+  hay ahí salió de verificar, no de operar: entre otras cosas contiene una
+  **calificación de prueba** —insight **1088**, gerencia **general**, valor 4—
+  escrita al comprobar que la regla «se califica solo lo pedido» acepta lo
+  pedido y rechaza lo demás. También lleva informes republicados, usuarios de
+  prueba desactivados y filas de `identificacion` de los clientes HTTP de las
+  comprobaciones. **La base principal no tiene nada de esto**, y H1 y H2 no se
+  miden sobre el branch. Si alguna cifra se saca de ahí por descuido, estará
+  contaminada con datos que nadie emitió.
 
 ### Nota para F0b.3 (tasa de rechazo)
 
