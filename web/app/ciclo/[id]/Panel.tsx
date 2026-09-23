@@ -1,14 +1,13 @@
 /**
  * Detalle del municipio: contexto, evidencia, score explicable y trazabilidad.
  *
- * Componente de servidor. Los controles de calificacion son `<form>` con cinco
- * botones de envio, **sin JavaScript de cliente**: cada boton registra en el
- * clic donde se pulsa, que es literalmente «clic 1 = registro» (CA-M7.6).
+ * Componente de servidor. Los controles de calificacion viven en `Calificar`,
+ * que si es de cliente: necesita `useActionState` para enseniar el fallo en la
+ * fila (F0.7). Siguen siendo un `<form>` con cinco botones de envio que
+ * funciona sin JavaScript, asi que «clic 1 = registro» (CA-M7.6) se mantiene.
  */
-import { registrarCalificacion, registrarComentario } from "@/app/acciones";
 import type { Informe, InsightPublicado, MunicipioDelInforme } from "@/lib/tipos";
-
-const ESCALA = [1, 2, 3, 4, 5];
+import { Calificar } from "./Calificar";
 
 function numero(valor: number, unidad: string): string {
   if (unidad.startsWith("%")) return `${valor.toFixed(1).replace(".", ",")} %`;
@@ -93,112 +92,6 @@ function Evidencia({ i }: { i: InsightPublicado }) {
           </>
         )}
       </p>
-    </div>
-  );
-}
-
-function Calificar({
-  i,
-  valor,
-  puede,
-}: {
-  i: InsightPublicado;
-  valor: number | undefined;
-  puede: boolean;
-}) {
-  if (!puede) {
-    return (
-      <p className="t-meta" style={{ margin: "var(--space-2) 0 0" }}>
-        Identifícate arriba para calificar este insight.
-      </p>
-    );
-  }
-  return (
-    <div style={{ marginTop: "var(--space-3)" }}>
-      <p className="t-meta" style={{ margin: "0 0 var(--space-2)" }}>
-        ¿Qué tan relevante es para tu evaluación?
-      </p>
-      <form action={registrarCalificacion} style={{ display: "flex", gap: "var(--space-1)" }}>
-        <input type="hidden" name="id_insight" value={i.id} />
-        {ESCALA.map((n) => (
-          <button
-            key={n}
-            type="submit"
-            name="valor"
-            value={n}
-            className="t-data"
-            aria-label={`Calificar ${n} de 5`}
-            style={{
-              minWidth: 44,
-              minHeight: 44,
-              border: "1px solid var(--color-navy-300)",
-              borderRadius: "var(--radio-control)",
-              background: valor === n ? "var(--color-navy-700)" : "var(--color-surface)",
-              color: valor === n ? "#fff" : "var(--color-ink)",
-              cursor: "pointer",
-              fontFamily: "inherit",
-            }}
-          >
-            {n}
-          </button>
-        ))}
-      </form>
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          maxWidth: 236,
-          marginTop: "var(--space-1)",
-        }}
-      >
-        <span className="t-meta">nada</span>
-        <span className="t-meta">acción inmediata</span>
-      </div>
-
-      {/* La confirmacion no hace desaparecer la fila: hay que poder verificar
-          que se respondio sin tener que recordarlo. */}
-      {valor !== undefined && (
-        <>
-          <p style={{ margin: "var(--space-2) 0 0" }}>
-            <span className="t-label etiqueta etiqueta-positiva">
-              ✓ Calificación registrada
-            </span>
-          </p>
-          {/* CA-M7.4: comentario libre y opcional, **despues** de registrar. */}
-          <form action={registrarComentario} style={{ marginTop: "var(--space-2)" }}>
-            <input type="hidden" name="id_insight" value={i.id} />
-            <textarea
-              name="comentario"
-              rows={2}
-              placeholder="Comentario (opcional)"
-              className="t-body"
-              style={{
-                width: "100%",
-                padding: "var(--space-2)",
-                border: "1px solid var(--color-border)",
-                borderRadius: "var(--radio-control)",
-                fontFamily: "inherit",
-                resize: "vertical",
-              }}
-            />
-            <button
-              type="submit"
-              className="t-meta"
-              style={{
-                marginTop: "var(--space-1)",
-                padding: "var(--space-1) var(--space-3)",
-                border: "1px solid var(--color-border)",
-                borderRadius: "var(--radio-control)",
-                background: "var(--color-surface)",
-                cursor: "pointer",
-                fontFamily: "inherit",
-              }}
-            >
-              Guardar comentario
-            </button>
-          </form>
-        </>
-      )}
     </div>
   );
 }

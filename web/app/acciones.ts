@@ -19,6 +19,7 @@ import {
   informeDelCiclo,
 } from "@/lib/consultas";
 import { puedeCalificar, puedeMoverSeguimiento } from "@/lib/alcance";
+import type { MotivoCalificacion } from "@/lib/mensajes";
 import {
   calificar,
   comentar,
@@ -40,6 +41,20 @@ export type ResultadoSeguimiento =
       motivo: "sin_identificar" | "estado_invalido" | "fuera_de_alcance";
     }
   | { ok: false; motivo: "falta_nota"; estado: string };
+
+/**
+ * Lo que devuelve calificar. **Lleva el valor que se pulsó**, y no es un
+ * detalle: si falla, la pantalla tiene que poder seguir marcando el botón que
+ * la persona eligió. Perder la selección al fallar obliga a recordar qué se
+ * había pulsado, que es exactamente cuando se abandona (F0.7, H-045).
+ */
+export type ResultadoCalificacion =
+  | { ok: true; valor: number }
+  | { ok: false; motivo: MotivoCalificacion; valor: number | null };
+
+export type ResultadoComentario =
+  | { ok: true }
+  | { ok: false; motivo: MotivoCalificacion };
 
 export type ResultadoIdentificacion =
   | { ok: true }
@@ -127,18 +142,41 @@ async function alcanceSobreInsight(
  * el insight no esta en un informe publicado, si el ciclo ya se cerro, si quien
  * pulsa es administrador o si su gerencia no estaba en la lista congelada.
  *
- * **Todavia no se ve el rechazo en pantalla**: esta accion no devuelve
- * resultado y eso es H-045, que cierra la subfase siguiente (F0.7). Aqui lo que
- * importa es que **no escriba**; que se vea es lo de despues.
+ * **Devuelve resultado** desde F0.7 (H-045): antes no devolvia nada, asi que un
+ * fallo de escritura se veia igual que un exito y la calificacion se perdia sin
+ * que nadie se enterara hasta analizar H2.
+ *
+ * Sigue funcionando **sin JavaScript en el cliente**: `useActionState` da un
+ * `formAction` que el `<form>` envia igual con JS desactivado. Lo unico que se
+ * pierde entonces es el mensaje en la fila, no el registro.
  */
-export async function registrarCalificacion(datos: FormData): Promise<void> {
+export async function registrarCalificacion(
+  _previo: ResultadoCalificacion | null,
+  datos: FormData,
+): Promise<ResultadoCalificacion> {
   const yo = await identidadActual();
   const idInsight = Number(datos.get("id_insight"));
   const valor = Number(datos.get("valor"));
-  if (!Number.isInteger(idInsight)) return;
-  if (!(await alcanceSobreInsight(idInsight, yo)).ok || !yo) return;
-  await calificar(idInsight, yo.id_gerencia, valor, yo.id);
+  const elegido = Number.isInteger(valor) ? valor : null;
+
+  if (!Number.isInteger(idInsight) || elegido === null) {
+    return { ok: false, motivo: "valor_invalido", valor: elegido };
+  }
+
+  const alcance = await alcanceSobreInsight(idInsight, yo);
+  if (!alcance.ok || !yo) {
+    return { ok: false, motivo: alcance.ok ? "sin_identificar" : alcance.motivo, valor: elegido };
+  }
+
+  try {
+    await calificar(idInsight, yo.id_gerencia, elegido, yo.id);
+  } catch {
+    // No se propaga: un error aqui no debe tumbar la pagina entera. La fila
+    // dice que no se guardo y conserva la seleccion, que es lo accionable.
+    return { ok: false, motivo: "error_al_guardar", valor: elegido };
+  }
   revalidatePath("/ciclo/[id]", "page");
+  return { ok: true, valor: elegido };
 }
 
 /**
@@ -199,15 +237,30 @@ export async function cambiarEstado(
  * Mismo alcance que calificar, y por el mismo motivo: el comentario viaja en la
  * misma fila de `calificacion` y se lee junto a la nota al analizar H1.
  */
-export async function registrarComentario(datos: FormData): Promise<void> {
+export async function registrarComentario(
+  _previo: ResultadoComentario | null,
+  datos: FormData,
+): Promise<ResultadoComentario> {
   const yo = await identidadActual();
   const idInsight = Number(datos.get("id_insight"));
-  if (!Number.isInteger(idInsight)) return;
-  if (!(await alcanceSobreInsight(idInsight, yo)).ok || !yo) return;
-  await comentar(
-    idInsight,
-    yo.id_gerencia,
-    String(datos.get("comentario") ?? "").trim(),
-  );
+  if (!Number.isInteger(idInsight)) {
+    return { ok: false, motivo: "fuera_de_alcance" };
+  }
+
+  const alcance = await alcanceSobreInsight(idInsight, yo);
+  if (!alcance.ok || !yo) {
+    return { ok: false, motivo: alcance.ok ? "sin_identificar" : alcance.motivo };
+  }
+
+  try {
+    await comentar(
+      idInsight,
+      yo.id_gerencia,
+      String(datos.get("comentario") ?? "").trim(),
+    );
+  } catch {
+    return { ok: false, motivo: "error_al_guardar" };
+  }
   revalidatePath("/ciclo/[id]", "page");
+  return { ok: true };
 }

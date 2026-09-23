@@ -110,6 +110,26 @@ esta.
   `config/gerencias.json` y de `usuario`, no de un «5» ni de un «7» escritos a
   mano.
 
+### Un informe sin lista congelada no admite calificaciones
+
+- **Comportamiento conservador, aceptado por el dueño** (F0.4). Un informe
+  publicado **antes** de F0.1 no lleva `calificacion.gerencias`, y el código lo
+  trata como que **nadie estaba autorizado**: sin lista no hay forma de saber
+  quién formaba el denominador de H2, y admitir calificaciones «por si acaso»
+  las metería en una medición cuyo universo se desconoce.
+- **Consecuencia directa: la republicación de F0.6 es obligatoria antes de abrir
+  la ventana.** El informe 5, tal como está publicado hoy, no admitiría ni una
+  calificación.
+
+### Verificación en branch de Neon
+
+- El dueño creará un branch y dejará su cadena **directa** en `.env` como
+  `DATABASE_URL_NEON_BRANCH`. Sobre ese branch —y **nunca** sobre la base
+  principal— se pueden aplicar migraciones y ejecutar la verificación completa
+  de F0.4 por Next.js, con las Server Actions corriendo. Se usa también para
+  F0.6. **Si al llegar a F0.6 la variable no existe, la ejecución se detiene y
+  se avisa.**
+
 ### Nota para F0b.3 (tasa de rechazo)
 
 - **La tasa de rechazo se persiste y se reporta desglosada por regla**, no como
