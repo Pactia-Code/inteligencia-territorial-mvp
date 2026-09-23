@@ -5,7 +5,7 @@
 > **Para retomar:** lee esto primero, después
 > [decisiones-remediacion.md](decisiones-remediacion.md).
 
-## Progreso: 9 de 11 pasos
+## Progreso: 10 de 11 pasos
 
 | | Paso | Estado |
 |---|---|---|
@@ -18,8 +18,8 @@
 | 7 | **Carga de usuarios** en la base principal | ✅ **Cerrado**: 8 altas, 2 desactivados |
 | 8 | **Republicación y verificación** | ✅ **Cerrado**: informe 8 publicado, traza 241/241 |
 | 9 | **Fusión del PR y conexión de Git** | ✅ **Cerrado**: producción sirve el merge `bfc1233` |
-| 10 | **Siguiente** · Prueba de humo sobre el despliegue | ⬜ |
-| 11 | **Borrar el branch de Neon** `remediacion-f0` | ⬜ |
+| 10 | **Prueba de humo** sobre el despliegue | ✅ **Cerrado**: 6 calificaciones reales emitidas |
+| 11 | **Siguiente** · Borrar el branch de Neon `remediacion-f0` | ⬜ |
 
 > **Los once pasos están acordados por el dueño**, con su numeración y su orden.
 > No se reordenan sobre la marcha: si alguno cambia, se cambia aquí primero.
@@ -273,6 +273,50 @@ vacía. El aislamiento de datos funciona como se diseñó.
 **403 Forbidden**, que es lo esperable en el plan Hobby, donde la observabilidad
 no está disponible. Queda pendiente mirarlos en el panel si la prueba de humo
 del paso 10 diera algún problema.
+
+## Paso 10 — prueba de humo, y las primeras calificaciones del experimento
+
+> **⚠ Para quien analice H1 y H2: las 6 primeras calificaciones de la base se
+> emitieron durante la prueba de humo del despliegue, el 2026-09-23, y SON
+> REALES.** No son de prueba y **no deben descartarse sin decidirlo**: las emitió
+> una persona leyendo los insights, con su identidad, y están en las tablas
+> igual que cualquier otra.
+>
+> Las seis son de **`analitica`, que es una gerencia `adicional`, no del núcleo
+> `prd`**. Por la decisión de reporte del dueño, **H2 se computa sobre las
+> gerencias `prd`**, así que estas seis **no entran en esa tasa**; y **H1 se
+> reporta con y sin las adicionales**, así que sí aparecen, en la mitad «con».
+>
+> Y llevan el conflicto de interés ya registrado: las emitió **el operador del
+> pipeline**, que es justo la razón por la que sus dos usuarios son filas
+> separadas y `calificacion.id_usuario` existe. Se pueden aislar con
+> `id_usuario = 10`.
+
+| Insight | Valor | Municipio | Comentario |
+|---|---|---|---|
+| #1054 | 5 | Armenia | — |
+| #1088 | 3 | Ibagué | «Es importante que hable de vivienda pero sobre todo está enf…» |
+| #1090 | 4 | Ibagué | «Noticia de interés sobre activación de vivienda» |
+| #1092 | 5 | Ibagué | — |
+| #1093 | 5 | Ibagué | — |
+| #1094 | 5 | Ibagué | — |
+
+Verificado por lectura sobre la base principal:
+
+- **`calificacion`: exactamente 6 filas**, con esos insights y valores, todas
+  con `id_gerencia = analitica` e `id_usuario = 10` (`wsanchez@pactia.com`), y
+  con fecha entre las 19:50 y las 19:57 UTC.
+- **Los 6 están entre los 15 insights pedidos** del informe 8 —5 en cada uno de
+  los 3 municipios calificables—, así que la regla «se califica solo lo pedido»
+  se cumplió en producción, no solo en las pruebas.
+- **`identificacion`: 4 filas**, dos de `wsanchez@pactia.com` y dos de
+  `wsanchez+admin@pactia.com`, **todas con user agent e IP** (`190.90.208.25`).
+  **El correo inventado que se probó no dejó ninguna fila**: las 4 pertenecen a
+  usuarios registrados, que es lo que F0.3 tenía que garantizar.
+- **`seguimiento`: 0 filas.**
+- **Ninguna otra tabla se movió.** Las 19 conservan los conteos del paso 8:
+  `usuario` 10, `informe` 5, y las 16 del pipeline exactamente como en el
+  respaldo.
 
 ## Reglas vigentes
 
