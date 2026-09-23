@@ -280,3 +280,25 @@ esos cuatro resultados.
    y confirmación del dueño para republicar (corridas 24/10; cierre: traza
    241/241 repetida).
 6. Sin usuarios reales ni tokens reales: solo el mecanismo y un usuario de prueba.
+
+## Nota metodológica — la ronda se califica acompañada (2026-09-23)
+
+La primera ronda de calificación se hace **1 a 1 con el dueño presente**: cada
+gerente teclea su propio correo y emite sus propias calificaciones, pero en una
+sesión acompañada y con plazo hasta el **martes 2026-09-29**.
+
+**Eso condiciona lo que la tasa de respuesta puede demostrar.** **H2 del PRD
+mide calificación sostenida y sin acompañamiento**, así que la tasa que salga de
+esta ronda **se reporta como tasa en condición acompañada** y **no se compara
+directamente con el criterio de éxito de H2**.
+
+La asimetría importa al leer el resultado: una tasa alta aquí **no** demuestra
+H2, porque se obtuvo en la condición más favorable que existe; una tasa baja sí
+sería mala señal, por la misma razón.
+
+Se registra en tres sitios para que no se pierda entre la medición y el informe:
+aquí, en [plan-siguientes-pasos.md](plan-siguientes-pasos.md) y en la cabecera
+de `scripts/avance_calificacion.py`, que es lo que se mira durante la ronda.
+
+El registro de las sesiones —fecha, persona, gerencia y si fue acompañada— va en
+[ronda-calificacion.md](ronda-calificacion.md).
