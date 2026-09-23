@@ -1,423 +1,278 @@
 # MVP Inteligencia Territorial — Pactia
 
-Validación de capacidades agénticas sobre fuentes públicas colombianas.
-Experimento de 8 semanas y 3 ciclos para decidir go/no-go sobre la Fase 0.
+Valida si una cadena multiagente puede extraer señal inmobiliaria accionable de
+fuentes públicas colombianas. Es la **Fase -1** del PRD: un experimento de 8
+semanas y 3 ciclos para decidir go/no-go sobre la Fase 0, **no un producto**.
 
-## Estado — 2026-09-22
+El pipeline va de un snapshot de datos —SECOP II, feed de noticias, TerriData—
+a un informe de los **10 municipios mejor puntuados** que **7 gerencias**
+califican de 1 a 5.
 
-**El pipeline funciona de punta a punta y produce un informe. Lo que falta es la
-mitad que mira a las personas**, y es donde se miden las dos hipótesis que
-deciden el go/no-go.
+## Estado — 2026-09-23
 
-| Módulo | Estado | |
-|---|---|---|
-| **M1** Ingesta | ✅ | 18 municipios, 20.030 señales |
-| **M2** Clasificación | ✅ | Prompt v4. Reduce 95,2%. **No reproducible**: 19,5% de las señales cambian de destino entre pasadas |
-| **M3** Validación | ✅ | 7 reglas, código puro. Nunca un LLM |
-| **M4** Correlación | ✅ | **Publicado con el prompt v1**; v2 es el valor por defecto del código pero no ha corrido nunca (candidata, P-1). **No reproducible**: 14,1% de convergencias se repiten |
-| **M5** Scoring | ✅ | F1–F6, top 10, desglose por fuente. **Código determinista: lo único reproducible del sistema** |
-| **M6** Síntesis | 🟡 | Composición y publicación hechas. **Falta el Sintetizador** (la prosa) |
-| **M7** Calificación | ⬜ | En construcción |
-| **M8** Trazabilidad | 🟡 | Linaje y trazas por agente sí. Langfuse y checkpointing **instalados sin cablear** |
-| **M9** Aplicativo web | 🟡 | Vista de ciclo hecha. Faltan calificación, priorizados, histórico y métricas |
-
-### La app
-
-Vive en [`web/`](web/) — Next.js sobre Vercel. De las tres vistas de CA-M9.3
-más el panel:
-
-| Vista | Ruta | Estado |
-|---|---|---|
-| Ciclo actual | `/ciclo/[id]` | ✅ Lista de 10 municipios, score y línea de fuentes |
-| Municipios priorizados | `/priorizados` | ⬜ |
-| Histórico | `/historico` | ⬜ |
-| Métricas (solo administrador) | `/metricas` | ⬜ |
-
-La **calificación** es lo siguiente, y va dentro de la vista de ciclo.
-
-### Qué hay en la base
-
-Las mismas filas en la SQLite local y en Neon.
+**Desplegado y en uso.** El despliegue terminó el 2026-09-23, 11 de 11 pasos
+(ver [estado-despliegue.md](docs/estado-despliegue.md)).
 
 | | |
 |---|---|
-| Señales · insights · descartes | 20.030 · 1.213 · 5.731 |
-| Corridas de agentes · de scoring | 12 · 24 |
-| Ciclos publicables | **1 y 3**. El **ciclo 2 nunca se corrió entero**: su única corrida de agentes tiene 1 de 18 municipios, así que `publicar()` lo rechaza |
-| Informes publicados | **1** — ciclo 3, congelando scoring 24 y agentes 10 |
-| Calificaciones · usuarios | **0 · 0** — por eso H1 y H2 no tienen ningún dato |
-| Nomenclátor · contexto municipal | 1.135 entidades · 1.102 municipios |
+| **Aplicación** | <https://inteligencia-territorial-mvp.vercel.app> — Vercel, rama de producción `main` |
+| **Informe publicado** | **el 8**, ciclo 3, congelando scoring 24 y agentes 10 · 241 insights, 933 citas, 10 municipios |
+| **Ronda de calificación** | En curso, **hasta el martes 2026-09-29** ([bitácora](docs/ronda-calificacion.md)) |
+| **Base** | Neon PostgreSQL, base `territorial`, rama `main` · Alembic en `d5932c3bdc03` |
+| **Usuarios** | 8 activos: 7 gerencias calificadoras y 1 administrador |
+| **Pruebas** | 345, en verde |
 
-### Qué se puede correr hoy
+> ### Tres reglas operativas en vigor
+>
+> **1. Congelamiento hasta el corte del martes 29.** No se republica el informe
+> ni se cambia nada que altere lo que ven los calificadores: ni el payload, ni
+> los textos, ni la selección pedida. Republicar cambiaría los insights pedidos
+> y las calificaciones ya emitidas dejarían de ser comparables. **Solo se
+> corrige un error que impida calificar**, y queda anotado en la bitácora.
+>
+> **2. No se corren ciclos nuevos** hasta cerrar el bloque **P4** del
+> [plan](docs/plan-siguientes-pasos.md): una corrida interrumpida hoy queda
+> marcada como completa y es publicable (H-037).
+>
+> **3. `correr_ciclo.py --seco` no es seco: escribe y gasta tokens** (H-038).
+> No lo uses. El `--seco` de `publicar_informe.py` sí revierte, y ese es el que
+> hay que usar antes de publicar.
 
-| Qué | Comando | Contra qué base |
+## Qué está construido y qué no
+
+**Construido y funcionando:**
+
+| | |
+|---|---|
+| **Ingesta** (M1) | 18 municipios y 20.030 señales desde el snapshot, repartidas en 3 ciclos |
+| **Clasificador** (M2) | Prompt v4, lotes de 50. Reduce el 95,2% de las señales |
+| **Correlacionador** (M4) | Cruza señales de categorías distintas sobre un mismo municipio. **Corre con el prompt v1**, que es lo publicado; v2 es candidata y espera a F2.3 |
+| **Validador** (M3) | 7 reglas **en código, nunca un LLM**. Su tasa de rechazo es la tasa de alucinación medida |
+| **Scoring** (M5) | F1–F6, top 10 con desglose por fuente. **Código determinista: lo único reproducible del sistema** |
+| **Composición y publicación** (M6) | El payload se compone desde el almacén y se publica congelando las dos corridas |
+| **Aplicativo** (M9) | Vista de ciclo, identificación por correo y calificación, en producción |
+
+**No construido, y conviene saberlo antes de buscarlo:**
+
+- **El Sintetizador no existe.** `justificacion` y `sugerencias` viajan vacías y
+  la pantalla pinta el hueco. **El informe se compone de forma determinista**:
+  las cifras, los factores y las citas las pone el código, que es justamente lo
+  que CA-M6.3 exige. Lo que falta es la prosa. Es el hueco grande del bloque
+  **P3** del [plan](docs/plan-siguientes-pasos.md), y el único ítem **sin
+  estimación**, porque la auditoría no lo planificó: no es un defecto, es
+  trabajo pendiente.
+- **Histórico, panel de métricas y trazabilidad en pantalla** — también P3.
+- **El sistema no envía ningún correo.** No hay canal de notificación ni código
+  que mande nada: **el enlace se comparte a mano**, fuera del sistema.
+- **No hay autenticación.** Leer es abierto con el enlace; calificar pide el
+  correo y lo valida contra la lista precargada.
+- **La infografía se retiró** formalmente del MVP (F0.8). No es deuda.
+- **No es Django.** D5 lo eligió antes de que el hosting fuera Vercel y nunca se
+  instaló; la desviación está registrada en el Addendum 02.
+
+## Arquitectura
+
+```
+ snapshot ──► pipeline Python ──►  Neon (PostgreSQL)  ◄── app Next.js ──► Vercel
+              determinista y agentes   base «territorial»       web/
+```
+
+**Una sola base y ninguna API intermedia**, que es lo que pide el PRD §4.3. La
+app **lee Neon directamente**: la regla de que todo acceso pase por SQLAlchemy
+protege las escrituras y el esquema, y una app que solo lee no puede corromper
+nada. Sus tres escrituras —calificación, comentario y seguimiento— se verifican
+contra `modelos.py` mediante un contrato generado, y **la app no migra nunca**.
+
+La frontera entre capas es lo que sostiene H4: **lo determinista nunca depende
+de un LLM, y lo agéntico nunca decide qué es evidencia suficiente.**
+
+```
+src/territorial/
+  reglas/      validador · prefiltro · cobertura · contexto     CAPA DETERMINISTA
+  scoring/     factores · pesos · ranking · persistencia        nunca un LLM
+  agentes/     clasificador · correlacionador · prompts/        CAPA LLM
+  informes/    composicion · publicacion · seleccion            CAPA SUPERFICIE
+  almacen/     modelos · sesion · blob                          TRANSVERSAL
+web/           La app: Next.js, Server Actions, sin API intermedia
+alembic/       Migraciones. Única autoridad del esquema.
+config/        usuarios.csv · gerencias.json · pesos.json · tarifas.json
+```
+
+## Configuración local
+
+El intérprete vive **fuera del repositorio**, porque la política corporativa
+impide ejecutar binarios desde `Downloads`. El comando `python` a secas resuelve
+al stub de Microsoft Store y no sirve.
+
+```powershell
+$py = "$env:LOCALAPPDATA\venvs\territorial\Scripts\python.exe"
+```
+
+Para montar el entorno desde cero, ver [CLAUDE.md](CLAUDE.md) §6.
+
+```powershell
+Copy-Item .env.example .env      # y se rellenan los valores
+```
+
+**Las variables, por nombre. Los valores no están en el repositorio y no deben
+estarlo:**
+
+| Variable | Qué es | Quién la necesita |
 |---|---|---|
-| Pipeline de un ciclo | `$py scripts\correr_ciclo.py --ciclo 3 --municipio 05147` | `DATABASE_URL` |
-| Scoring | `$py scripts\calcular_scores.py --ciclo 3` | `DATABASE_URL` |
-| Migraciones | `$py -m alembic upgrade head` · `check` | `DATABASE_URL`, **host directo** |
-| Copiar local → nube | `$py scripts\copiar_base.py` | de SQLite a `DATABASE_URL` |
-| Pruebas | `$py -m pytest -q` | ninguna: aisladas |
-| La app | `cd web` · `npm run dev` | `DATABASE_URL` **host pooled**, `COOKIE_SECRET` |
+| `DATABASE_URL` | La base contra la que corre todo | Todo |
+| `AZURE_OPENAI_API_KEY` | La clave del tenant | Solo los agentes |
+| `AZURE_OPENAI_ENDPOINT` | URL completa, con `https://` y sin barra final | Solo los agentes |
+| `MODELO_CLASIFICADOR`, `MODELO_CORRELACIONADOR`, `MODELO_SINTETIZADOR` | **Nombre del despliegue**, no del modelo | Solo los agentes |
+| `COOKIE_SECRET` | Firma la cookie de identificación (HMAC-SHA256) | Solo la app |
 
-> ### Dos configuraciones que no se deducen mirando el repositorio
->
-> **1. La raíz de despliegue en Vercel es `web/`.** Vive solo en el panel, en
-> *Settings → General → Root Directory*. Sin eso Vercel compila desde la raíz,
-> no encuentra `package.json` y falla con un error que no menciona la causa.
->
-> **2. La cadena de Neon de la app es la del `-pooler`; la del pipeline es la
-> directa.** Las funciones serverless abren muchas conexiones cortas, así que la
-> app va por el pooler; Alembic va por el directo porque **por el pooled no se
-> puede migrar**. Confundirlas falla en sitios distintos: la app agotaría
-> conexiones y la migración se rompería a la mitad.
->
-> Las dos están explicadas más abajo, en [El aplicativo web](#el-aplicativo-web-m9).
+**Ni la ingesta ni la capa determinista necesitan la clave** — solo los agentes.
+`.env` nunca se sube a git; `.env.example` sí, con los nombres y sin valores.
+
+**Sin `COOKIE_SECRET` la app falla cerrado a propósito**: no emite identidad, la
+pantalla explica por qué y leer el informe sigue funcionando. Es decir, **si
+falta en Vercel nadie puede calificar** aunque todo lo demás esté bien. Se
+genera una sola vez con `secrets.token_urlsafe(48)`. Cambiarlo invalida las
+cookies emitidas —hay que volver a teclear el correo— pero **no pierde ninguna
+calificación**.
+
+### A qué base apunta
+
+Una sola variable decide contra qué base corre todo, y **no hay ninguna URL
+escrita en el código**. Se acepta el nombre antiguo `URL_BASE_DATOS` con menos
+prioridad, así que **si borras `DATABASE_URL` vuelve a SQLite sin avisar**.
+
+```powershell
+$env:DATABASE_URL = "sqlite:///data/territorial.db"
+$env:DATABASE_URL = "postgresql://...neon.tech/territorial?sslmode=require&connect_timeout=3"
+```
+
+Tres cosas que cuesta descubrir solas:
+
+- **Neon publica dos hosts y son para usos opuestos.** El `-pooler` va por
+  PgBouncer en modo transacción y **por ahí no se puede migrar**: Alembic se
+  rompería a media migración. `exigir_directa()` se niega a arrancar por el
+  pooled, y lo comprueban los dos caminos a Alembic. **La app sí usa el
+  pooler**, porque las funciones serverless abren muchas conexiones cortas.
+- **Si conectar se cuelga sin error, es IPv6.** El DNS de Neon devuelve IPv6
+  primero y esta red no la rutea, así que libpq agota el timeout del sistema
+  antes de caer a IPv4. Por eso la cadena lleva **`&connect_timeout=3`**, y va
+  permanente. En Vercel no hace falta y además no hace nada: la app usa el
+  driver HTTP de Neon, que no mira ese parámetro.
+- **`alembic check` después de cada `upgrade`, siempre.** El `Running upgrade`
+  del log no prueba que la migración terminara: ya ocurrió una que lo imprimió y
+  falló después, dejando la base en la revisión anterior. `check` compara el
+  esquema real contra los modelos y fue lo único que lo detectó.
+
+## Scripts, y cuándo usar cada uno
+
+```powershell
+& $py -m pytest -q                 # 345 pruebas; aisladas, no tocan ninguna base
+& $py -m alembic upgrade head
+& $py -m alembic check             # y esto es lo que de verdad lo verifica
+```
+
+| Script | Para qué | Cuidado |
+|---|---|---|
+| `cargar_snapshot.py` | M1 — carga los 18 municipios y las 20.030 señales | Aplica las migraciones por su cuenta; sirve sobre una base vacía |
+| `correr_ciclo.py` | M2 → M3 → M4 de un ciclo | **Gasta tokens.** Sin `--municipio` procesa los 18: prueba siempre con uno. **`--seco` no es seco** (H-038). Congelado hasta cerrar P4 |
+| `calcular_scores.py` | M5 — scores y top 10 | No llama a ningún LLM; se puede repetir cuantas veces haga falta |
+| `publicar_informe.py` | **El único punto de entrada para publicar** | Empieza siempre por `--seco`, que corre y revierte. Archiva el anterior y congela las dos corridas en la misma transacción |
+| `cargar_usuarios.py` | Sincroniza `usuario` desde `config/usuarios.csv` | **`--previsualizar` primero, siempre.** Solo escribe con `--confirmar`. Desactiva, no borra |
+| `avance_calificacion.py` | Cuánto lleva calificado cada persona en la ronda | **Solo lectura.** Es lo que se mira durante la ronda |
+| `estimar_costo.py` | Costo por ciclo, para H5 | No cuenta el Sintetizador, que no existe |
+| `generar_contrato_ts.py` | Regenera `web/lib/contrato.generado.ts` desde `modelos.py` | Tras tocar `calificacion` o `seguimiento`. `--check` falla si quedó desactualizado, y el suite lo corre |
+
+Calibración: `medir_prefiltro.py`, `probar_clasificador.py`,
+`comparar_prompts.py` y `comparar_correlacionador.py`.
+
+## Usuarios y gerencias
+
+Se versionan en git, que es lo que hace auditable el denominador de H2:
+
+| Archivo | Qué es |
+|---|---|
+| [`config/gerencias.json`](config/gerencias.json) | El catálogo, y **la marca `prd` o `adicional`** de cada gerencia |
+| [`config/usuarios.csv`](config/usuarios.csv) | Quién califica, con su correo, su gerencia y su rol |
+
+**El núcleo del experimento son 5 gerencias `prd`** —`general`, `juridica`,
+`producto_hoteles_oficinas`, `producto_logistica` y `rotacion_portafolio`— y hay
+**2 `adicional`**: `administrativa` y `analitica`. **H2 se reporta sobre las
+`prd`**; las adicionales van por separado, y H1 se reporta con y sin ellas.
+
+**Los usuarios se precargan: quien no esté en la lista no califica**, así que la
+app nunca escribe `usuario` y el denominador se conoce antes de medir. La lista
+de gerencias autorizadas queda **congelada en el payload** al publicar, de modo
+que la tasa se computa contra ella y no contra el estado de `usuario` de hoy.
+
+## Despliegue
+
+| | |
+|---|---|
+| **Rama de producción** | `main`. Cada push despliega |
+| **Root Directory** | `web` — vive **solo en el panel de Vercel**, no se deduce del repositorio. Sin eso Vercel compila desde la raíz, no encuentra `package.json` y falla con un error que no menciona la causa |
+| **Variables de base y `COOKIE_SECRET`** | **Solo en Production.** Dejarlas en Preview expondría la base real a cualquier rama |
+| **Integración de Neon** | Sus variables quedan **solo en Development**, para que no compitan con las de Production |
+| **Fusión de un PR** | **Siempre con merge commit, nunca squash**, para que el linaje del commit publicado siga siendo cierto |
+
+Las migraciones **no** las aplica el despliegue: van a mano, por el host directo
+y antes de publicar. La secuencia completa está en
+[decisiones-remediacion.md](docs/decisiones-remediacion.md).
+
+## Riesgos aceptados
+
+Decididos por el dueño y registrados en
+[decisiones-remediacion.md](docs/decisiones-remediacion.md):
+
+- **R-A1** — la credencial de la base estuvo expuesta; se acepta el riesgo
+  residual en vez de rotarla durante la ventana del experimento.
+- **R-A2** — **la identidad es declarativa**: un correo tecleado contra la lista
+  precargada, y H-012 queda abierto. La cookie firmada impide falsificarla desde
+  el navegador, pero no impide teclear el correo de otro, y **eso hay que
+  decirlo al publicar H1 y H2**.
+- **P-6** — no se consulta a jurídica antes de cargar los usuarios, pese a que la
+  base contiene datos personales provenientes de SECOP.
+
+## Reglas del proyecto
+
+Tres, por la decisión D8 de usar SQLite en local y PostgreSQL en nube:
+
+1. Todo acceso a datos pasa por **SQLAlchemy**. Nunca SQL crudo de un motor.
+   *Alcance*: protege **escrituras y esquema, no lecturas** — por eso la app
+   puede leer Neon directamente.
+2. El esquema se gobierna con **Alembic** desde la primera migración. La app no
+   genera migraciones nunca, ni para sus propias tablas.
+3. Las columnas JSON usan el tipo `JSON` portátil, **nunca operadores JSONB** de
+   PostgreSQL (`->>`, `@>`, `jsonb_path_query`): no existen en SQLite.
+
+Y una del PRD, que es bloqueante: **ninguna cifra de un informe puede provenir
+del LLM** (CA-M6.3). El LLM redacta; los números los pone el código.
 
 ## Documentos
 
 | Documento | Qué contiene |
 |---|---|
-| [PRD del MVP](docs/prd.md) | Hipótesis H1–H5, alcance, arquitectura, criterios de aceptación |
-| [Addendum 01 — Fuente de datos](docs/addendum-01-fuente-de-datos.md) | Decisiones D1–D4 sobre el snapshot, los ciclos y el scoring |
-| [Addendum 02 — Stack](docs/addendum-02-stack.md) | Decisiones D5–D9 sobre tecnología, almacenamiento y entorno |
-| [Design System](docs/design-system.md) | **Autoridad de color y tipografía.** Navy `#0F4761` y Aptos, de la plantilla corporativa |
-| [Pendientes](docs/pendientes.md) | Registro único de lo que falta decidir, y de lo decidido |
+| [**Plan de siguientes pasos**](docs/plan-siguientes-pasos.md) | **Qué viene y en qué orden**, con el esfuerzo de cada bloque |
+| [Ronda de calificación](docs/ronda-calificacion.md) | Bitácora de la ronda en curso y el corte del martes 29 |
+| [Estado del despliegue](docs/estado-despliegue.md) | Los 11 pasos, qué quedó abierto y las reglas que salieron de ahí |
+| [Decisiones de remediación](docs/decisiones-remediacion.md) | Lo que decidió el dueño, los riesgos aceptados y los incidentes |
+| **Auditoría** | Rama `audit/2026-09-22` — 51 hallazgos, matriz de conformidad de los 59 CA y plan de remediación. **No está en `main`**: `git show audit/2026-09-22:docs/auditoria.md` |
+| [PRD del MVP](docs/prd.md) | Hipótesis H1–H5, alcance y criterios de aceptación |
+| [Addendum 01 — Fuente de datos](docs/addendum-01-fuente-de-datos.md) · [02 — Stack](docs/addendum-02-stack.md) | Decisiones D1–D9 |
+| [Design System](docs/design-system.md) | **Autoridad de color y tipografía.** Navy `#0F4761` y Aptos |
 | [Informe de resultados](docs/informe_resultados.md) | Lo medido por hipótesis, para la compuerta de la semana 8 |
+| [Pendientes](docs/pendientes.md) | Registro de lo que falta decidir, y de lo decidido |
+| [CLAUDE.md](CLAUDE.md) | Guía de trabajo en el repositorio: entorno, trampas y reglas |
 
-## Entorno
+## Lo que decide el go/no-go
 
-El proyecto corre sobre un entorno virtual **fuera del repositorio**, porque la
-política corporativa de esta máquina impide ejecutar binarios desde `Downloads`.
+**H1 y H2 se miden con las calificaciones de esta ronda, y hasta el 2026-09-23
+no había ninguna.** Por eso la ronda es la prioridad y todo lo demás espera al
+corte del martes.
 
-```
-%LOCALAPPDATA%\venvs\territorial\Scripts\python.exe
-```
+**H4 —trazabilidad al 100%— es bloqueante**: si falla, la arquitectura no es
+auditable y no puede ir a producción. No se resuelve con más ingeniería.
 
-Ese es el intérprete a usar siempre. El comando `python` a secas resuelve al stub
-de Microsoft Store y no sirve.
-
-### Montar el entorno desde cero
-
-```powershell
-# 1. uv (gestor de paquetes y de versiones de Python)
-#    Se instala descargando el zip de github.com/astral-sh/uv/releases
-#    a %LOCALAPPDATA%\Programs\uv
-
-# 2. Python 3.12 — sin pasar por el instalador MSI, que la política bloquea
-uv python install 3.12
-
-# 3. Entorno virtual. Se usa el modulo venv estandar, no `uv venv`:
-#    uv crea un trampolin sin firmar que la política tambien bloquea.
-$base = "$env:APPDATA\uv\python\cpython-3.12-windows-x86_64-none\python.exe"
-& $base -m venv "$env:LOCALAPPDATA\venvs\territorial"
-
-# 4. Dependencias
-uv pip install --python "$env:LOCALAPPDATA\venvs\territorial\Scripts\python.exe" -r pyproject.toml
-```
-
-### Configuración
-
-```powershell
-Copy-Item .env.example .env
-```
-
-Luego se rellenan los valores en `.env`. Los tres que importan:
-
-| Variable | Qué es | Dónde se obtiene |
-|---|---|---|
-| `AZURE_OPENAI_API_KEY` | La clave | Portal de Azure AI Foundry → recurso → *Keys and Endpoint* |
-| `AZURE_OPENAI_ENDPOINT` | **URL completa**, con `https://` y sin barra final | Misma pantalla, campo *Endpoint* |
-| `MODELO_*` | **Nombre del despliegue**, no del modelo | Columna *Deployment name* del portal |
-
-Para comprobar que quedó bien:
-
-```powershell
-& $py scripts\verificar_llm.py
-```
-
-`.env` nunca se sube a git. `.env.example` sí, con valores de ejemplo.
-
-**Ni la ingesta ni la capa determinista necesitan la clave** — solo los agentes.
-
-## Uso
-
-```powershell
-$py = "$env:LOCALAPPDATA\venvs\territorial\Scripts\python.exe"
-
-& $py scripts\cargar_snapshot.py                              # M1 — ingesta
-& $py scripts\correr_ciclo.py --ciclo 1 --municipio 05147     # M2 → M3 → M4
-& $py scripts\calcular_scores.py --ciclo 1                    # M5 — top 10
-& $py scripts\estimar_costo.py                                # costo por ciclo
-```
-
-`cargar_snapshot.py` carga los 18 municipios y las 20.030 señales, normaliza los
-DIVIPOLA a 5 dígitos y reparte las señales en los 3 ciclos. Aplica las
-migraciones de Alembic por su cuenta, así que sirve sobre una base vacía.
-
-`correr_ciclo.py` **gasta tokens**: sin `--municipio` procesa los 18, en lotes de
-50 señales por llamada. Prueba siempre con uno primero; `--seco` corre y
-revierte. **No recalcula los scores** — eso es `calcular_scores.py`, que no
-llama a ningún LLM y se puede repetir cuantas veces haga falta.
-
-Scripts de calibración: `medir_prefiltro.py`, `probar_clasificador.py`,
-`probar_correlacionador.py` y `comparar_prompts.py`, que mide dos versiones de
-prompt sobre el mismo lote.
-
-### Migraciones
-
-```powershell
-& $py -m alembic current                              # en qué revisión está
-& $py -m alembic upgrade head                         # aplicar pendientes
-& $py -m alembic revision --autogenerate -m "motivo"  # tras tocar modelos.py
-& $py -m alembic check                                # ¿esquema y modelos concuerdan?
-```
-
-**`alembic check` después de cada `upgrade`, siempre.** El `Running upgrade` del
-log no prueba que la migración terminara: ya ocurrió una que lo imprimió y falló
-después, dejando la base en la revisión anterior. `check` compara el esquema
-real contra los modelos y es lo único que lo detecta. Detalle en
-[CLAUDE.md](CLAUDE.md) §6.1.
-
-### A qué base apunta: `DATABASE_URL`
-
-**Una sola variable decide la base.** No hay ninguna URL de entorno escrita en
-el código; `DATABASE_URL` se lee del `.env` o del entorno, y se acepta el nombre
-antiguo `URL_BASE_DATOS` con menos prioridad.
-
-```powershell
-# Local — SQLite, lo que corre el pipeline por defecto
-$env:DATABASE_URL = "sqlite:///data/territorial.db"
-
-# Neon — PostgreSQL gestionado. Pega la cadena tal cual la da el panel:
-# el prefijo postgresql:// se reescribe solo a psycopg 3.
-$env:DATABASE_URL = "postgresql://usuario:clave@ep-xxx.us-east-2.aws.neon.tech/territorial?sslmode=require"
-```
-
-**Neon publica dos hosts y solo uno sirve para migrar.** El que lleva `-pooler`
-va por PgBouncer en modo transacción, que no conserva la sesión entre
-sentencias: Alembic se rompería a media migración y la base quedaría en un
-estado que depende de por dónde fuera. Usa el **directo**, el mismo host sin
-`-pooler`. `aplicar_migraciones()` se niega a arrancar por el pooled en vez de
-dejar que falle a mitad.
-
-### Si conectar a Neon se cuelga: es IPv6
-
-**Síntoma:** `alembic current` no da error, se queda colgado minutos. Pasó el
-2026-09-21 y cuesta media tarde diagnosticarlo, así que queda escrito.
-
-**Causa:** el DNS de Neon devuelve direcciones IPv6 **y** IPv4, y las IPv6
-primero. En una red corporativa sin ruta IPv6, libpq las prueba en orden y cada
-una agota el timeout por defecto del sistema antes de caer a IPv4. Medido en
-esta máquina:
-
-```
-TCP 5432 por IPv6  ->  timeout           (no rutea)
-TCP 5432 por IPv4  ->  conecta en 0,09s
-psycopg sin connect_timeout  ->  cuelga varios minutos
-psycopg con connect_timeout=20  ->  conecta en 61s  (3 intentos IPv6 + IPv4)
-```
-
-**Arreglo, y va puesto de forma permanente:** `connect_timeout` en la cadena.
-
-```
-DATABASE_URL=postgresql://...neon.tech/territorial?sslmode=require&connect_timeout=3
-```
-
-Baja el peaje a unos 9 segundos por conexión. **No es un apaño temporal**: es
-configuración razonable para cualquier cliente en una red sin IPv6 y no molesta
-donde sí la hay. Lo que **no** hay que dejar puesto es un `hostaddr=` con una IP
-fija: funciona, pero Neon las rota.
-
-Vercel sí tiene IPv6, así que esto no afecta a la app desplegada. Importa si el
-pipeline corre desde esta red o desde un runner corporativo.
-
-### Llevar la base a Neon
-
-Los datos de desarrollo son SQLite, así que no hay `pg_dump` que restaurar: la
-copia va por SQLAlchemy, fila a fila, que es además lo que exige la regla de que
-todo acceso a datos pase por el ORM.
-
-```powershell
-$env:DATABASE_URL = "postgresql://...ep-xxx.us-east-2.aws.neon.tech/territorial?sslmode=require"
-
-& $py -m alembic upgrade head        # crea el esquema desde cero
-& $py -m alembic check               # y comprueba que no quedó deriva
-& $py scripts\copiar_base.py          # copia local -> DATABASE_URL
-& $py scriptserificar_copia.py      # y comprueba que la copia es fiel
-```
-
-`copiar_base.py` conserva los identificadores —renumerarlos rompería
-`informe.id_corrida` y todo el linaje— y por eso reinicia las secuencias de
-Postgres al terminar. También reetiqueta como UTC las fechas que SQLite devuelve
-sin zona, para que no dependan de la zona del servidor. Se niega a escribir
-sobre un destino que ya tenga filas salvo que se le pase `--vaciar`, y `--seco`
-cuenta sin escribir.
-
-`verificar_copia.py` hace tres comprobaciones y devuelve código distinto de cero
-si alguna falla. La tercera es la que vale: **las corridas de scoring 3 y 4 son
-idénticas municipio por municipio** pese a llevar etiquetas distintas, así que
-si siguen siéndolo en el destino, los `float`, los enteros y el JSON cruzaron
-sin deformarse. Contar filas no lo detectaría.
-
-## El aplicativo web (M9)
-
-Vive en [`web/`](web/) — Next.js sobre Vercel, leyendo Neon. No es Django: D5 del
-Addendum 02 lo eligió antes de que el hosting fuera Vercel, y la desviación está
-anotada allí.
-
-> **El sistema no envía ningún correo.** No hay canal de notificación en el MVP
-> (pendiente 11.4/3) ni código que mande nada: **el enlace se comparte a mano**,
-> por fuera del sistema. Si buscas el servicio de envío, no existe.
->
-> Lo que sí hay es **identificación por correo**, que es otra cosa. El flujo:
->
-> 1. El enlace se comparte fuera del sistema.
-> 2. Cualquiera que lo tenga **lee sin identificarse**.
-> 3. Al intentar **calificar** se pide el correo.
-> 4. Se valida contra `usuario`. Si está, califica con su gerencia.
-> 5. Si no está, **solo visualiza**, con el mensaje «este correo no está en la
->    lista» y a quién escribir — nunca un error genérico.
-
-```powershell
-cd web
-npm install
-$env:DATABASE_URL = "postgresql://...neon.tech/territorial?sslmode=require"
-npm run dev          # http://localhost:3000
-npm run typecheck    # tsc --noEmit
-npm run build
-```
-
-### La raíz de despliegue en Vercel es `web/`
-
-**Esto no se puede deducir mirando el repositorio.** Vive solo en el panel de
-Vercel, en *Settings → General → Root Directory*, y hay que ponerlo a mano:
-
-```
-Root Directory:  web
-```
-
-Sin eso, Vercel compila desde la raíz, no encuentra `package.json` y falla con
-un error que no menciona la causa. El repositorio es un monorepo a medias —
-Python en la raíz, la app en `web/`— porque D5 pedía un solo repositorio.
-
-### Y la cadena de Neon en Vercel es la del **pooler**
-
-Al revés que la de este README para el pipeline. Las funciones serverless abren
-muchas conexiones cortas, así que la app va por el endpoint con `-pooler`;
-Alembic va por el directo, porque por el pooled no se puede migrar. Son dos
-cadenas para dos usos opuestos, y confundirlas falla en sitios distintos: la app
-agotaría conexiones, y la migración se rompería a la mitad.
-
-El `&connect_timeout=3` que lleva la cadena local **no hace falta en Vercel**, y
-de hecho ahí no hace nada: `connect_timeout` es un parámetro de libpq, y la app
-usa el driver **HTTP** de Neon (`@neondatabase/serverless`), que no lo mira. No
-molesta si se queda.
-
-### Y la app necesita `COOKIE_SECRET`, o no identifica a nadie
-
-Es el secreto con el que se firma la cookie de identificación (HMAC-SHA256).
-**Sin él la app falla cerrado a propósito**: no emite identidad, la pantalla
-explica por qué y leer el informe sigue funcionando. Es decir, **si falta en
-Vercel, nadie puede calificar** aunque todo lo demás esté bien.
-
-Se genera una sola vez, largo y aleatorio:
-
-```powershell
-python -c "import secrets; print(secrets.token_urlsafe(48))"
-```
-
-En local va en `.env`; en producción, en *Settings → Environment Variables* del
-proyecto de Vercel. **Nunca en el repositorio**: `.env.example` lo lista vacío.
-Cambiarlo invalida las cookies emitidas, así que quien estuviera identificado
-tendrá que volver a escribir su correo — no se pierde ninguna calificación.
-
-**No es autenticación.** La identidad sigue siendo un correo tecleado, contra la
-lista precargada de `usuario`; el riesgo está aceptado y registrado como R-A2 en
-[decisiones-remediacion.md](docs/decisiones-remediacion.md). Lo que la firma
-impide es falsificar la cookie editándola en el navegador.
-
-### Lo que la app puede escribir
-
-Solo `calificacion` y `seguimiento` (CA-M9.16). **No migra nada** — Alembic es la
-única autoridad del esquema— y la forma de esas dos escrituras se verifica
-contra `modelos.py`:
-
-```powershell
-& $py scripts\generar_contrato_ts.py          # regenera web/lib/contrato.generado.ts
-& $py scripts\generar_contrato_ts.py --check  # falla si quedó desactualizado
-```
-
-`tests/test_contrato.py` corre ese `--check` dentro del suite, así que tocar
-`modelos.py` sin regenerar rompe las pruebas de Python. Es lo que impide que la
-app escriba contra una columna que ya no existe.
-
-## Estructura
-
-```
-docs/                         PRD y addenda. El snapshot es el origen de verdad.
-config/                       Datos de negocio editables sin tocar código
-  tarifas.json                Tarifas del tenant, para estimar costo
-  pesos.json                  Pesos del score (opcional; sin él rigen los de D4)
-alembic/                      Migraciones. El esquema se gobierna desde aquí.
-src/territorial/
-  config.py                   Configuración leída de .env
-  ciclo.py                    Orquesta prefiltro → M2 → M3 → M4 por municipio
-  almacen/
-    blob.py                   Objetos semi-estructurados: local o Azure Blob
-    modelos.py                Esquema SQL (PRD §4.2 + linaje)
-    sesion.py                 Motor, sesiones y aplicar_migraciones()
-  ingesta/snapshot.py         Carga del snapshot y partición en ciclos
-  reglas/                     CAPA DETERMINISTA — nunca LLM
-    validador.py              M3 — R1 a R7 sobre la evidencia
-    prefiltro.py              Diccionario de obra e infraestructura
-    cobertura.py              Días cubiertos y redistribución de pesos
-    normalizacion.py          Comparación de citas contra la fuente
-  scoring/                    M5 — determinista
-    factores.py               F1–F6 y normalización por cohorte
-    pesos.py                  Pesos configurables (CA-M5.3)
-    ranking.py                Score, top 3 y desglose (CA-M5.5)
-    agregacion.py             Único módulo de M5 que conoce el ORM
-    persistencia.py           Escritura idempotente en score_municipio
-  agentes/                    CAPA LLM
-    clasificador.py           M2
-    correlacionador.py        M4
-    cliente.py                Cliente único contra el tenant
-    persistencia.py           Insights, consolidados y trazas
-    prompts/                  Versionados (D7)
-  utiles/divipola.py          Normalización de códigos DIVIPOLA
-scripts/                      Puntos de entrada
-data/                         Generado localmente. No se versiona.
-```
-
-## Reglas del proyecto
-
-Tres reglas de obligado cumplimiento, por la decisión D8 de usar SQLite en local
-y PostgreSQL en nube:
-
-1. Todo acceso a datos pasa por **SQLAlchemy**. Nunca SQL crudo de un motor.
-2. El esquema se gobierna con **Alembic** desde la primera migración.
-3. Las columnas JSON usan el tipo `JSON` portátil, **nunca operadores JSONB**
-   de PostgreSQL (`->>`, `@>`, `jsonb_path_query`).
-
-Y una del PRD, que es bloqueante: **ninguna cifra de un informe o infografía
-puede provenir del LLM** (CA-M6.3). Todas se componen desde el almacén de datos.
-
-## Qué falta, y por qué ese orden
-
-**El estado por módulo está arriba.** Lo que queda, en orden de lo que bloquea:
-
-1. **M7 y M9 — calificación y aplicativo.** Es el único pendiente que bloquea el
-   go/no-go. **H1 y H2 no tienen un solo dato** y ambas se miden ahí; H2 es
-   condición necesaria para el GO según la regla de decisión del PRD §11. No
-   tiene decisiones abiertas: solo código.
-2. **M6 — el Sintetizador.** La composición ya está; falta la prosa. Su costo es
-   además la cifra que falta para cerrar H5.
-3. **Las hojas de revisión del equipo.** Llegan cuando lleguen y destraban A2,
-   A4 y el criterio de frontera del Clasificador.
-
-**Lo que no bloquea**: Langfuse y el checkpointing de CA-M8.4 son deuda, no
-cuello — el pipeline ya se reanuda porque confirma municipio a municipio y las
-trazas por agente existen sin Langfuse.
-
-Si la semana 8 llega con un pipeline impecable y cero calificaciones, la
-compuerta es NO-GO por falta de datos, no por el sistema.
+Y la afirmación que ordena todo lo demás: **el scoring es código determinista y
+es lo único reproducible del sistema.** Todo lo que pasa por un modelo varía
+entre el 19% y el 26% entre pasadas idénticas. **Cualquier cosa que deba ser
+reproducible tiene que estar en código.**
