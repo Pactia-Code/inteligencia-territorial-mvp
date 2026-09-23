@@ -6,6 +6,7 @@
  * fila (F0.7). Siguen siendo un `<form>` con cinco botones de envio que
  * funciona sin JavaScript, asi que «clic 1 = registro» (CA-M7.6) se mantiene.
  */
+import { describirComposicion } from "@/lib/seleccion";
 import type { Informe, InsightPublicado, MunicipioDelInforme } from "@/lib/tipos";
 import { Calificar } from "./Calificar";
 
@@ -190,10 +191,21 @@ export function Panel({
         {m.calificable ? (
           <p className="t-meta prosa" style={{ margin: "0 0 var(--space-4)" }}>
             De los {m.insights.length} insights del municipio se piden estos{" "}
-            {pedidos.length}: los <strong>2 de mayor peso</strong> y{" "}
-            <strong>3 al azar</strong>, con al menos uno de prensa. Los elige
-            código determinista con una semilla congelada, así que las siete
-            gerencias reciben exactamente los mismos. El resto es opcional.
+            {pedidos.length}
+            {/* Del payload, no de un texto fijo: con la regla de relleno cada
+                municipio recibe su propia mezcla, y escribirla a mano mentiría
+                justo donde importa (M9-sel, H-015). */}
+            {describirComposicion(m.composicion_pedida) && (
+              <>
+                {": "}
+                <strong>{describirComposicion(m.composicion_pedida)}</strong>
+              </>
+            )}
+            . Se priorizan los correlacionados —lo que ninguna fuente sola
+            produce— y se completa con contratación y prensa; si un tipo no
+            alcanza, entra lo que haya. Los elige código determinista con una
+            semilla congelada, así que todas las gerencias reciben exactamente
+            los mismos. El resto es opcional.
           </p>
         ) : (
           <p className="t-meta prosa" style={{ margin: "0 0 var(--space-4)" }}>
