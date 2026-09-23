@@ -1,11 +1,12 @@
 # Estado del despliegue
 
-**Actualizado:** 2026-09-23 · rama `remediacion/f0` **publicada en `origin`**
+**Actualizado:** 2026-09-23 · **despliegue terminado, 11 de 11** · se trabaja sobre `main`
 
-> **Para retomar:** lee esto primero, después
-> [decisiones-remediacion.md](decisiones-remediacion.md).
+> **El despliegue está terminado.** Este documento queda como registro de cómo
+> se hizo y de lo que quedó abierto. Las decisiones y los riesgos aceptados están
+> en [decisiones-remediacion.md](decisiones-remediacion.md).
 
-## Progreso: 10 de 11 pasos
+## Progreso: 11 de 11 pasos — **despliegue terminado**
 
 | | Paso | Estado |
 |---|---|---|
@@ -19,7 +20,7 @@
 | 8 | **Republicación y verificación** | ✅ **Cerrado**: informe 8 publicado, traza 241/241 |
 | 9 | **Fusión del PR y conexión de Git** | ✅ **Cerrado**: producción sirve el merge `bfc1233` |
 | 10 | **Prueba de humo** sobre el despliegue | ✅ **Cerrado**: 6 calificaciones reales emitidas |
-| 11 | **Siguiente** · Borrar el branch de Neon `remediacion-f0` | ⬜ |
+| 11 | **Borrar el branch de Neon** `remediacion-f0` | ✅ **Cerrado** |
 
 > **Los once pasos están acordados por el dueño**, con su numeración y su orden.
 > No se reordenan sobre la marcha: si alguno cambia, se cambia aquí primero.
@@ -317,6 +318,50 @@ Verificado por lectura sobre la base principal:
 - **Ninguna otra tabla se movió.** Las 19 conservan los conteos del paso 8:
   `usuario` 10, `informe` 5, y las 16 del pipeline exactamente como en el
   respaldo.
+
+### Cómo terminó el paso 10
+
+El dueño **apagó la protección de Vercel** —Vercel Authentication, que estuvo en
+Standard Protection desde el principio justo para esto— y **verificó el acceso
+en una ventana de incógnito**, sin sesión de Vercel. Es la comprobación que
+importaba: el enlace que van a recibir las gerencias abre sin pedir cuenta.
+
+## Paso 11 — branch de Neon borrado, y fin del despliegue
+
+Con confirmación explícita del dueño se borró el branch **`remediacion-f0`**
+(`br-weathered-hall-aw6tiknb`), después de comprobar por lectura que **no era ni
+el primario ni el de por defecto**. Con él se van los informes republicados, los
+usuarios de prueba y la calificación de prueba del insight 1088, que nunca
+fueron fuente de datos.
+
+**El proyecto queda con un solo branch, `main`** (`br-soft-feather-aw72a98p`),
+primario y por defecto. Estado de la base `territorial` justo después:
+
+| | |
+|---|---|
+| Alembic | `d5932c3bdc03` |
+| Usuarios | 8 activos de 10 (2 de prueba, inactivos) |
+| Informe publicado | **8**, con 4 archivados |
+| Calificaciones | **6** (las de la prueba de humo, reales) |
+| Identificaciones | 5 |
+| Seguimientos | 0 |
+
+Se quitó `DATABASE_URL_NEON_BRANCH` del `.env` y de su copia en
+`C:\devespaldos\`, sin tocar ninguna otra línea: 66 a 65 líneas en los dos
+archivos, que siguen siendo idénticos entre sí.
+
+## Lo que queda abierto
+
+El despliegue terminó; **el experimento no**.
+
+- **F0b entera**, que bloquea la decisión go/no-go: `informe_resultados.md`
+  tiene dos afirmaciones falsas sobre la hipótesis bloqueante y una cifra sin
+  productor.
+- **F2.3**: validar el Correlacionador v2 con linaje persistido. Hasta entonces
+  el valor por defecto es **v1**, y una prueba impide cambiarlo en silencio.
+- **El resto del plan de remediación**, F1 a F6.
+- **Las 6 primeras calificaciones son reales y de una gerencia adicional.** Ver
+  el aviso del paso 10 antes de calcular H1 o H2.
 
 ## Reglas vigentes
 
