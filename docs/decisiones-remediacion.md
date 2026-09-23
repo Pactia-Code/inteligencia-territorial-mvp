@@ -128,6 +128,25 @@ esta.
   F0.6, que usan la corrida 10, que es v1. Queda dicho para que, si alguien
   corre un ciclo antes de F2.3, sepa que está estrenando prompt sin red.
 
+### Se califica solo lo pedido; el resto del municipio es de consulta
+
+- **Decisión del dueño del 2026-09-22**, al revisar F4.1. El bloque desplegable
+  con el resto de los insights del municipio **no lleva controles de
+  calificación**, y el texto de la pantalla lo dice así: es de consulta. El
+  motivo es que **H1 y H2 tienen que comparar sobre la misma base**; si cada
+  gerencia calificara un subconjunto distinto de los 49 insights de Funza, el
+  «≥30% con promedio ≥4» mediría también qué eligió mirar cada quien.
+- **Lo que esto deja pendiente, y conviene decidir aparte.** En el informe
+  publicado hay **3 municipios calificables de 10**. En los **7 restantes** la
+  pantalla sigue mostrando controles en sus **primeros 5 insights** —35 en
+  total— aunque **no se pidió ninguno**: viene de antes de F4.1 y F4.1 no lo
+  tocó, porque su cierre exigía que los botones quedaran exactamente donde
+  estaban. Con la decisión de arriba, eso es una excepción sin motivo: son
+  calificaciones sobre insights que nadie pidió, en municipios que nadie pidió.
+  **Quitarlos es una línea** —pasar `conCalificacion` solo cuando el municipio
+  es calificable— y hoy no cuesta nada, porque no hay ni una calificación
+  emitida.
+
 ### Un informe sin lista congelada no admite calificaciones
 
 - **Comportamiento conservador, aceptado por el dueño** (F0.4). Un informe

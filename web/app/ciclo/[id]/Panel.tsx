@@ -295,12 +295,15 @@ export function Panel({
             produce— y se completa con contratación y prensa; si un tipo no
             alcanza, entra lo que haya. Los elige código determinista con una
             semilla congelada, así que todas las gerencias reciben exactamente
-            los mismos. El resto es opcional.
+            los mismos. <strong>El resto del municipio queda abajo para
+            consulta</strong>: se califica solo lo pedido, para que H1 y H2
+            comparen sobre la misma base.
           </p>
         ) : (
           <p className="t-meta prosa" style={{ margin: "0 0 var(--space-4)" }}>
-            En este municipio la calificación es opcional: {m.insights.length}{" "}
-            insights disponibles.
+            En este municipio <strong>no se pide calificación</strong>. Sus{" "}
+            {m.insights.length} insights están aquí para consulta: los primeros
+            abajo y los demás en la lista desplegable.
           </p>
         )}
 
@@ -335,8 +338,8 @@ export function Panel({
             </summary>
             <p className="t-meta prosa" style={{ margin: "var(--space-2) 0 0" }}>
               Con {restoEvidencias}{" "}
-              {restoEvidencias === 1 ? "evidencia" : "evidencias"}. Se muestran
-              para leer; la calificación se pide arriba.
+              {restoEvidencias === 1 ? "evidencia" : "evidencias"}. Son de
+              consulta y no se califican.
             </p>
             {resto.map((i) => (
               <Ficha key={i.id} i={i} />

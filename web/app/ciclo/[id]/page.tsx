@@ -339,7 +339,7 @@ export default async function VistaCiclo({
                 Se pide calificar {informe.calificacion.pedidas_por_municipio}{" "}
                 insights en cada uno de los{" "}
                 {informe.calificacion.pedida_hasta_puesto} primeros. Los demás
-                quedan abiertos y se cuentan aparte.
+                municipios se muestran para consulta.
               </p>
             </div>
           )}
