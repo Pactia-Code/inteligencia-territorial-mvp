@@ -309,6 +309,11 @@ informe        (id, id_ciclo, fecha_publicacion, ruta_html,
 
 - **CA-M6.1** — Genera informe con el top 3, justificación y sugerencias de acción.
 - **CA-M6.2** — Genera **una infografía por cada municipio del top 3**.
+  > **RETIRADO DEL MVP el 2026-09-22** (pendiente **P-4**, decisión del dueño;
+  > hallazgo H-020 de la auditoría). Nunca se especificó ni se implementó, y
+  > ninguna hipótesis depende de ella. Queda para la Fase 0. El texto del
+  > criterio **no se reescribe**: lo que cambia es su alcance, y así se ve qué
+  > se pidió y qué se decidió. Ver `docs/pendientes.md`.
 - **CA-M6.3** — **Ninguna cifra proviene de generación del LLM.** Todas se componen desde el almacén de datos (RN-12 del PRD principal).
 - **CA-M6.4** — Cada dato muestra su fuente y fecha.
 - **CA-M6.5** — El informe se marca visiblemente como **"MVP — contenido no validado por Analítica"**, tanto en la app como en el correo de notificación.
@@ -336,6 +341,12 @@ informe        (id, id_ciclo, fecha_publicacion, ruta_html,
 **M9.b — Informes de municipios priorizados**
 
 - **CA-M9.4** — La vista de ciclo muestra el informe completo del top 3 con sus 3 infografías, los insights que lo sustentan y la evidencia enlazada de cada uno (URL, fecha, cita textual).
+  > **La parte de las infografías queda RETIRADA DEL MVP el 2026-09-22**
+  > (pendiente **P-4**, hallazgo H-020). **El resto del criterio sigue vigente**
+  > y es lo que la vista de ciclo cumple hoy: insights con su evidencia
+  > enlazada. Ojo también con «top 3»: el tope del informe es **10** desde el
+  > 2026-09-21 (`Config.tope_top`, desviación de CA-M5.4 registrada en
+  > `CLAUDE.md` §7).
 - **CA-M9.5** — Desde cualquier insight se puede navegar a su cadena de trazabilidad completa: `señal → insight → validación → correlación → score` (CA-M8.1 expuesto en interfaz, no solo en base de datos).
 - **CA-M9.6** — La justificación del score de cada municipio del top 3 se muestra en la interfaz como lista de factores que lo empujaron hacia arriba (CA-M5.5 expuesto al usuario).
 - **CA-M9.7** — Todo informe publicado permanece consultable en el histórico, con su fecha de publicación y el ciclo al que pertenece. Nada se sobrescribe entre ciclos.
