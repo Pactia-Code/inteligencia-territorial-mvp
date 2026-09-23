@@ -7,7 +7,12 @@
  * funciona sin JavaScript, asi que «clic 1 = registro» (CA-M7.6) se mantiene.
  */
 import { describirComposicion } from "@/lib/seleccion";
-import type { Informe, InsightPublicado, MunicipioDelInforme } from "@/lib/tipos";
+import type {
+  Evidencia as EvidenciaPublicada,
+  Informe,
+  InsightPublicado,
+  MunicipioDelInforme,
+} from "@/lib/tipos";
 import { Calificar } from "./Calificar";
 
 function numero(valor: number, unidad: string): string {
@@ -65,9 +70,8 @@ function Contexto({ m }: { m: MunicipioDelInforme }) {
   );
 }
 
-function Evidencia({ i }: { i: InsightPublicado }) {
-  const e = i.evidencia[0];
-  if (!e) return null;
+/** Una cita, con su procedencia. Nivel 2 del design system §3.3. */
+function Cita({ e }: { e: EvidenciaPublicada }) {
   return (
     <div
       style={{
@@ -97,6 +101,85 @@ function Evidencia({ i }: { i: InsightPublicado }) {
   );
 }
 
+/**
+ * Toda la evidencia de un insight: la primera a la vista, las demas a un clic.
+ *
+ * **Antes se pintaba solo `evidencia[0]`** (H-016), y eso escondia justo lo que
+ * el sistema tiene de propio: el consolidado 1092 de Ibague cruza 12 citas —7
+ * de SECOP y 5 de prensa— y en pantalla se veia una. Calificar un cruce viendo
+ * una sola de sus doce fuentes es calificar otra cosa.
+ *
+ * El `<details>` funciona **sin JavaScript**, que es la misma razon por la que
+ * los botones de calificar son un `<form>`: la pantalla tiene que servir aunque
+ * el navegador no ejecute nada.
+ */
+function Evidencia({ i }: { i: InsightPublicado }) {
+  const [primera, ...resto] = i.evidencia ?? [];
+  if (!primera) return null;
+  return (
+    <>
+      <Cita e={primera} />
+      {resto.length > 0 && (
+        <details style={{ marginTop: "var(--space-2)" }}>
+          <summary className="t-meta" style={{ cursor: "pointer" }}>
+            {resto.length === 1
+              ? "Ver la otra evidencia"
+              : `Ver las otras ${resto.length} evidencias`}
+          </summary>
+          {resto.map((e, n) => (
+            <Cita key={`${i.id}-${n}`} e={e} />
+          ))}
+        </details>
+      )}
+    </>
+  );
+}
+
+/** Un insight con su evidencia, y los controles si se puede calificar. */
+function Ficha({
+  i,
+  valor,
+  conCalificacion = false,
+  puede = false,
+}: {
+  i: InsightPublicado;
+  valor?: number;
+  /** Sin controles, la ficha es solo lectura. No cambia quien puede calificar. */
+  conCalificacion?: boolean;
+  puede?: boolean;
+}) {
+  return (
+    <article
+      style={{
+        borderTop: "1px solid var(--color-border)",
+        paddingTop: "var(--space-3)",
+        marginTop: "var(--space-3)",
+      }}
+    >
+      <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap" }}>
+        <span className="t-label etiqueta">{i.categoria}</span>
+        <span className="t-label etiqueta">{i.trayecto}</span>
+        <span className="t-meta">señal {i.ids_senal.join(", ") || "—"}</span>
+        <span className="t-meta">
+          {i.evidencia.length === 1
+            ? "1 evidencia"
+            : `${i.evidencia.length} evidencias`}
+        </span>
+      </div>
+      <p className="t-body prosa" style={{ margin: "var(--space-2) 0 0" }}>
+        {i.resumen}
+      </p>
+      {i.implicacion_inmobiliaria && (
+        <p className="t-body prosa" style={{ margin: "var(--space-2) 0 0" }}>
+          <strong>Implicación:</strong> {i.implicacion_inmobiliaria}
+        </p>
+      )}
+      <Evidencia i={i} />
+      {conCalificacion && <Calificar i={i} valor={valor} puede={puede} />}
+    </article>
+  );
+}
+
 export function Panel({
   m,
   informe,
@@ -111,6 +194,13 @@ export function Panel({
   puedeCalificar: boolean;
 }) {
   const maximo = Math.max(...m.aportes_por_fuente.map((f) => f.aporte), 0.0001);
+
+  // Lo pedido arriba y el resto debajo. **El conjunto de arriba es el mismo que
+  // se pintaba antes**, para no mover qué insights llevan controles.
+  const principales = m.calificable ? pedidos : m.insights.slice(0, 5);
+  const arriba = new Set(principales.map((i) => i.id));
+  const resto = m.insights.filter((i) => !arriba.has(i.id));
+  const restoEvidencias = resto.reduce((n, i) => n + i.evidencia.length, 0);
 
   return (
     <div className="superficie" style={{ padding: "var(--space-6)" }}>
@@ -214,38 +304,45 @@ export function Panel({
           </p>
         )}
 
-        {(m.calificable ? pedidos : m.insights.slice(0, 5)).map((i) => (
-          <article
+        {principales.map((i) => (
+          <Ficha
             key={i.id}
-            style={{
-              borderTop: "1px solid var(--color-border)",
-              paddingTop: "var(--space-3)",
-              marginTop: "var(--space-3)",
-            }}
-          >
-            <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap" }}>
-              <span className="t-label etiqueta">{i.categoria}</span>
-              <span className="t-label etiqueta">{i.trayecto}</span>
-              <span className="t-meta">
-                señal {i.ids_senal.join(", ") || "—"}
-              </span>
-            </div>
-            <p className="t-body prosa" style={{ margin: "var(--space-2) 0 0" }}>
-              {i.resumen}
-            </p>
-            {i.implicacion_inmobiliaria && (
-              <p className="t-body prosa" style={{ margin: "var(--space-2) 0 0" }}>
-                <strong>Implicación:</strong> {i.implicacion_inmobiliaria}
-              </p>
-            )}
-            <Evidencia i={i} />
-            <Calificar
-              i={i}
-              valor={calificaciones[i.id]?.valor}
-              puede={puedeCalificar}
-            />
-          </article>
+            i={i}
+            valor={calificaciones[i.id]?.valor}
+            conCalificacion
+            puede={puedeCalificar}
+          />
         ))}
+
+        {/*
+          **El resto del municipio, que antes no se veía** (H-016). Funza tiene
+          49 insights y la pantalla pintaba 5: el informe publicaba evidencia
+          que nadie podía leer, y CA-M9.4 pide «los insights que lo sustentan».
+          Va cerrado por defecto porque lo pedido es lo que hay que responder y
+          una lista de 49 abierta lo enterraría; y va en `<details>`, que se
+          abre **sin JavaScript**.
+
+          Sin controles de calificación a propósito: **esto es presentación y no
+          cambia quién puede calificar qué.** Los botones siguen exactamente en
+          los mismos insights que antes.
+        */}
+        {resto.length > 0 && (
+          <details style={{ marginTop: "var(--space-5)" }}>
+            <summary className="t-h3" style={{ cursor: "pointer" }}>
+              {resto.length === 1
+                ? "Ver el otro insight del municipio"
+                : `Ver los otros ${resto.length} insights del municipio`}
+            </summary>
+            <p className="t-meta prosa" style={{ margin: "var(--space-2) 0 0" }}>
+              Con {restoEvidencias}{" "}
+              {restoEvidencias === 1 ? "evidencia" : "evidencias"}. Se muestran
+              para leer; la calificación se pide arriba.
+            </p>
+            {resto.map((i) => (
+              <Ficha key={i.id} i={i} />
+            ))}
+          </details>
+        )}
       </Bloque>
     </div>
   );
