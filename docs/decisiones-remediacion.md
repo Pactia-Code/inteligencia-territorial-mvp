@@ -302,3 +302,31 @@ de `scripts/avance_calificacion.py`, que es lo que se mira durante la ronda.
 
 El registro de las sesiones —fecha, persona, gerencia y si fue acompañada— va en
 [ronda-calificacion.md](ronda-calificacion.md).
+
+## Tres ajustes a CLAUDE.md §2, decididos por el dueño (2026-09-23)
+
+§2 de [CLAUDE.md](../CLAUDE.md) es normativa, así que sus reglas no se editan
+por iniciativa de un agente. Al actualizar el documento aparecieron tres puntos
+donde la regla chocaba con algo ya decidido o ya medido. **El dueño decidió los
+tres y quedan aplicados:**
+
+1. **§2.2 — fuera la mención a la infografía.** La regla decía «ninguna cifra de
+   un informe **o infografía** puede provenir del LLM». La infografía se
+   **retiró formalmente** del MVP en F0.8 (P-4), así que la regla nombraba un
+   artefacto que ya no existe. **El fondo no cambia**: sigue siendo que ninguna
+   cifra de un informe puede venir del LLM.
+2. **§2.3 — qué mide de verdad la tasa de rechazo del validador.** Decía que
+   **«es la tasa de alucinación medida»**, y eso afirma más de lo que el
+   validador comprueba. Ahora dice que **mide la fidelidad de cita contra el
+   contenido ingerido, no la veracidad respecto del mundo** (**H-029**). La
+   distinción importa al publicar H4: una cita fiel a una fuente equivocada pasa
+   las siete reglas.
+3. **§2.3 — el linaje de prompts: la regla se mantiene sin cambios.** Los
+   prompts van versionados y su linaje se registra (D7). Lo que falla no es la
+   norma sino el cumplimiento: **el Correlacionador v2 se promovió sin fila en
+   `prompt_version`** (**H-036**). Se añade una nota al corolario diciéndolo, y
+   **lo cierra F2.3**. Mientras tanto el valor por defecto es v1, que sí tiene
+   linaje y es lo publicado.
+
+El §10 de CLAUDE.md, que los listaba como pendientes, queda **cerrado** con esta
+decisión.

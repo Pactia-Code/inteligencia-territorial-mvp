@@ -202,7 +202,7 @@ Registrados en [decisiones-remediacion.md](docs/decisiones-remediacion.md):
 
 ### 2.2 Bloqueante — CA-M6.3
 
-**Ninguna cifra de un informe o infografía puede provenir del LLM.** Todas se
+**Ninguna cifra de un informe puede provenir del LLM.** Todas se
 componen desde el almacén de datos. El LLM redacta; los números los pone el
 código. Esta regla no admite excepción ni atajo.
 
@@ -210,12 +210,18 @@ código. Esta regla no admite excepción ni atajo.
 
 - El validador (M3) es **código, nunca LLM**. Si un modelo decidiera qué
   evidencia es suficiente, el experimento perdería su ancla: un agente elocuente
-  parece funcionar aunque invente. **Su tasa de rechazo es la tasa de
-  alucinación medida** (CA-M3.3).
+  parece funcionar aunque invente. **Su tasa de rechazo mide la fidelidad de
+  cita contra el contenido ingerido, no la veracidad respecto del mundo**
+  (H-029; CA-M3.3).
 - **Bing nunca es evidencia** (Addendum 01, D1). Es contexto cualitativo: llega
   sin fecha y sin URL. El validador lo rechaza por la regla R2.
 - Los prompts van **versionados** y se archivan en el almacén (D7). El linaje se
   registra; no se edita un prompt en sitio.
+
+  > **Hoy esta regla está incumplida para el Correlacionador v2**, que se
+  > promovió sin fila en `prompt_version` (**H-036**). La regla no cambia: lo
+  > que falla es el cumplimiento, y **lo cierra F2.3**. Mientras tanto, el
+  > valor por defecto es v1, que sí tiene linaje y es lo publicado.
 
 ### 2.4 Toda compuerta necesita su piso de ruido medido
 
@@ -641,12 +647,14 @@ lo explica y `tests/test_compuertas.py` lo prueba.
 
 ---
 
-## 10. Reglas de §2 que chocan con algo registrado
+## 10. Los tres choques de §2, cerrados
 
-**Pendientes de decisión del dueño. No las he editado**, porque §2 es normativa.
+**Decididos por el dueño el 2026-09-23 y ya aplicados.** No los reabras; el
+registro está en [decisiones-remediacion.md](docs/decisiones-remediacion.md).
 
-| Dónde | El choque |
-|---|---|
-| **§2.2** | Dice «ninguna cifra de un informe **o infografía**». **La infografía se retiró formalmente** del MVP (F0.8, P-4), así que la regla nombra un artefacto que ya no existe. El fondo no cambia; sobra la palabra |
-| **§2.3, primer corolario** | Dice que la tasa de rechazo del validador **«es la tasa de alucinación medida»**. El hallazgo **H-029** de la auditoría sostiene que mide **fidelidad de cita contra lo ingerido, no veracidad**, y que hay que declararlo. Como está escrita, la regla afirma más de lo que el validador comprueba |
-| **§2.3, tercer corolario** | Dice que los prompts «se archivan en el almacén (D7)» y que «el linaje se registra». **Hoy no se cumple para el Correlacionador v2**: se promovió sin fila en `prompt_version` (H-036), que es justo lo que **F2.3** tiene que cerrar. La regla es correcta como norma; lo que falla es el cumplimiento |
+- **§2.2** — fuera la mención a la infografía, retirada en F0.8.
+- **§2.3** — la tasa de rechazo **mide fidelidad de cita contra lo ingerido, no
+  veracidad respecto del mundo** (H-029). La regla ya lo dice así.
+- **§2.3, linaje de prompts** — **la regla se mantiene sin cambios.** Lleva una
+  nota de que hoy está incumplida para el Correlacionador v2 y de que la cierra
+  F2.3.
