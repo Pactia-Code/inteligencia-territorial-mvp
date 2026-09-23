@@ -5,15 +5,15 @@
 > **Para retomar:** lee esto primero, después
 > [decisiones-remediacion.md](decisiones-remediacion.md).
 
-## Progreso: 3 de 11 pasos
+## Progreso: 4 de 11 pasos
 
 | | Paso | Estado |
 |---|---|---|
 | 1 | **Revisión de Vercel y compatibilidad de migraciones** | ✅ **Cerrado** |
 | 2 | **Revisión de `remediacion/f0` frente a `main`** | ✅ **Cerrado** |
 | 3 | **Push de la rama** a `origin` (sin PR) | ✅ **Cerrado**, en `49ce1e8` |
-| 4 | `pg_dump` de la base principal, fuera del repositorio | 🔴 **Bloqueado**: `pg_dump` no está instalado |
-| 5 | **Variables en Vercel**: solo *Production*, base `territorial` con **pooler**, `COOKIE_SECRET`, raíz `web` | ⬜ |
+| 4 | **Respaldo** de la base principal, fuera del repositorio | ✅ **Cerrado**, pero **no con `pg_dump`**: es una exportación lógica |
+| 5 | **Siguiente** · Variables en Vercel: solo *Production*, base `territorial` con **pooler**, `COOKIE_SECRET`, raíz `web` | ⬜ |
 | 6 | **Migraciones**: `alembic upgrade head` con la cadena **directa**, y confirmar con `current` y `check` | ⬜ |
 | 7 | **Carga de usuarios**: `cargar_usuarios.py --previsualizar` y luego `--confirmar` | ⬜ |
 | 8 | **Republicación y verificación**: `publicar_informe.py --seco`, luego real, y la traza **241/241** | ⬜ |
@@ -77,44 +77,37 @@ encontraría ni una tabla. Por eso el paso 4 va antes que el 9.
 - **Solo `Production`.** Sin preview branching, dejar las variables también en
   `preview` significa que cualquier rama desplegada escribiría en la base real.
 
-### El paso 4 está bloqueado: falta `pg_dump`
+### El respaldo del paso 4 es una exportación lógica, no un `pg_dump`
 
-**No hay cliente de PostgreSQL en esta máquina.** Ni `pg_dump`, ni `pg_restore`,
-ni `psql`, ni en el `PATH` ni en las rutas habituales de instalación. Tampoco hay
-Docker. El respaldo **no se ha hecho**.
+**`pg_dump` no se puede ejecutar en esta máquina.** Acceso denegado por la
+política corporativa, probado en `C:\herramientas`, en
+`%LOCALAPPDATA%\Programs` y también como administrador. No hay `psql` ni Docker.
+Se hizo un **plan B acordado**: exportación lógica con Python y psycopg, con la
+conexión puesta en **solo lectura a nivel de servidor**.
 
-**La versión tiene que ser 18 o posterior**, porque el servidor es PostgreSQL 18
-y `pg_dump` se niega a volcar una base de versión mayor que la suya. Una 17 no
-sirve.
+`C:\devespaldos	erritorial-antes-de-despliegue-2026-09-23\`, 39 MB:
 
-Dos formas de instalarlo en Windows, y la segunda encaja mejor con la política
-de esta máquina:
+- `tablas/` — las **18 tablas** en CSV con encabezado, una por archivo, sacadas
+  con `COPY ... TO STDOUT (FORMAT CSV, HEADER)`. **29.976 filas**, incluida
+  `alembic_version`.
+- `esquema.json` — columnas, tipos, nulabilidad, claves y restricciones desde
+  `information_schema`.
+- `manifiesto.json` — por tabla: filas en la base, filas exportadas y sha256.
+  **Las 18 cuadran.**
+- `README.md` — cómo restaurar.
 
-1. **Instalador de EDB** —el oficial, en `postgresql.org/download/windows`—
-   eligiendo **solo «Command Line Tools»**, sin el servidor. Pide permisos de
-   administrador.
-2. **Binarios en zip**, de la misma página, sección *«Binaries»*: se
-   descomprimen donde sea y se usa `bin\pg_dump.exe` sin instalar nada. **Es la
-   vía que respeta la política corporativa**, que impide ejecutar binarios desde
-   `Downloads`: hay que descomprimir fuera de esa carpeta, por ejemplo en
-   `C:\herramientas\pgsql`, igual que se hizo con el intérprete de Python.
+**Qué NO trae, y por qué importa saberlo antes de necesitarlo.** No lleva
+secuencias, permisos, índices ni orden de creación. El esquema lo reconstruye
+**Alembic**, que es la única autoridad del esquema (regla 2 de D8), así que eso
+no se echa en falta. Lo que sí hay que hacer a mano es **reponer las secuencias**
+tras cargar los datos: `COPY` no las adelanta, son **14 columnas**, y sin eso la
+base queda rota de una forma que no se ve hasta el primer `INSERT`. El README
+trae el bloque que las repone todas.
 
-`winget` está disponible (v1.29.380) pero **su origen no responde desde esta
-red**, así que no se pudo confirmar el identificador del paquete. Si la red lo
-permite, `winget search PostgreSQL` lo resuelve.
-
-Después de instalar, comprobar que la versión es la correcta:
-
-```powershell
-$env:Path += ";C:\herramientas\pgsql\bin"
-pg_dump --version      # tiene que decir 18.x o superior
-```
-
-**Alternativa que no necesita pg_dump, por si se prefiere:** Neon puede crear un
-**snapshot** de la rama `main`, que es un respaldo del lado del servidor y se
-restaura desde el panel. No sustituye a un `.dump` portable —vive dentro de
-Neon— pero sirve como red de seguridad inmediata. Es una escritura en Neon, así
-que requiere decidirlo.
+**Restaurar es: crear la base, `alembic upgrade b37b4fd6e183`** —esa revisión,
+no `head`, que traería columnas que estos datos no tienen— **y cargar los CSV en
+orden de dependencias**, que no es el alfabético. El orden está en el manifiesto
+y en el README.
 
 ## Reglas vigentes
 
