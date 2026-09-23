@@ -25,10 +25,8 @@
 **Antes del paso 3 hay una decisión abierta: hacer push o no.** No se ha hecho
 porque puede disparar un despliegue de vista previa en Vercel.
 
-> Los números 1, 2, 3 y 9 y la regla de que 3 a 8 van en una sesión los fijó el
-> dueño. **Los pasos 4 a 8 y el 10 son la reconstrucción** de la secuencia de
-> republicación que está en `decisiones-remediacion.md`: si el plan del dueño
-> los ordena de otra forma, manda el suyo.
+> **Los diez pasos están acordados por el dueño**, con su numeración y su orden.
+> No se reordenan sobre la marcha: si alguno cambia, se cambia aquí primero.
 
 ### Lo que cerró el paso 1
 
