@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { cambiarCorreo } from "./acciones";
 import { Nav } from "./Nav";
+import { AVISO_CORTO } from "@/lib/aviso";
 import { esAdministrador, identidadActual } from "@/lib/sesion";
 import "./globals.css";
 
@@ -39,7 +40,21 @@ export default async function RootLayout({
             sugeriria una atribucion que el sistema no guarda. Antes de
             identificarse, este espacio queda vacio — leer no requiere correo.
           */}
-          <div style={{ marginLeft: "auto" }}>
+          {/*
+            CA-M9.17: la marca va en **toda pantalla**, así que la pinta el
+            layout y no cada página. Antes vivía solo en la vista de ciclo, con
+            lo que `/priorizados` no la llevaba y cualquier vista nueva nacía
+            sin ella (H-019). El texto corto es la desviación `M6-aviso`; el
+            completo sigue en `informe.aviso`. Ver `lib/aviso.ts`.
+          */}
+          <span
+            className="t-label etiqueta etiqueta-aviso"
+            style={{ marginLeft: "auto", whiteSpace: "nowrap" }}
+          >
+            ⚠ {AVISO_CORTO}
+          </span>
+
+          <div>
             {yo && (
               <form action={cambiarCorreo} style={{ display: "flex", gap: "var(--space-3)", alignItems: "center" }}>
                 <span className="t-meta" style={{ color: "#fff", opacity: 0.85 }}>

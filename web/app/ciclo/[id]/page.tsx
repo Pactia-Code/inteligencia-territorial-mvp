@@ -240,13 +240,11 @@ export default async function VistaCiclo({
           <span className="t-label etiqueta">Ciclo cerrado · no se califica</span>
         )}
         {/*
-          CA-M6.5 y CA-M9.17 piden el texto completo; se muestra el corto por
-          decision de producto (pendiente `M6-aviso`). El largo sigue en el
-          payload: `informe.aviso`.
+          **La etiqueta MVP ya no se pinta aquí**: la pone el layout, para que
+          esté en toda pantalla y no solo en esta (F5.3, H-019). El payload
+          sigue trayendo `aviso` y `aviso_corto`, que es donde queda registrado
+          lo que se mostró en cada informe publicado.
         */}
-        <span className="t-label etiqueta etiqueta-aviso" style={{ marginLeft: "auto" }}>
-          ⚠ {informe.aviso_corto}
-        </span>
       </header>
 
       {faltaProsa && (
