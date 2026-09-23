@@ -118,15 +118,26 @@ esta.
   `config/gerencias.json` y de `usuario`, no de un «5» ni de un «7» escritos a
   mano.
 
-### `VERSION_PROMPT` del Correlacionador sigue en v2, y eso tiene filo
+### El Correlacionador vuelve a v1 por defecto hasta que F2.3 valide v2
 
-- **Registrado el 2026-09-22, y no se cambia ahora.** El valor por defecto del
-  código es **v2**, aunque lo publicado se compuso con **v1** (F0.5). La
-  consecuencia práctica: **cualquier ciclo nuevo correría con v2**, es decir con
-  un prompt cuya comparación **no está validada con linaje persistido** —eso es
-  la subfase **F2.3**—. No afecta a lo ya publicado ni a la republicación de
-  F0.6, que usan la corrida 10, que es v1. Queda dicho para que, si alguien
-  corre un ciclo antes de F2.3, sepa que está estrenando prompt sin red.
+- **Decisión del 2026-09-22, antes de desplegar.** El valor por defecto era v2
+  y lo publicado se compuso con v1 (F0.5), así que **el próximo ciclo habría
+  estrenado un prompt sin comparación validada con linaje persistido** —eso es
+  la subfase **F2.3**—. Se corrige el valor por defecto en vez de confiar en que
+  nadie corra un ciclo antes de tiempo.
+- **Valor por defecto en el código: `VERSION_PROMPT = v1`.** Esta línea es la
+  que lee `tests/test_version_prompt.py`: si alguien cambia la constante sin
+  actualizar este documento, o al revés, el suite falla.
+- **v2 no se borra ni se degrada.** Sigue en
+  `agentes/prompts/correlacionador_v2.md` y se elige **explícitamente**, pasando
+  `version="v2"` a `correlacionar()` o a los scripts de comparación. Lo que
+  cambia es qué corre cuando nadie elige.
+- **Consecuencia que conviene saber:** `VERSIONES_CON_CONTEXTO` solo incluye v2,
+  así que por defecto **el contexto estructural bandeado no viaja**, igual que
+  en la corrida 10, que es la del informe publicado. Al validar v2 en F2.3,
+  volverá a viajar.
+- No afecta a lo ya publicado ni a la republicación de F0.6, que usan la corrida
+  10.
 
 ### Se califica solo lo pedido; el resto del municipio es de consulta
 
