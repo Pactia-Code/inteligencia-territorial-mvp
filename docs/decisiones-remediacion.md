@@ -16,9 +16,15 @@ remediación parte de ese mismo commit en la rama `remediacion/f0`.
 - **P-4:** se **retira formalmente la infografía** del MVP; queda para Fase 0.
 - **P-5:** **abierta**; no bloquea F0. Analítica aportará la tarifa real de
   `gpt-5.4-mini` para F0b.2.
-- **P-6:** se **consultará a jurídica antes de cargar los 7 usuarios reales**.
-  La carga de usuarios **no forma parte de F0** y no se hace sin confirmación
-  expresa del dueño.
+- **P-6: CERRADA el 2026-09-22. No se consulta a jurídica y el dueño acepta el
+  riesgo.** La combinación es **H-048 + R-A1**: datos personales de 19.640
+  registros de SECOP (`proveedor`, `rep_legal`) y, tras la carga, los de los
+  calificadores, en una base gestionada externa **cuya credencial de escritura
+  se sabe expuesta y no se rotará**. La auditoría no emitió juicio legal y
+  sigue sin emitirlo; lo que cambia es que **ya no queda como pregunta
+  pendiente**: es un riesgo aceptado por escrito, con nombre y fecha. **Deja de
+  condicionar la carga de usuarios**, que ahora solo depende de la confirmación
+  del dueño para ejecutarla.
 - **P-1:** **cerrada** (v1 publicado; corrección de `CLAUDE.md` en F0.5).
 
 ## Decisiones del 2026-09-22 sobre calificadores y secuencia (segunda tanda)
@@ -43,7 +49,9 @@ Registradas tras cerrar F0.1. Amplían, no sustituyen, las de arriba.
   git** y `scripts/cargar_usuarios.py` la lee de ahí. **Los tokens nunca se
   escriben** en ese archivo, ni en la base en claro, ni en logs: se generan en
   la carga y **se muestran una sola vez**. La carga de usuarios reales **no
-  forma parte de F0** y no se hace sin confirmación del dueño (depende de P-6).
+  forma parte de F0** y no se hace sin confirmación del dueño. *(La condición de
+  P-6 sobre esta carga quedó levantada el 2026-09-22: ver la decisión de arriba.
+  Y los tokens quedaron sin efecto en la tercera tanda, que no los adopta.)*
 - **e) F0.4 ampliada.** Las Server Actions de calificación y comentario solo
   aceptan a un usuario con rol `gerencia` **cuya `id_gerencia` esté en la lista
   congelada del payload**. Un administrador, o una gerencia dada de alta
@@ -164,6 +172,56 @@ esta.
 
 F0.1 → **F0.1b** → F0.3 (sin token, ver tercera tanda) → F0.2 → F0.4 (ampliada por la decisión e) → F0.7 →
 F0.8 → F0.5 → F0.6 (solo preparación y verificación en branch).
+
+## Secuencia de republicación en la base principal
+
+**La ejecuta el dueño. No se ha ejecutado.** Va entera y en este orden; el paso
+2 es el que faltaba en la primera versión de estas instrucciones: **la base
+principal sigue en `b37b4fd6e183`** y sin migrar no existen `usuario.cargo`,
+`calificacion.id_usuario`, `identificacion` ni `informe.origen`.
+
+La cadena de la base principal es la **directa**, no la del pooler: por el
+endpoint `-pooler` no se migra. Y lleva `connect_timeout`, o la conexión se
+cuelga sin error por IPv6.
+
+```powershell
+$py = "$env:LOCALAPPDATA\venvs\territorial\Scripts\python.exe"
+$env:DATABASE_URL = "<cadena DIRECTA de la base principal>&connect_timeout=5"
+
+# 1. Respaldo, FUERA del repositorio, antes de tocar nada.
+pg_dump "$env:DATABASE_URL" -Fc -f C:\respaldos\territorial-antes-de-f06.dump
+
+# 2. Migraciones: de b37b4fd6e183 a d5932c3bdc03 (tres pendientes).
+& $py -m alembic upgrade head
+
+# 3. Confirmar que subió de verdad. El `upgrade` puede mentir; esto no.
+& $py -m alembic current          # debe decir d5932c3bdc03
+& $py -m alembic check            # «No new upgrade operations detected»
+
+# 4. Usuarios: primero mirar, después escribir.
+& $py scripts\cargar_usuarios.py --previsualizar
+& $py scripts\cargar_usuarios.py --confirmar
+
+# 5. Publicación: primero en seco, después de verdad.
+& $py scripts\publicar_informe.py --ciclo 3 --scoring 24 --agentes 10 --seco
+& $py scripts\publicar_informe.py --ciclo 3 --scoring 24 --agentes 10
+```
+
+**Verificación posterior**, y si alguna falla hay que parar antes de repartir
+el enlace:
+
+1. **Lista congelada**: el payload del informe publicado trae **5 gerencias
+   `prd`** —`general`, `juridica`, `producto_hoteles_oficinas`,
+   `producto_logistica`, `rotacion_portafolio`— y **2 `adicional`**,
+   `administrativa` y `analitica`. El propio script la imprime al publicar.
+2. **`informe.origen`** con el commit, la invocación y la fecha.
+3. **Traza del informe republicado: 241/241 insights, 933/933 citas y 10/10
+   scores**, que son las cifras que la auditoría midió sobre el informe 5.
+4. **El informe anterior queda archivado, no borrado**, y los dos usuarios de
+   prueba quedan **inactivos**, tampoco borrados.
+
+Lo verificado en el branch `remediacion-f0` fue exactamente esta secuencia, con
+esos cuatro resultados.
 
 ## Reglas de ejecución
 
