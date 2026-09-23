@@ -347,7 +347,7 @@ primario y por defecto. Estado de la base `territorial` justo después:
 | Seguimientos | 0 |
 
 Se quitó `DATABASE_URL_NEON_BRANCH` del `.env` y de su copia en
-`C:\devespaldos\`, sin tocar ninguna otra línea: 66 a 65 líneas en los dos
+`C:\dev\respaldos\`, sin tocar ninguna otra línea: 66 a 65 líneas en los dos
 archivos, que siguen siendo idénticos entre sí.
 
 ## Lo que queda abierto
