@@ -14,7 +14,7 @@ deciden el go/no-go.
 | **M1** Ingesta | ✅ | 18 municipios, 20.030 señales |
 | **M2** Clasificación | ✅ | Prompt v4. Reduce 95,2%. **No reproducible**: 19,5% de las señales cambian de destino entre pasadas |
 | **M3** Validación | ✅ | 7 reglas, código puro. Nunca un LLM |
-| **M4** Correlación | ✅ | Prompt v2, con contexto estructural. **No reproducible**: 14,1% de convergencias se repiten |
+| **M4** Correlación | ✅ | **Publicado con el prompt v1**; v2 es el valor por defecto del código pero no ha corrido nunca (candidata, P-1). **No reproducible**: 14,1% de convergencias se repiten |
 | **M5** Scoring | ✅ | F1–F6, top 10, desglose por fuente. **Código determinista: lo único reproducible del sistema** |
 | **M6** Síntesis | 🟡 | Composición y publicación hechas. **Falta el Sintetizador** (la prosa) |
 | **M7** Calificación | ⬜ | En construcción |

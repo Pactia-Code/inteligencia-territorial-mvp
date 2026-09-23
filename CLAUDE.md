@@ -1,7 +1,8 @@
 # CLAUDE.md — MVP Inteligencia Territorial (Pactia)
 
 Guía de trabajo para agentes sobre este repositorio.
-**Actualizado:** 2026-09-21 · Neon en la nube · informe a top 10 · M4 en v2
+**Actualizado:** 2026-09-22 · Neon en la nube · informe a top 10 · M4: **v1 es lo
+publicado**, v2 candidata
 
 ---
 
@@ -292,7 +293,7 @@ funcionaba mal, no tenía nada que cruzar. Si algo lleva a la semana 8, es esto.
 | **Prefiltro** (apoya M2 y M5) | 🟡 Implementado, sin validar | Reduce 61,2%. El diccionario de obra produce entre 13% y 90% según el municipio — rango demasiado ancho para confiar en él (**pendiente A2**) |
 | **M2** Clasificación | 🟡 Cumple CA-M2.1, no es reproducible | Prompt **v4**, lotes de 50, descartes registrados (CA-M2.5). **CA-M2.1 medido sobre el ciclo 1 completo: 95,2% y 94,9%** en dos pasadas (B2 cerrado). Pero **una de cada cinco señales cambia de destino entre pasadas idénticas** (**A6**): 19,5% aparecen en insight en una y no en la otra. No afecta al ranking —el score lee `senal_cruda`, no insights— pero sí a lo que las gerencias leen. Ver §8 y §9 |
 | **M3** Validación determinista | ✅ Funciona | 7 reglas R1–R7. Tasa de rechazo 0,0% tras corregir el falso positivo de puntuación de SECOP. **Muestra pequeña: insuficiente para concluir sobre H4** |
-| **M4** Correlación | 🟡 Funciona; CA-M4.3 sin ejercitar y no es reproducible | Prompt **v2** desde el 2026-09-21, con contexto estructural bandeado (A10). **No es reproducible: solo el 14,1% de las convergencias se repiten entre pasadas idénticas** (A11). Salida estructurada. CA-M4.1, CA-M4.2 y CA-M4.4 verificados contra el tenant. **La evidencia la une el código, no el modelo** (ver el encabezado de `agentes/correlacionador.py`). CA-M4.3 (bucle de aprendizaje) está implementado pero **no se puede probar**: no hay ni una calificación en la base |
+| **M4** Correlación | 🟡 Funciona; CA-M4.3 sin ejercitar y no es reproducible | **El informe publicado se compuso con el prompt v1.** `VERSION_PROMPT` en el código es **v2** desde el 2026-09-21, con contexto estructural bandeado (A10), pero **ninguna corrida se ha ejecutado con él**: las corridas 10, 11 y 12 llevan `version_correlacionador = v1` y `prompt_version` no tiene fila de v2. v2 es **candidata**, pendiente de una comparación con linaje persistido (P-1, F2.3). **No es reproducible: solo el 14,1% de las convergencias se repiten entre pasadas idénticas** (A11). Salida estructurada. CA-M4.1, CA-M4.2 y CA-M4.4 verificados contra el tenant. **La evidencia la une el código, no el modelo** (ver el encabezado de `agentes/correlacionador.py`). CA-M4.3 (bucle de aprendizaje) está implementado pero **no se puede probar**: no hay ni una calificación en la base |
 | **M5** Scoring y priorización | ✅ Funciona con pesos provisionales | F1–F6 de D4, normalización por cohorte, winsorizado de F4, redistribución por cobertura, **top 10** y desglose. Los 3 ciclos puntúan y persisten. **El umbral de información está apagado**: el informe muestra el score junto a los factores que lo sostienen y los que no, en vez de excluir a quien tiene pocos (P1, §7). `VERSION_ALGORITMO` en **v3**. Los **pesos definitivos** los decide Gerencia General (**pendiente A1/4**). Rigen los de `config/pesos.json`, que llevan **F4 a la mitad** por decisión de Analítica del 2026-09-21 — ver §7. Las corridas de antes y después conviven, distinguidas por `version_scoring` |
 | **M6** Síntesis y distribución | 🟡 Mitad determinista hecha; falta la prosa | **`informes/composicion.py` compone el payload desde el almacén** —cifras, factores con su fuente en castellano, contexto con año, insights con evidencia— y **`informes/publicacion.py` publica**: archiva el anterior del ciclo y congela **las dos** corridas, en la misma transacción. Un solo publicado por ciclo, por índice único parcial. **Ni una cifra del LLM** (CA-M6.3), por construcción: en ese módulo no hay llamada a modelo. Falta el **Sintetizador**, que rellenará `justificacion` y `sugerencias` (CA-M6.1) para los 10 municipios — y su costo es la cifra que falta para cerrar H5. **Sin canal de notificación** en el MVP (11.4/3 cerrado). Ver M6-src, M6-orden y M6-ctx |
 | **M7** Calificación | ⬜ Sin código, **sin decisiones abiertas** | Depende de M9. Decidido: se piden calificaciones **solo sobre los 3 primeros** de los 10 mostrados y el resto queda opcional, porque con 10 × 7 gerencias una tasa baja no distinguiría fatiga de desinterés (**M9-carga**); **la tasa de H2 se computa sobre la carga pedida, no sobre lo mostrado**, y el denominador hay que declararlo. Usuarios **precargados**: quien no esté en la lista no califica (**M9-acceso**) |
@@ -362,11 +363,19 @@ no declarativa — `scripts/comparar_correlacionador.py` **falla** si v2
 correlaciona más que v1, y falla si aparece en la salida una cifra que no estaba
 en los insights, incluidas las cifras reales de `contexto_municipal`.
 
-> **v2 es la versión vigente desde el 2026-09-21.** Se promovió tras el control:
-> sus 40 convergencias caen dentro del rango 39-42 que v1 produce consigo mismo,
-> y su tipología sube a 35 frente a un máximo de 24 en tres pasadas de v1. Once
-> puntos por encima del ruido en el efecto buscado, dentro del ruido en el que
-> preocupaba. v1 se conserva como línea base.
+> **v2 es el valor por defecto del código desde el 2026-09-21, y no es lo que
+> hay publicado.** Se promovió tras el control —sus 40 convergencias caen dentro
+> del rango 39-42 que v1 produce consigo mismo, y su tipología sube a 35 frente a
+> un máximo de 24 en tres pasadas de v1: once puntos por encima del ruido en el
+> efecto buscado, dentro del ruido en el que preocupaba— **pero la promoción se
+> quedó en el código**. Ninguna corrida se ha ejecutado con v2: el informe
+> publicado sale de la corrida 10, que es **v1**, y `prompt_version` no tiene
+> fila de v2, así que v2 **no tiene linaje persistido**.
+>
+> Léase: **v1 es la versión publicada y v2 es candidata**, pendiente de una
+> comparación con linaje persistido (decisión P-1 del dueño, hallazgo H-023 de
+> la auditoría; la comparación es la subfase F2.3 de la remediación). Cambiar
+> `VERSION_PROMPT` no republica nada: hay que correr el ciclo y publicar.
 >
 > `VERSIONES_CON_CONTEXTO` decide qué versiones reciben el bloque. Si añades una
 > versión nueva del prompt, métela ahí o el contexto dejará de viajar en
