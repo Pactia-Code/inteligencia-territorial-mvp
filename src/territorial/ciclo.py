@@ -74,7 +74,7 @@ from territorial.reglas.contexto import contexto_de
 from territorial.reglas.normalizacion import normalizar
 from territorial.reglas.prefiltro import clasificar as prefiltrar
 from territorial.reglas.validador import Senal as SenalValidador
-from territorial.reglas.validador import validar
+from territorial.reglas.validador import validar, validar_cifras
 from territorial.scoring.agregacion import cortes_por_fuente, entradas_del_ciclo
 from territorial.scoring.persistencia import guardar as guardar_scores
 from territorial.scoring.ranking import puntuar_ciclo
@@ -381,7 +381,13 @@ def procesar_municipio(
 
     juzgados: list[dict] = []
     for ins in res_insights:
-        veredicto = validar(ins["evidencia"], municipio.divipola, id_ciclo, vistas)
+        veredicto = validar(
+            ins["evidencia"], municipio.divipola, id_ciclo, vistas,
+            # R8 (CA-M6.3): la prosa del Clasificador contra las señales que
+            # dice haber usado. Ver el encabezado de `reglas/validador.py`.
+            prosa=(ins.get("resumen"), ins.get("implicacion_inmobiliaria")),
+            ids_senal=ins.get("ids_senal"),
+        )
         juzgados.append(
             {
                 **ins,
@@ -461,9 +467,31 @@ def procesar_municipio(
         resumen.error = f"CA-M4.4 rota, señales perdidas: {corr.senales_perdidas}"
         return resumen
 
+    # R8 sobre M4 (CA-M6.3): la prosa del Correlacionador contra **su** entrada,
+    # que es la prosa y la evidencia de los insights que el código le pasó, más
+    # las señales de esos insights. El contexto estructural no entra porque
+    # viaja bandeado —adjetivos, nunca cifras (`reglas/contexto.py`)—, así que
+    # un número que apareciera por ahí sí sería inventado.
+    por_id = {i.id: i for i in para_correlacionar}
+    motivos_m4: list[str | None] = []
+    for c in corr.correlacionados:
+        origenes = [por_id[i] for i in c.ids_insight if i in por_id]
+        fallos = validar_cifras(
+            (c.resumen, c.implicacion_inmobiliaria, c.por_que_convergen),
+            c.evidencia,
+            vistas,
+            ids_senal=c.ids_senal,
+            texto_extra=" ".join(
+                f"{o.resumen} {o.implicacion_inmobiliaria}" for o in origenes
+            ),
+        )
+        motivos_m4.append("; ".join(fallos) if fallos else None)
+    resumen.rechazados += sum(1 for m in motivos_m4 if m)
+
     guardar_correlaciones(
         sesion_bd, corr, corrida.id, municipio.divipola, mapa_ids,
         id_prompt=id_prompt_correlacionador,
+        motivos=motivos_m4,
     )
     resumen.correlacionados = len(corr.correlacionados)
 

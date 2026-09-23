@@ -110,6 +110,17 @@ esta.
   `config/gerencias.json` y de `usuario`, no de un «5» ni de un «7» escritos a
   mano.
 
+### Incidente
+
+- **2026-09-22 — `config/gerencias.json` y `config/usuarios.csv` desaparecieron
+  del disco a media sesión, sin causa encontrada** (nada en `tests/`, `scripts/`
+  ni `src/` escribe o borra bajo `config/`, y el suite deja los cuatro archivos
+  intactos; hipótesis externa no confirmada, del tipo antivirus, DLP o
+  sincronización, sobre archivos recién creados). Restaurados con los hashes que
+  dio el dueño; mitigado porque **ahora están versionados** —se recuperan con
+  `git checkout -- config/`— y por la guarda `config_intacta` de `e24ebe7`, que
+  falla si una prueba los toca. **No se investiga más.**
+
 ## Orden de ejecución acordado
 
 F0.1 → **F0.1b** → F0.3 (sin token, ver tercera tanda) → F0.2 → F0.4 (ampliada por la decisión e) → F0.7 →

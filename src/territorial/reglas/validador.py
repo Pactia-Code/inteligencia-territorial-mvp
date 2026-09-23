@@ -16,14 +16,40 @@ Reglas, en orden de aplicación:
   R5  La fecha es una fecha real.
   R6  La cita aparece en la señal de origen         (CA-M3.1, "localizable").
   R7  La señal citada existe, y es del mismo municipio y ciclo del insight.
+  R8  Ninguna cifra de la prosa falta en su entrada (CA-M6.3).
+
+Sobre R8, que es la que añadió la remediación (F0.2, hallazgo H-009)
+-------------------------------------------------------------------
+La comprobación de cifras existía —`reglas/cifras.py`, con pruebas— pero **solo
+se usaba en calibración**, en `scripts/comparar_correlacionador.py`. Es decir:
+se comprobaba al comparar dos versiones de un prompt y **no al producir el
+informe que leen las gerencias**, que es justo donde CA-M6.3 importa.
+
+Aquí se convierte en compuerta: un insight cuya prosa trae una cifra que no
+estaba en lo que el agente recibió **se rechaza con motivo**, igual que uno sin
+evidencia. Da lo mismo que el número sea correcto; si el modelo lo escribió y no
+estaba en su entrada, se lo inventó, y **una cifra real inventada es más difícil
+de detectar que una falsa**.
+
+Dos cosas que conviene no confundir:
+
+· **CA-M6.3 sigue cumpliéndose por construcción en el informe**: las cifras del
+  informe las compone `informes/composicion.py` desde el almacén, sin LLM. R8
+  protege la **prosa** de los agentes, que es la otra superficie donde un número
+  puede aparecer escrito por un modelo.
+· **El límite de `cifras.py` se hereda**: solo se miran números de tres dígitos
+  o más. Un «15%» escrito sin decimales puede colarse. Está declarado allí y no
+  se tapa aquí.
 """
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from datetime import date
 from urllib.parse import urlparse
 
+from territorial.reglas.cifras import inventadas
 from territorial.reglas.normalizacion import contiene
 
 # D1: Bing es contexto cualitativo. Nunca evidencia.
@@ -138,17 +164,73 @@ def validar_evidencia(
     return fallos
 
 
+def _ids_referenciados(evidencia: list, ids_senal: Iterable[int] | None) -> set[int]:
+    """Las señales que el insight dice usar, por las dos vías en que lo dice."""
+    ids = {int(i) for i in (ids_senal or [])}
+    for ev in evidencia or []:
+        if isinstance(ev, dict) and ev.get("id_senal") is not None:
+            ids.add(int(ev["id_senal"]))
+    return ids
+
+
+def validar_cifras(
+    prosa: Iterable[str | None],
+    evidencia: list,
+    senales: dict[int, Senal],
+    ids_senal: Iterable[int] | None = None,
+    texto_extra: str = "",
+) -> list[str]:
+    """R8. Cifras de la prosa que no están en la entrada del agente.
+
+    La entrada es **lo que el código le dio**: el contenido de las señales que
+    el insight referencia, sus propias citas textuales y, para un consolidado de
+    M4, la prosa de los insights de origen (`texto_extra`).
+
+    Las citas cuentan como entrada porque R6 ya obliga a que estén en la señal:
+    si una cifra está en la cita, está en la señal, y exigirla dos veces solo
+    produciría falsos positivos por diferencias de recorte.
+    """
+    salida = " ".join(p for p in prosa if p)
+    if not salida:
+        return []
+
+    partes = [texto_extra]
+    for id_senal in _ids_referenciados(evidencia, ids_senal):
+        senal = senales.get(id_senal)
+        if senal is not None:
+            partes.append(senal.contenido or "")
+    for ev in evidencia or []:
+        if isinstance(ev, dict):
+            partes.append(str(ev.get("cita_textual") or ""))
+
+    ajenas = inventadas(salida, " ".join(partes))
+    if not ajenas:
+        return []
+    return [
+        "cifras que no están en la entrada del agente: "
+        + ", ".join(sorted(ajenas))
+        + " (CA-M6.3)"
+    ]
+
+
 def validar(
     evidencia: list,
     divipola: str,
     id_ciclo: int,
     senales: dict[int, Senal],
+    prosa: Iterable[str | None] = (),
+    ids_senal: Iterable[int] | None = None,
+    texto_extra: str = "",
 ) -> Resultado:
-    """Valida la evidencia completa de un insight.
+    """Valida la evidencia completa de un insight, y su prosa si se pasa.
 
     `senales` es el índice de señales del ciclo, por id. El validador nunca
     consulta la red: comprueba contra lo que se ingirió, que es lo único
     auditable.
+
+    `prosa` son los textos que escribió el modelo —`resumen` e
+    `implicacion_inmobiliaria`— y activa R8. Es opcional para que quien solo
+    quiera juzgar evidencia siga pudiendo.
     """
     # R1
     if not evidencia:
@@ -157,5 +239,12 @@ def validar(
     motivos: list[str] = []
     for i, ev in enumerate(evidencia):
         motivos.extend(validar_evidencia(ev, i, senales, divipola, id_ciclo))
+
+    # R8 — va al final: si la evidencia ya no se sostiene, el motivo útil es
+    # ese, y añadir cifras encima solo alarga el mensaje.
+    if not motivos:
+        motivos.extend(
+            validar_cifras(prosa, evidencia, senales, ids_senal, texto_extra)
+        )
 
     return Resultado(not motivos, motivos)
