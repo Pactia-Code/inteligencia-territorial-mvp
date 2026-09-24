@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { ciclosPublicados } from "@/lib/consultas";
+import { exigirIdentidad } from "@/lib/sesion";
 
 // Se resuelve en cada peticion: que ciclo es el ultimo depende de la base,
 // no del momento de compilar.
@@ -7,6 +8,7 @@ export const dynamic = "force-dynamic";
 
 /** Lleva al ciclo con informe publicado mas reciente. */
 export default async function Inicio() {
+  await exigirIdentidad("/");
   const ciclos = await ciclosPublicados();
   if (!ciclos.length) {
     return (

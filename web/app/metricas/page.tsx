@@ -14,13 +14,18 @@
  * confirmar. La entrada del menu tampoco se le muestra (`Nav.tsx`).
  */
 import { notFound } from "next/navigation";
-import { esAdministrador } from "@/lib/sesion";
+import { esAdministrador, exigirIdentidad } from "@/lib/sesion";
 import { Proximamente } from "../Proximamente";
 
 // Depende de la cookie de identificacion, asi que se resuelve por peticion.
 export const dynamic = "force-dynamic";
 
 export default async function Metricas() {
+  // Sin identidad se va a entrar; **con identidad pero sin ser administrador,
+  // 404**. Son dos respuestas distintas a proposito: la primera es «di quien
+  // eres», la segunda es «aqui no hay nada para ti», y un 404 no confirma que
+  // la ruta exista.
+  await exigirIdentidad("/metricas");
   if (!(await esAdministrador())) notFound();
 
   return (

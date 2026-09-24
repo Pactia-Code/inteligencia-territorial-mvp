@@ -6,7 +6,7 @@
  * hacen falta ni estado de cliente ni JavaScript.
  */
 import { historialDe, tablero, type FilaTablero } from "@/lib/tablero";
-import { identidadActual } from "@/lib/sesion";
+import { exigirIdentidad } from "@/lib/sesion";
 import { CambiarEstado } from "./CambiarEstado";
 
 export const dynamic = "force-dynamic";
@@ -76,7 +76,12 @@ export default async function Priorizados({
   }>;
 }) {
   const q = await searchParams;
-  const yo = await identidadActual();
+  // Se entra antes de leer (2026-09-24). Se conservan los filtros y el
+  // municipio abierto para volver exactamente a la misma vista.
+  const consulta = new URLSearchParams(
+    Object.entries(q).filter(([, v]) => v) as [string, string][],
+  ).toString();
+  const yo = await exigirIdentidad(`/priorizados${consulta ? `?${consulta}` : ""}`);
   let filas = await tablero();
 
   const ciclos = [...new Set(filas.flatMap((f) => f.ciclos))].sort();
