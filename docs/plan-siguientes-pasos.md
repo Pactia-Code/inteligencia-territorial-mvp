@@ -18,7 +18,7 @@ Esto es lo que viene, en orden.
 | | Bloque | Esfuerzo | Qué desbloquea |
 |---|---|---:|---|
 | **P0** | Ronda de calificación 1 a 1 | *actividad, no subfase* | H1 y H2: sin calificaciones no hay experimento |
-| **P0.5** | Correcciones visibles durante la ronda | **1,25 d** | Que lo que se ve mientras se califica no parezca roto |
+| ~~**P0.5**~~ | ~~Correcciones visibles durante la ronda~~ | **hecho** | Desplegado el 2026-09-24 (PR #2 y #3) |
 | **P1** | Seguimiento de la ronda | *actividad* + script hecho | Saber a quién falta antes del corte |
 | **P2** | F0b · prerrequisitos de la decisión | **5 d** | La compuerta go/no-go |
 | **P3** | Capacidades del PRD no construidas | **6 d** + Sintetizador *sin estimar* | Cumplir lo que el PRD pide |
@@ -26,8 +26,12 @@ Esto es lo que viene, en orden.
 | **P5** | Interfaz | **3,1 d** | Legibilidad y uso |
 | **P6** | Endurecimiento | **10,7 d** | Mantenimiento y deuda |
 
-**Total con estimación: 33,05 d**, más el Sintetizador y 0,25 d sueltos (ver
-«Lo que no quedó en ningún bloque»). Es esfuerzo de un desarrollador.
+**Total pendiente con estimación: 31,8 d**, más el Sintetizador y 0,25 d
+sueltos (ver «Lo que no quedó en ningún bloque»). Es esfuerzo de un
+desarrollador.
+
+Eran 33,05 d; **P0.5 se cerró el 2026-09-24 y sus 1,25 d salen del total.** Lo
+que queda son P2 a P6, que es lo mismo que había antes de que apareciera P0.5.
 
 Todo esto está **antes** del go/no-go o lo acompaña. Lo que viene **después**,
 si la compuerta sale GO, es la [Fase 0 del PRD](#y-después-la-fase-0-del-prd).
@@ -74,15 +78,30 @@ afectó.
 > un motivo para tirar el dato: descartarlo sería decidir de antemano qué
 > cuenta como una calificación legítima.
 
-## P0.5 · Correcciones visibles durante la ronda · **1,25 d**
+## ~~P0.5~~ · Correcciones visibles durante la ronda · **HECHO y desplegado**
 
-**Excepción al congelamiento, decidida por el dueño el 2026-09-24.** Son
-correcciones que **no cambian el informe ni cómo se califica**: ni el payload,
-ni los insights pedidos, ni las reglas de alcance. Cada una **en su rama**,
-revisada y fusionada por el dueño, y anotada en
+**Cerrado el 2026-09-24.** Las tres partes están fusionadas y en producción, y
+**ninguna cambió el informe ni cómo se califica**: ni el payload, ni los
+insights pedidos, ni las reglas de alcance.
+
+| Parte | Cómo llegó | Verificado |
+|---|---|---|
+| `/priorizados` y «cambiar estado» | **PR #2** (`fix/p0-5-correcciones`), merge `100f7b1` | Branch de Neon desechable + navegador del dueño |
+| «Próximamente» en `/historico` y `/metricas` | **PR #2** | Mismo |
+| Pantalla de entrada con correo y logo | **PR #3** (`feat/login-correo`), merge `45ec4d2` | Branch desechable, navegador local y **producción** el 2026-09-24 |
+
+Producción sirve `45ec4d2`. El detalle de cada verificación está en
+[estado-despliegue.md](estado-despliegue.md) y la bitácora en
 [ronda-calificacion.md](ronda-calificacion.md).
 
-| # | Qué | Esfuerzo |
+> **Lo que se llevó 1,25 d de esfuerzo estimado ya no cuenta en el total.** Se
+> conserva el desglose porque el diagnóstico sigue siendo útil: dice por qué
+> `/priorizados` se caía y por qué tres comprobaciones en verde no lo vieron.
+
+<details>
+<summary>El diagnóstico y lo que se hizo, para consulta</summary>
+
+| # | Qué | Esfuerzo estimado |
 |---|---|---:|
 | 1 | **`/priorizados` reventaba en el navegador** — y con ella el botón «cambiar estado» | **0,25 d** |
 | 2 | **«Próximamente»** en `/historico` y en cualquier entrada de navegación sin construir | **0,25 d** |
@@ -148,6 +167,8 @@ correo antes de entrar, con el logo de Pactia sobre fondo claro.
 autorizado sigue pudiendo usarlo: **R-A2 y H-012 siguen abiertos** como riesgo
 aceptado, y hay que decirlo igual al publicar H1 y H2. Ver
 [decisiones-remediacion.md](decisiones-remediacion.md).
+
+</details>
 
 ---
 

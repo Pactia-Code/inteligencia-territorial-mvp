@@ -50,7 +50,7 @@ califican de 1 a 5.
 | **Validador** (M3) | 7 reglas **en código, nunca un LLM**. Su tasa de rechazo es la tasa de alucinación medida |
 | **Scoring** (M5) | F1–F6, top 10 con desglose por fuente. **Código determinista: lo único reproducible del sistema** |
 | **Composición y publicación** (M6) | El payload se compone desde el almacén y se publica congelando las dos corridas |
-| **Aplicativo** (M9) | Vista de ciclo, identificación por correo y calificación, en producción |
+| **Aplicativo** (M9) | Entrada por correo en `/entrar`, vista de ciclo, priorizados y calificación, en producción |
 
 **No construido, y conviene saberlo antes de buscarlo:**
 
@@ -64,8 +64,13 @@ califican de 1 a 5.
 - **Histórico, panel de métricas y trazabilidad en pantalla** — también P3.
 - **El sistema no envía ningún correo.** No hay canal de notificación ni código
   que mande nada: **el enlace se comparte a mano**, fuera del sistema.
-- **No hay autenticación.** Leer es abierto con el enlace; calificar pide el
-  correo y lo valida contra la lista precargada.
+- **No hay autenticación, pero sí hay puerta.** Desde el 2026-09-24 **ninguna
+  ruta se ve sin entrar**: `/entrar` pide el correo —sin clave— y solo deja
+  pasar si está en la lista precargada y activo; el resto redirige allí y luego
+  devuelve a la página pedida. En la barra hay un botón **Salir**. **Eso mejora
+  privacidad e imagen, no la atribución**: quien conozca un correo autorizado
+  entra por esa persona, así que **R-A2 y H-012 siguen abiertos** y hay que
+  decirlo al publicar H1 y H2.
 - **La infografía se retiró** formalmente del MVP (F0.8). No es deuda.
 - **No es Django.** D5 lo eligió antes de que el hosting fuera Vercel y nunca se
   instaló; la desviación está registrada en el Addendum 02.
@@ -128,10 +133,13 @@ estarlo:**
 **Ni la ingesta ni la capa determinista necesitan la clave** — solo los agentes.
 `.env` nunca se sube a git; `.env.example` sí, con los nombres y sin valores.
 
-**Sin `COOKIE_SECRET` la app falla cerrado a propósito**: no emite identidad, la
-pantalla explica por qué y leer el informe sigue funcionando. Es decir, **si
-falta en Vercel nadie puede calificar** aunque todo lo demás esté bien. Se
-genera una sola vez con `secrets.token_urlsafe(48)`. Cambiarlo invalida las
+**Sin `COOKIE_SECRET` la app falla cerrado a propósito**: no emite identidad y
+la pantalla explica por qué. **Desde la entrada por correo eso deja la app
+inservible, no solo sin calificar**: si no se emite identidad no se pasa de
+`/entrar`, y antes al menos se podía leer el informe. Si falta en Vercel, nadie
+entra.
+
+Se genera una sola vez con `secrets.token_urlsafe(48)`. Cambiarlo invalida las
 cookies emitidas —hay que volver a teclear el correo— pero **no pierde ninguna
 calificación**.
 

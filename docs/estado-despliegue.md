@@ -548,3 +548,30 @@ retirado. **Para mandar rutas por `curl` desde Git Bash: `MSYS_NO_PATHCONV=1`.**
 
 Junto al BOM de `Set-Content` y al escape de rutas en documentos, son tres
 formas distintas de que esta máquina altere un texto en silencio.
+
+### Verificación en producción de la pantalla de entrada (2026-09-24)
+
+**La hizo el dueño en navegador, tras fusionar el PR #3.** Importa distinguirla
+de lo anterior: la verificación de la fase 3 fue **local y contra un branch
+desechable**, así que hasta aquí nadie había comprobado la entrada sobre la base
+y el despliegue reales.
+
+| Caso | Resultado |
+|---|---|
+| Ventana de incógnito | Lleva a `/entrar` |
+| Correo inventado | No entra |
+| `wsanchez@pactia.com` | Entra y **ve sus 6 calificaciones**, que es lo que prueba que la identidad resuelve contra los datos reales y no solo contra la cookie |
+| Navegador con cookie previa | Entra **sin pedir el correo** |
+| «Salir» | Devuelve a `/entrar` |
+
+Producción sirve el merge `45ec4d2` (`dpl_9HvwU1UdWSDruWTmfhE24UwANz3t`, READY).
+
+**Con esto P0.5 queda cerrado entero**: las tres correcciones fusionadas,
+desplegadas y verificadas. El desglose está en
+[plan-siguientes-pasos.md](plan-siguientes-pasos.md) y la bitácora del
+congelamiento en [ronda-calificacion.md](ronda-calificacion.md).
+
+> **Lo que esto NO cierra.** La entrada no autentica: quien conozca un correo
+> registrado entra por esa persona. **R-A2 y H-012 siguen abiertos**, y al
+> publicar H1 y H2 hay que decirlo. Que ahora haya una pantalla de entrada lo
+> hace más fácil de olvidar, no menos cierto.

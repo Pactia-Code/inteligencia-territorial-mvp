@@ -3,8 +3,9 @@
 Guía de trabajo para agentes sobre este repositorio. **Breve a propósito:** lo
 que ya está detallado en `docs/` se enlaza, no se repite.
 
-**Actualizado:** 2026-09-23 · **en producción** · ciclo 3, informe 8 · ronda de
-calificación hasta el martes 2026-09-29, **con el contenido congelado**
+**Actualizado:** 2026-09-24 · **en producción**, con entrada por correo · ciclo
+3, informe 8 · ronda de calificación hasta el martes 2026-09-29, **con el
+contenido congelado**
 
 ---
 
@@ -13,9 +14,10 @@ calificación hasta el martes 2026-09-29, **con el contenido congelado**
 | | |
 |---|---|
 | **En producción** | <https://inteligencia-territorial-mvp.vercel.app>, desde `main`. Cada push a `main` despliega |
+| **Cómo se entra** | Por **`/entrar`**, con un correo registrado y activo, **sin clave**. **Ninguna ruta se ve sin entrar**; al hacerlo se vuelve a la página pedida. Botón **Salir** en la barra. **No es autenticación**: R-A2 y H-012 siguen abiertos |
 | **Publicado** | Informe **8**, ciclo 3, congelando scoring 24 y agentes 10 |
 | **Base** | Neon PostgreSQL, base **`territorial`** — *nunca* `neondb`, que solo tiene tablas de `neon_auth` |
-| **Pruebas** | 345, en verde |
+| **Pruebas** | 368, en verde |
 
 **Las siete reglas de operación que rigen hoy.** No son de estilo: cada una
 existe porque romperla estropea el experimento en curso.
@@ -26,7 +28,9 @@ existe porque romperla estropea el experimento en curso.
 2. **Congelamiento hasta el corte del martes 29.** No se republica ni se cambia
    nada que altere lo que ven los calificadores. Republicar cambiaría los
    insights pedidos y las calificaciones ya emitidas dejarían de ser
-   comparables. **Solo se corrige un error que impida calificar**, y se anota en
+   comparables. Se corrige un error que impida calificar, y **el dueño autorizó
+   además las correcciones de P0.5**, que no tocan el informe ni cómo se
+   califica. Todo lo aplicado se anota en
    [ronda-calificacion.md](docs/ronda-calificacion.md).
 3. **No se corren ciclos nuevos** hasta cerrar el bloque **P4** del
    [plan](docs/plan-siguientes-pasos.md).
@@ -122,8 +126,8 @@ Y lo que dice qué pasa ahora:
 |---|---|---|
 | **El Sintetizador** | El informe se compone **de forma determinista**: cifras, factores y citas las pone el código. `justificacion` y `sugerencias` viajan vacías y la pantalla pinta el hueco. Falta la prosa | P3 del plan — **único ítem sin estimación** |
 | **Envío de correos** y canal de notificación | El enlace se comparte a mano, fuera del sistema | 11.4/3 |
-| **Autenticación** | Leer es abierto con el enlace; calificar pide el correo y lo valida contra `usuario`. Riesgo **R-A2** | 3b · `M9-acceso` |
-| **Histórico, panel de métricas y trazabilidad en pantalla** | Nada todavía | P3 del plan |
+| **Autenticación** | **Hay puerta, no autenticación.** Desde el 2026-09-24 ninguna ruta se ve sin pasar por `/entrar`, que pide el correo **sin clave** y lo valida contra `usuario`. Botón **Salir** en la barra. Riesgo **R-A2** y **H-012 abiertos**: quien conozca un correo autorizado entra por esa persona | 3b · `M9-acceso` · P0.5 |
+| **Histórico, panel de métricas y trazabilidad en pantalla** | Solo la página «Próximamente» desde P0.5; el contenido no existe | P3 del plan |
 | **La infografía** | **Retirada formalmente** del MVP. No es deuda | F0.8 · P-4 |
 | **Umbral de score** y «criterio de corte» | Tope fijo de **10** municipios | `P1` |
 | **Umbral de información** que excluía municipios | Está en **0**: el informe muestra el score **y en qué se apoya** | `P1`, §7 |
@@ -322,7 +326,7 @@ que las gerencias calificaron.
 | **M6** Síntesis | 🟡 | Composición y publicación hechas, **ni una cifra del LLM** por construcción. **Falta el Sintetizador** |
 | **M7** Calificación | ✅ En producción | Se califica **solo lo pedido** (15 insights). Usuarios precargados: quien no esté no califica |
 | **M8** Trazabilidad | 🟡 | Linaje de dataset, de prompts por contenido y trazas por agente. Falta Langfuse y el checkpointing de CA-M8.4 |
-| **M9** Aplicativo | 🟡 En producción | Rutas: `/`, `/ciclo/[id]` y `/priorizados`. **Faltan histórico y métricas** (P3). Lee Neon directamente; escribe solo `calificacion`, `seguimiento` e `identificacion` |
+| **M9** Aplicativo | 🟡 En producción | Rutas: `/entrar`, `/`, `/ciclo/[id]`, `/priorizados`, y `/historico` y `/metricas` como «Próximamente». **Faltan el histórico y las métricas de verdad** (P3). Lee Neon directamente; escribe solo `calificacion`, `seguimiento` e `identificacion` |
 
 > ### La tasa de rechazo del validador: no la cites todavía
 >

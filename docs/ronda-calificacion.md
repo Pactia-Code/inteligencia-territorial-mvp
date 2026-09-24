@@ -88,9 +88,22 @@ calificaciones ya emitidas dejarían de ser comparables.
 > P0.5 del [plan](plan-siguientes-pasos.md) y
 > [decisiones-remediacion.md](decisiones-remediacion.md).
 
-| Fecha | Qué se cambió | Por qué impedía calificar | A quién afectó |
-|---|---|---|---|
-| — | *nada todavía: las cuatro están autorizadas pero sin hacer* | | |
+### Excepciones aplicadas
+
+Las tres, el **2026-09-24**. **Ninguna cambió el informe ni cómo se califica**:
+ni el payload, ni los insights pedidos, ni las reglas de alcance. Las
+calificaciones ya emitidas siguen siendo comparables con las que vengan.
+
+| Fecha | Qué se cambió | Por qué | A quién afectó | Cómo llegó |
+|---|---|---|---|---|
+| 2026-09-24 | **`/priorizados` y «cambiar estado»** dejan de caerse en el navegador | Un componente de cliente arrastraba el driver de base al navegador y la página reventaba al hidratar. **Impedía usar el tablero entero** | A cualquiera que abriera Priorizados. La vista de ciclo, donde se califica, **no estaba afectada** | **PR #2**, merge `100f7b1` |
+| 2026-09-24 | **«Próximamente»** en `/historico` y `/metricas` | Las dos entradas del menú daban 404, que durante la ronda se lee como que el sistema está roto | A quien pulsara esas entradas | **PR #2** |
+| 2026-09-24 | **Pantalla de entrada** con correo y logo | Decisión del dueño: privacidad e imagen. Antes el informe se leía con solo tener el enlace | **A todos**, y es la que más se nota: ahora hay que entrar antes de ver nada | **PR #3**, merge `45ec4d2` |
+
+> **La tercera cambia lo que se encuentra quien aún no ha entrado.** Las cuatro
+> gerencias `prd` que no han empezado recibirán la pantalla de entrada sin
+> haberla visto antes. No altera el informe ni la calificación, pero **sí lo que
+> ven al abrir el enlace**, y conviene avisarlas antes del martes.
 
 ## Corte
 
