@@ -1,7 +1,9 @@
 # Plan de siguientes pasos
 
-**Fecha:** 2026-09-23 · prioridades decididas por el dueño · esfuerzos tomados
-de `docs/auditoria.md` (rama `audit/2026-09-22`, commit `c6f660b`)
+**Fecha:** 2026-09-23, con P0.5 y la Fase 0 añadidas el **2026-09-24** ·
+prioridades decididas por el dueño · esfuerzos tomados de `docs/auditoria.md`
+(rama `audit/2026-09-22`, commit `c6f660b`), salvo los de P0.5, que son
+estimación propia y van marcados como tal
 
 El despliegue terminó (11 de 11, ver [estado-despliegue.md](estado-despliegue.md)).
 Esto es lo que viene, en orden.
@@ -16,6 +18,7 @@ Esto es lo que viene, en orden.
 | | Bloque | Esfuerzo | Qué desbloquea |
 |---|---|---:|---|
 | **P0** | Ronda de calificación 1 a 1 | *actividad, no subfase* | H1 y H2: sin calificaciones no hay experimento |
+| **P0.5** | Correcciones visibles durante la ronda | **1,25 d** | Que lo que se ve mientras se califica no parezca roto |
 | **P1** | Seguimiento de la ronda | *actividad* + script hecho | Saber a quién falta antes del corte |
 | **P2** | F0b · prerrequisitos de la decisión | **5 d** | La compuerta go/no-go |
 | **P3** | Capacidades del PRD no construidas | **6 d** + Sintetizador *sin estimar* | Cumplir lo que el PRD pide |
@@ -23,8 +26,11 @@ Esto es lo que viene, en orden.
 | **P5** | Interfaz | **3,1 d** | Legibilidad y uso |
 | **P6** | Endurecimiento | **10,7 d** | Mantenimiento y deuda |
 
-**Total con estimación: 31,8 d**, más el Sintetizador y 0,25 d sueltos (ver
+**Total con estimación: 33,05 d**, más el Sintetizador y 0,25 d sueltos (ver
 «Lo que no quedó en ningún bloque»). Es esfuerzo de un desarrollador.
+
+Todo esto está **antes** del go/no-go o lo acompaña. Lo que viene **después**,
+si la compuerta sale GO, es la [Fase 0 del PRD](#y-después-la-fase-0-del-prd).
 
 ---
 
@@ -60,6 +66,83 @@ afectó.
 > como lo que es —tasa en condición acompañada— y no se compara directamente
 > con el criterio de éxito.** Una tasa alta aquí no demuestra H2; una baja sí
 > sería mala señal, porque se obtuvo en la condición más favorable.
+
+## P0.5 · Correcciones visibles durante la ronda · **1,25 d**
+
+**Excepción al congelamiento, decidida por el dueño el 2026-09-24.** Son
+correcciones que **no cambian el informe ni cómo se califica**: ni el payload,
+ni los insights pedidos, ni las reglas de alcance. Cada una **en su rama**,
+revisada y fusionada por el dueño, y anotada en
+[ronda-calificacion.md](ronda-calificacion.md).
+
+| # | Qué | Esfuerzo |
+|---|---|---:|
+| 1 | **`/priorizados` reventaba en el navegador** — y con ella el botón «cambiar estado» | **0,25 d** |
+| 2 | **«Próximamente»** en `/historico` y en cualquier entrada de navegación sin construir | **0,25 d** |
+| 3 | **Pantalla de entrada** con correo y logo de Pactia | **0,75 d** |
+
+### 1. `/priorizados` y «cambiar estado»: un solo fallo, no dos · 0,25 d
+
+**Causa única, y está en una línea de importación.**
+`web/app/priorizados/CambiarEstado.tsx:13` es un componente de cliente
+(`"use client"`) que importa `EXIGEN_NOTA` desde `@/lib/tablero`;
+`web/lib/tablero.ts:15` importa `./db`, y `web/lib/db.ts:15-21` **lanza en el
+cuerpo del módulo** si no hay `DATABASE_URL`. En el navegador nunca la hay
+—Next solo expone las `NEXT_PUBLIC_*`—, así que el chunk revienta al
+evaluarse, React sube el error y **`error.tsx` pinta «Algo falló al cargar esta
+página»** encima de una página que el servidor había compuesto bien.
+
+Comprobado sobre el propio bundle: el chunk de cliente
+`.next/static/chunks/app/priorizados/page-*.js` contiene, en el nivel del
+módulo, `let n = ...env.DATABASE_URL; if(!n) throw Error("Falta DATABASE_URL...")`
+seguido del array de `EXIGEN_NOTA` — lo único que hacía falta importar. Por eso
+la ruta pesa **43,8 kB** de JavaScript de cliente frente a los 2,52 kB de
+`/ciclo/[id]`: el driver de Neon entero viaja al navegador.
+
+**Y explica los dos síntomas a la vez.** La página no «falla al cargar»: falla
+al hidratar, y el botón nunca llega a funcionar porque su componente está
+muerto. No es fallo de las reglas de alcance de F0.4, ni de identidad, ni de
+esquema — los tres se verificaron y están bien.
+
+**No hay filtración de credenciales.** El bundle trae el *nombre* de la
+variable y el driver, no el valor: `neon.tech`, `npg_` y la cadena de conexión
+no aparecen en nada de lo servido al navegador, y el valor de `COOKIE_SECRET`
+tampoco.
+
+**Arreglo:** sacar `EXIGEN_NOTA` a un módulo sin dependencias de base —
+`web/lib/estados.ts`— e importarlo desde `tablero.ts` y desde el componente.
+**Y dejar la guarda**, que es lo que impide que vuelva: una comprobación tras
+`next build` que falle si algún chunk de `static/` contiene `Falta DATABASE_URL`
+o el driver. Sin ella, cualquier importación futura repite el fallo y **`tsc`
+no lo ve**.
+
+> **Por qué no se detectó antes.** `curl` sobre la ruta devuelve **200 con el
+> HTML correcto**, en dev y en build de producción: el servidor renderiza bien y
+> `curl` no ejecuta JavaScript. Solo falla en un navegador de verdad. Una
+> comprobación que no ejecute el cliente **no puede ver este fallo**.
+
+### 2. «Próximamente» en las rutas sin construir · 0,25 d
+
+`web/app/Nav.tsx:16` enlaza a **`/historico`** y, para el administrador,
+`Nav.tsx:22` enlaza a **`/metricas`**. **Ninguna de las dos existe**: bajo
+`web/app/` solo hay `page.tsx`, `ciclo/[id]/` y `priorizados/`. Las dos dan 404
+de Next, que durante la ronda se lee como que el sistema está roto.
+
+Son **H-014** (histórico y métricas, P3) y no se construyen ahora. Lo que se
+hace es una página «Próximamente» que diga qué irá ahí y que leer el informe no
+depende de ello.
+
+### 3. Pantalla de entrada con correo y logo · 0,75 d
+
+Hoy **el informe se lee sin identificarse**. La pantalla de entrada pide el
+correo antes de entrar, con el logo de Pactia sobre fondo claro.
+
+**Mejora privacidad e imagen, no la atribución.** Quien conozca un correo
+autorizado sigue pudiendo usarlo: **R-A2 y H-012 siguen abiertos** como riesgo
+aceptado, y hay que decirlo igual al publicar H1 y H2. Ver
+[decisiones-remediacion.md](decisiones-remediacion.md).
+
+---
 
 ## P1 · Seguimiento de la ronda
 
@@ -193,3 +276,25 @@ documental, con la comparación pendiente en F2.3.
 | **Plan de Vercel** | Hobby frente a Pro | La observabilidad —los errores de runtime dan 403 en Hobby— y «Only Preview Deployments» |
 | **P-5** | Tarifa real de `gpt-5.4-mini` | Cerrar H5 con una cifra en vez de un factor declarado (F0b.2) |
 | **Ciclo 4** | ¿Se corre uno nuevo? | Si sí, **P4 sube a prerrequisito** |
+
+---
+
+## Y después: la Fase 0 del PRD
+
+**Esto no es parte del MVP y no compite con P0–P6.** Es lo que empieza **si la
+compuerta de la semana 8 sale GO**, y se lista aquí para que el plan no termine
+en el go/no-go como si no hubiera nada detrás.
+
+El MVP es la *Fase -1*: comprueba que el mecanismo funciona, **no que cubre el
+país**. La Fase 0 es la que convierte el experimento en algo operable:
+
+| Qué cambia | Del MVP a la Fase 0 |
+|---|---|
+| **Fuentes** | Del **snapshot** a **conectores vivos**. Hoy los 18 municipios y las 20.030 señales salen de un archivo; en Fase 0 hay que ingerir de verdad, con reintentos y aislamiento de fallos por fuente |
+| **Cobertura** | De **18 municipios** a la cobertura que se decida. El nomenclátor con los **1.102** ya está cargado y el contexto estructural también, así que el mecanismo está probado sobre el universo completo aunque el MVP no lo use |
+| **Operación** | De **correr un script a mano** a un ciclo programado, con el checkpointing de CA-M8.4 y Langfuse cableados — hoy instalados y sin conectar |
+| **Reproducibilidad** | Es **la deuda que la Fase 0 hereda**: A6 y A11 dicen que ni el Clasificador ni el Correlacionador repiten resultados. Lo que deba ser reproducible tiene que bajar a código determinista |
+| **Costo** | De **USD 39/año** el piloto a **USD 2.160/año** los 1.103 municipios, **sin contar el Sintetizador**. Hay que rehacer la cuenta con la tasa diaria, no con los totales del snapshot |
+
+**Nada de esto se estima aquí.** La Fase 0 tiene su propio alcance en el PRD y
+su propia planificación; ponerle días desde el MVP sería inventarlos.

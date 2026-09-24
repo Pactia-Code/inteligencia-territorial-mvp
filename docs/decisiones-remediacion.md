@@ -330,3 +330,73 @@ tres y quedan aplicados:**
 
 El §10 de CLAUDE.md, que los listaba como pendientes, queda **cerrado** con esta
 decisión.
+
+## Decisiones del dueño del 2026-09-24
+
+### 1. Se descarta el SSO con Microsoft
+
+No se integra inicio de sesión corporativo. Queda fuera del MVP y no se
+replantea durante la ronda.
+
+### 2. Pantalla de entrada solo con correo, sin clave
+
+Se añade una pantalla de entrada que pide el correo antes de dejar pasar. Hoy
+**el informe se lee sin identificarse**, y eso es lo que cambia.
+
+**Mejora privacidad e imagen. No mejora la atribución, y conviene no
+confundirlo:** sin clave, quien conozca un correo autorizado puede seguir
+entrando y calificando por esa gerencia. **R-A2 y H-012 siguen abiertos** como
+riesgo aceptado, exactamente igual que antes, y hay que declararlo al publicar
+H1 y H2. Una pantalla de entrada *parece* autenticación, que es justo el motivo
+por el que esto queda escrito.
+
+Va en **P0.5** del [plan](plan-siguientes-pasos.md), estimada en 0,75 d.
+
+### 3. Excepción al congelamiento de la ronda
+
+El congelamiento sigue vigente para el informe: no se republica ni se cambia
+nada que altere lo que ven los calificadores. **Se permiten las correcciones que
+no cambian el informe ni cómo se califica**, que son cuatro:
+
+1. el fallo de `/priorizados`,
+2. el fallo del botón «cambiar estado» —que resultó ser **el mismo fallo**, ver
+   P0.5 del plan—,
+3. las páginas «Próximamente» de las rutas de navegación sin construir,
+4. la pantalla de entrada.
+
+**Cada una en su rama, revisada y fusionada por el dueño**, y anotada en
+[ronda-calificacion.md](ronda-calificacion.md). Nada de esto toca el payload,
+los insights pedidos ni las reglas de alcance de F0.4.
+
+### 4. Los logos oficiales de Pactia
+
+El dueño entregó los logos oficiales en `web/public/marca/`:
+
+| Archivo | Para qué | Verificado |
+|---|---|---|
+| `pactia-logo.png` | Versión principal, azul y gris, para la pantalla de entrada sobre fondo claro | PNG RGBA, **874 × 282 px**, 8 bits, 26.941 bytes |
+| `pactia-logo-blanco.png` | Versión en negativo, para la barra superior si es oscura | PNG con paleta y `tRNS`, **356 × 90 px**, 4.081 bytes |
+
+**Son los oficiales y no se recolorean, recortan ni deforman.** Se usan en la
+fase 3; hasta entonces están en el repositorio sin referenciar.
+
+Tres cosas que salieron de la verificación:
+
+- **`pactia-logo.png` no tiene transparencia.** Declara canal alfa pero está
+  **100% opaco**: el 80% de sus píxeles son blanco puro, así que sobre cualquier
+  fondo que no sea blanco se verá un rectángulo blanco. **No se corrige por
+  iniciativa propia** — queda anotado para que el dueño decida.
+- **`pactia-logo-blanco.png` sí la tiene**, y bien: 64,8% transparente, 8%
+  semitransparente en los bordes y blanco puro como único color visible. Es una
+  versión en negativo correcta.
+- **El azul del logo choca con el primario del Design System.** El logo usa
+  **`#1D2559`** y el token `color-navy-700` es **`#0F4761`**, marcado
+  «Confirmado» y derivado de la plantilla Word corporativa. No es un matiz: uno
+  tira a violeta (tono ≈232°) y el otro a cian (≈199°). Puestos juntos —logo
+  arriba, títulos y botones en navy— se leerá como un error de color. **Son dos
+  fuentes de marca que no concuerdan y lo tiene que resolver el dueño**, no el
+  código.
+- El gris del logo es **`#808080`**, un neutro puro, frente a los neutros del
+  Design System, que son fríos (`#5B6670`, `#8A9199`). Choca menos y **importa
+  menos**: esos neutros están marcados `[provisional]` y no son identidad de
+  Pactia, mientras que el gris del logo sí.

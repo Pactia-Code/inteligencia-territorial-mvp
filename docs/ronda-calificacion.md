@@ -75,9 +75,17 @@ calificaciones ya emitidas dejarían de ser comparables.
 
 **Solo se corrige un error que impida calificar**, y se anota aquí.
 
+> **Excepción autorizada por el dueño el 2026-09-24.** Se permiten cuatro
+> correcciones que **no cambian el informe ni cómo se califica**: el fallo de
+> `/priorizados` —que arrastraba el del botón «cambiar estado», es el mismo—,
+> las páginas «Próximamente» de las rutas sin construir y la pantalla de
+> entrada. **Cada una en su rama, revisada y fusionada por el dueño.** Ver
+> P0.5 del [plan](plan-siguientes-pasos.md) y
+> [decisiones-remediacion.md](decisiones-remediacion.md).
+
 | Fecha | Qué se cambió | Por qué impedía calificar | A quién afectó |
 |---|---|---|---|
-| — | *nada hasta ahora* | | |
+| — | *nada todavía: las cuatro están autorizadas pero sin hacer* | | |
 
 ## Corte
 
