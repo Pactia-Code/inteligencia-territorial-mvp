@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import { cambiarCorreo } from "./acciones";
+import Image from "next/image";
+import { salir } from "./acciones";
 import { Nav } from "./Nav";
 import { AVISO_CORTO } from "@/lib/aviso";
 import { esAdministrador, identidadActual } from "@/lib/sesion";
@@ -19,6 +20,15 @@ export default async function RootLayout({
   return (
     <html lang="es">
       <body>
+        {/*
+          **La barra solo se dibuja con identidad**, y eso resuelve `/entrar`
+          sin route groups ni middleware: alli nunca hay identidad —si la
+          hubiera, la propia pagina redirige— asi que la pantalla de entrada
+          queda limpia, que es lo que se pidio: logo, titulo, campo, boton y
+          etiqueta MVP. En el resto de rutas la identidad esta garantizada por
+          `exigirIdentidad`, asi que la barra sale siempre.
+        */}
+        {yo && (
         <header
           style={{
             background: "var(--color-navy-700)",
@@ -29,6 +39,19 @@ export default async function RootLayout({
             gap: "var(--space-6)",
           }}
         >
+          {/*
+            Barra oscura, asi que el logo va en negativo. Este archivo si tiene
+            transparencia real, al reves que el principal. No se recolorea ni se
+            recorta: solo se escala en proporcion.
+          */}
+          <Image
+            src="/marca/pactia-logo-blanco.png"
+            alt="Pactia Fondo Inmobiliario"
+            width={356}
+            height={90}
+            priority
+            style={{ width: 96, height: "auto", display: "block" }}
+          />
           <span className="t-h2" style={{ whiteSpace: "nowrap" }}>
             Inteligencia Territorial
           </span>
@@ -55,29 +78,29 @@ export default async function RootLayout({
           </span>
 
           <div>
-            {yo && (
-              <form action={cambiarCorreo} style={{ display: "flex", gap: "var(--space-3)", alignItems: "center" }}>
-                <span className="t-meta" style={{ color: "#fff", opacity: 0.85 }}>
-                  Calificando como <strong>{yo.id_gerencia}</strong>
-                </span>
-                <button
-                  type="submit"
-                  className="t-meta"
-                  style={{
-                    background: "transparent",
-                    color: "#fff",
-                    border: "1px solid rgba(255,255,255,.4)",
-                    borderRadius: "var(--radio-control)",
-                    padding: "var(--space-1) var(--space-2)",
-                    cursor: "pointer",
-                  }}
-                >
-                  cambiar correo
-                </button>
-              </form>
-            )}
+            <form action={salir} style={{ display: "flex", gap: "var(--space-3)", alignItems: "center" }}>
+              <span className="t-meta" style={{ color: "#fff", opacity: 0.85 }}>
+                Calificando como <strong>{yo.id_gerencia}</strong>
+              </span>
+              <button
+                type="submit"
+                className="t-meta"
+                style={{
+                  background: "transparent",
+                  color: "#fff",
+                  border: "1px solid rgba(255,255,255,.4)",
+                  borderRadius: "var(--radio-control)",
+                  padding: "var(--space-1) var(--space-2)",
+                  cursor: "pointer",
+                  fontFamily: "inherit",
+                }}
+              >
+                Salir
+              </button>
+            </form>
           </div>
         </header>
+        )}
         {children}
       </body>
     </html>
