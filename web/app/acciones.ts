@@ -28,7 +28,7 @@ import {
 } from "@/lib/escrituras";
 import { ESTADO_SEGUIMIENTO } from "@/lib/contrato.generado";
 import { firmar, haySecreto } from "@/lib/firma";
-import { EXIGEN_NOTA } from "@/lib/tablero";
+import { EXIGEN_NOTA } from "@/lib/estados";
 import { COOKIE_CORREO, identidadActual } from "@/lib/sesion";
 
 /** Un ano: la ventana de calificacion dura ciclos, no una sesion. */

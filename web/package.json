@@ -5,8 +5,9 @@
   "description": "M9 — aplicativo web del MVP de Inteligencia Territorial. Lee Neon; escribe solo calificacion y seguimiento (CA-M9.16).",
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "next build && node scripts/verificar_bundle.mjs",
     "start": "next start",
+    "verificar:bundle": "node scripts/verificar_bundle.mjs",
     "lint": "next lint",
     "typecheck": "tsc --noEmit"
   },

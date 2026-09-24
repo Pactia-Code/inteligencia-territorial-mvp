@@ -13,23 +13,22 @@
  * completa del municipio se reconstruye entera.
  */
 import { sql } from "./db";
+import { ESTADO_INICIAL } from "./estados";
 import type { Informe } from "./tipos";
 
-export const ESTADO_INICIAL = "priorizado";
-
 /**
- * Los dos estados que **exigen nota** al pasar a ellos (CA-M9.9).
+ * **Este modulo toca la base y por eso no exporta constantes compartidas.**
  *
- * Vive aqui y no en `acciones.ts` por una razon del framework: un modulo
- * `"use server"` solo puede exportar funciones asincronas, asi que una
- * constante alli rompe la compilacion entera — y lo hace en tiempo de
- * ejecucion, no en `tsc`.
+ * `ESTADO_INICIAL` y `EXIGEN_NOTA` vivian aqui, y `CambiarEstado.tsx` importaba
+ * la segunda. Como es un componente de cliente, el empaquetador se llevaba
+ * `./db` y el driver de Neon al navegador, donde `db.ts` lanza por falta de
+ * `DATABASE_URL` y tumbaba la pagina entera. Ahora estan en `./estados`, que no
+ * depende de nada del servidor.
  *
- * Son los que cierran o comprometen: descartar apaga un municipio que el
- * sistema priorizo, y estructurar mueve recursos. Sin el porque, el historial
- * guarda que paso y no por que.
+ * **No las vuelvas a re-exportar desde aqui**: bastaria con eso para que el
+ * fallo reaparezca por la puerta de atras. Quien las necesite las importa de
+ * `./estados`.
  */
-export const EXIGEN_NOTA: readonly string[] = ["descartado", "en_estructuracion"];
 
 export interface CambioDeEstado {
   id: number;

@@ -422,3 +422,66 @@ está en [pr-remediacion-f0.md](pr-remediacion-f0.md).
 | Descripción del PR | [pr-remediacion-f0.md](pr-remediacion-f0.md) |
 | Branch de Neon `remediacion-f0` | **No es fuente de datos.** Tiene informes republicados, usuarios de prueba desactivados y **una calificación de prueba** (insight 1088, gerencia `general`) |
 | Verificación del alcance con la app corriendo | `scripts/verificar_alcance_web.py` |
+
+---
+
+## Fase 2 del 2026-09-24 — correcciones P0.5, en `fix/p0-5-correcciones`
+
+Excepción al congelamiento autorizada por el dueño (ver
+[decisiones-remediacion.md](decisiones-remediacion.md)). **Nada de esto toca el
+informe, los insights pedidos ni las reglas de alcance.** Tres commits, sin
+fusionar ni empujar: el dueño revisa, empuja y fusiona con merge commit.
+
+### Lo que se corrigió
+
+| Commit | Qué |
+|---|---|
+| `1ce5ff0` | **`/priorizados` y «cambiar estado» eran el mismo fallo.** Un componente de cliente importaba una constante de un módulo que toca la base, así que el driver de Neon y el `throw` de `db.ts` viajaban al navegador. Las constantes pasan a `web/lib/estados.ts` |
+| `8016522` | **Guarda de empaquetado**: `web/scripts/verificar_bundle.mjs`, encadenada a `npm run build`, más 10 pruebas |
+| `e4f861a` | **«Próximamente»** en `/historico` y `/metricas` en vez del 404. `/metricas` sigue siendo solo de administrador |
+
+**Medido:** `/priorizados` baja de **43,8 kB a 1,65 kB** de JavaScript de
+cliente.
+
+> ### Lo que este episodio deja como regla
+>
+> **Tres comprobaciones en verde no vieron una página caída.** `tsc --noEmit`
+> pasaba, `next build` pasaba y `curl` devolvía **200 con el HTML correcto**,
+> porque el servidor renderizaba bien y **curl no ejecuta JavaScript**. El fallo
+> solo existía en un navegador de verdad.
+>
+> De ahí la guarda sobre `.next/static`: mira el **resultado** del build en vez
+> de fiarse del código fuente. Y de ahí que la verificación final la haga una
+> persona con un navegador, no un `curl` más.
+
+### Verificación, sobre un branch de Neon desechable
+
+Se creó **`fix-p0-5`** (`br-small-dust-awr8lrmc`), copia de `main` al momento:
+1 informe publicado, 0 en `seguimiento`, 23 calificaciones, Alembic en
+`d5932c3bdc03`. No hizo falta migrar. **Se borró al terminar.**
+
+Comprobado con la app corriendo contra ese branch:
+
+| Qué | Resultado |
+|---|---|
+| `/priorizados` | Carga la tabla. Ya no sale la pantalla de error |
+| «cambiar estado» a `descartado` **sin nota** | Rechazado, y **no escribió ninguna fila** |
+| `en_revision` sin nota · `descartado` con nota | Registrados, con `id_usuario` y `fecha_cambio`. **El historial apila**, no sobrescribe (CA-M9.10) |
+| `/historico` | 200 y «Próximamente» para cualquiera |
+| `/metricas` | **404** a anónimo y a gerencia, **200** a administrador (CA-M9.14) |
+| Etiqueta «MVP» | En las tres pantallas, puesta por el layout (CA-M9.17) |
+
+**La base principal no se tocó**: `seguimiento` siguió en 0 y `calificacion` en
+23 durante toda la fase, comprobado por lectura al terminar.
+
+Verde: **355 pruebas** de Python, `tsc --noEmit`, `next build` y la guarda
+nueva. Confirmación en navegador del dueño el 2026-09-24.
+
+### Un tropiezo que conviene no repetir
+
+Reescribir un `.tsx` con `Set-Content -Encoding utf8` de PowerShell **le metió
+un BOM y dobló la codificación de todas las tildes** («revisión» → «revisiÃ³n»).
+No lo detectó ninguna prueba; lo detectó el `git diff`, que salió lleno de
+líneas que nadie había tocado. El archivo se restauró desde `main` y se
+reaplicó el cambio con `sed`. **Para editar archivos con acentos, no uses
+`Set-Content`.** Es el mismo tipo de trampa que el escape de rutas de Windows.

@@ -10,7 +10,7 @@
  */
 import { useActionState, useState } from "react";
 import { cambiarEstado, type ResultadoSeguimiento } from "@/app/acciones";
-import { EXIGEN_NOTA } from "@/lib/tablero";
+import { EXIGEN_NOTA } from "@/lib/estados";
 
 const ESTADOS: { valor: string; etiqueta: string }[] = [
   { valor: "priorizado", etiqueta: "priorizado" },
