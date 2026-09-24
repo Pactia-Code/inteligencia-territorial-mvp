@@ -485,3 +485,66 @@ No lo detectó ninguna prueba; lo detectó el `git diff`, que salió lleno de
 líneas que nadie había tocado. El archivo se restauró desde `main` y se
 reaplicó el cambio con `sed`. **Para editar archivos con acentos, no uses
 `Set-Content`.** Es el mismo tipo de trampa que el escape de rutas de Windows.
+
+---
+
+## Fase 3 del 2026-09-24 — entrada por correo, en `feat/login-correo`
+
+Tres commits, sin fusionar ni empujar. Ver
+[decisiones-remediacion.md](decisiones-remediacion.md) para el porqué de cada
+decisión; aquí está qué se verificó y cómo.
+
+| Commit | Qué |
+|---|---|
+| `173a152` | `exigirIdentidad`, `entrar`, `salir` y el saneo del destino (`web/lib/destino.ts`) |
+| `74e44c5` | Pantalla `/entrar` y barra con logo en negativo y «Salir» |
+| `b0881b3` | Las cinco rutas exigen identidad, se retira el formulario de la vista de ciclo y se añade la guarda |
+
+**Por qué no hay middleware.** Verificar la firma necesita `node:crypto` y el
+runtime edge no lo tiene; duplicarla con Web Crypto habría creado **una segunda
+fuente de verdad de algo que decide quién es quién**. La puerta la llama cada
+página, y una guarda recorre `web/app/**/page.tsx` para que no se olvide.
+
+### Verificación, sobre el branch de Neon `login-correo`
+
+Creado desde `main` (`br-soft-bonus-aw5ya5ss`) y **borrado al terminar**.
+
+| Caso | Resultado |
+|---|---|
+| Sin cookie, las seis rutas | 307 a `/entrar` conservando el destino, incluido `/ciclo/3?m=73001` |
+| Correo no registrado | No entra, **no emite cookie y no deja fila** en `identificacion` |
+| Correo registrado | Entra, **deja fila con `user_agent`** y vuelve al destino pedido |
+| Cookie ya emitida | Sigue valiendo: no pasa por `/entrar` |
+| Cookie con firma inventada | No vale: 307 a `/entrar` |
+| Destino hostil (`//evil.com`, `https://evil.com`) | Neutralizado a `/` |
+| «Salir» | Borra la cookie y lleva a `/entrar` |
+| `/metricas` | 404 para gerencia, 200 para administrador (CA-M9.14) |
+| Pantalla de calificación | `Panel.tsx` y `Calificar.tsx` **intactos**; 25 controles de calificación en su sitio |
+
+**La base principal no se tocó**: 12 identificaciones, 23 calificaciones y 0 en
+`seguimiento` antes y después.
+
+Verde: **368 pruebas**, `tsc --noEmit`, `next build` y la guarda del bundle.
+Confirmación del dueño en el navegador.
+
+> ### Dónde aterriza cada quien, que es lo que se preguntó
+>
+> | Cómo entra | A dónde va |
+> |---|---|
+> | Enlace a secas | `/` → **`/ciclo/3`**, el informe |
+> | Enlace profundo | A esa misma página |
+>
+> **Los gerentes de la ronda reciben el enlace pelado, así que caen en el
+> informe.** El destino solo se usa cuando se pidió una página concreta, que es
+> lo que hace que un enlace compartido siga llevando a donde apuntaba.
+
+### Otro tropiezo de la máquina, van tres
+
+Git Bash convirtió `/priorizados` en `C:/Users/.../Git/priorizados` **dentro del
+argumento de `curl`**, antes de que la petición saliera. Pareció que la
+aplicación perdía el destino; lo que pasaba es que recibía una ruta de Windows
+y la rechazaba, que es lo correcto. Se confirmó con un build instrumentado, ya
+retirado. **Para mandar rutas por `curl` desde Git Bash: `MSYS_NO_PATHCONV=1`.**
+
+Junto al BOM de `Set-Content` y al escape de rutas en documentos, son tres
+formas distintas de que esta máquina altere un texto en silencio.

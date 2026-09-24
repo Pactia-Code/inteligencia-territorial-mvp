@@ -12,6 +12,8 @@
 
 import { revalidatePath } from "next/cache";
 import { cookies, headers } from "next/headers";
+import { redirect } from "next/navigation";
+import { destinoSeguro } from "@/lib/destino";
 import {
   cicloEsEditable,
   cicloPublicadoDelInsight,
@@ -112,6 +114,43 @@ export async function identificarse(
 export async function cambiarCorreo(): Promise<void> {
   (await cookies()).delete(COOKIE_CORREO);
   revalidatePath("/", "layout");
+}
+
+/**
+ * Salir: borra la cookie y devuelve a la pantalla de entrada.
+ *
+ * Es `cambiarCorreo` mas la redireccion. Se separan porque ahora hay a donde
+ * ir: antes, salir dejaba a la persona en la misma pagina sin identidad, que
+ * con la entrada por correo seria una pantalla que la echa sola.
+ */
+export async function salir(): Promise<void> {
+  (await cookies()).delete(COOKIE_CORREO);
+  revalidatePath("/", "layout");
+  redirect("/entrar");
+}
+
+/**
+ * Entrar desde `/entrar` y volver a donde se queria ir.
+ *
+ * **Reusa `identificarse` entera**, que es la de F0.3: misma comprobacion
+ * contra `usuario`, misma cookie firmada y misma fila en `identificacion`. Aqui
+ * solo se anade a donde ir despues.
+ *
+ * **El mensaje de fallo no distingue entre un correo que no existe y uno que no
+ * esta autorizado.** La pantalla lo pinta generico a proposito: decir «ese
+ * correo no esta en la lista» convierte la entrada en un comprobador de quien
+ * trabaja aqui. El detalle si queda en `identificacion`, que es donde sirve.
+ *
+ * `redirect` lanza para cortar el render, asi que va **fuera** de cualquier
+ * try/catch y despues de que la cookie este puesta.
+ */
+export async function entrar(
+  previo: ResultadoIdentificacion | null,
+  datos: FormData,
+): Promise<ResultadoIdentificacion> {
+  const resultado = await identificarse(previo, datos);
+  if (!resultado.ok) return resultado;
+  redirect(destinoSeguro(String(datos.get("destino") ?? "")));
 }
 
 /**

@@ -5,9 +5,14 @@
  * capacidades del PRD que el MVP no llego a construir. Hasta entonces esto
  * evita el 404, que durante la ronda se lee como una averia.
  */
+import { exigirIdentidad } from "@/lib/sesion";
 import { Proximamente } from "../Proximamente";
 
-export default function Historico() {
+// Depende de la cookie de identificacion, asi que se resuelve por peticion.
+export const dynamic = "force-dynamic";
+
+export default async function Historico() {
+  await exigirIdentidad("/historico");
   return (
     <Proximamente
       titulo="Histórico"

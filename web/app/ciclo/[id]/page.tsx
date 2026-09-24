@@ -16,9 +16,8 @@ import {
   cicloEsEditable,
   informeDelCiclo,
 } from "@/lib/consultas";
-import { identidadActual } from "@/lib/sesion";
+import { exigirIdentidad } from "@/lib/sesion";
 import type { InsightPublicado, MunicipioDelInforme } from "@/lib/tipos";
-import { Identificarse } from "./Identificarse";
 import { Panel } from "./Panel";
 
 export const dynamic = "force-dynamic";
@@ -185,11 +184,17 @@ export default async function VistaCiclo({
   const idCiclo = Number(id);
   if (!Number.isInteger(idCiclo)) notFound();
 
+  // Se entra antes de leer (decision del 2026-09-24). Se conserva el municipio
+  // abierto para volver al mismo sitio, que es lo que hace util un enlace
+  // compartido.
+  const yo = await exigirIdentidad(
+    `/ciclo/${idCiclo}${divipolaSel ? `?m=${divipolaSel}` : ""}`,
+  );
+
   const informe = await informeDelCiclo(idCiclo);
   if (!informe) notFound();
 
   const editable = await cicloEsEditable(idCiclo);
-  const yo = await identidadActual();
   const misCalificaciones = yo
     ? await calificacionesDeLaGerencia(idCiclo, yo.id_gerencia)
     : {};
@@ -320,7 +325,12 @@ export default async function VistaCiclo({
         <aside style={{ position: "sticky", top: "var(--space-4)" }}>
           {abierto ? (
             <>
-              {!yo && abierto.calificable && editable && <Identificarse />}
+              {/*
+                Aqui iba el formulario de identificacion. Desde la entrada por
+                correo (2026-09-24) la identidad ya viene resuelta: a esta
+                pantalla no se llega sin ella, asi que pedir el correo otra vez
+                era pedir dos veces lo mismo.
+              */}
               <Panel
                 m={abierto}
                 informe={informe}

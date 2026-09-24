@@ -449,3 +449,51 @@ sesiones del 2026-09-23 fueron sin acompañamiento.
 Queda reflejado en tres sitios, que son los que alguien lee: el
 [plan](plan-siguientes-pasos.md), aquí y la cabecera de
 `scripts/avance_calificacion.py`, que es lo que se mira durante la ronda.
+
+## La entrada por correo, implementada (2026-09-24)
+
+Se construyó lo decidido: `/entrar` pide el correo antes de dejar ver nada, y
+todas las demás rutas exigen identidad. Tres cosas que conviene tener claras
+antes de que alguien las malinterprete.
+
+**No es autenticación, y ahora lo parece más que antes.** Ese es justamente el
+riesgo de esta pantalla: sin clave, quien conozca un correo autorizado entra y
+califica por esa gerencia. **R-A2 y H-012 siguen abiertos e igual de abiertos
+que ayer**, y hay que declararlo al publicar H1 y H2. Lo que mejora es
+privacidad —el informe ya no se lee con solo tener el enlace— e imagen.
+
+**Se reusa el mecanismo de F0.3 entero**, no se inventa uno nuevo: misma
+comprobación contra `usuario`, misma cookie firmada y misma fila en
+`identificacion`. Quien ya tuviera cookie válida no ha tenido que volver a
+entrar. `tests/test_puerta_de_entrada.py` falla si alguien reimplementa la
+identidad por su cuenta, porque entonces la fila dejaría de escribirse y no se
+notaría hasta auditar una calificación discutida.
+
+**El mensaje de rechazo es el mismo exista o no el correo.** Decir «ese correo
+no está en la lista» convertiría la entrada en un comprobador de quién trabaja
+aquí. El detalle sigue en `identificacion`, que es donde sirve.
+
+### Una decisión que no estaba en el encargo: el destino se sanea
+
+Al volver a la página pedida, el destino viaja en la URL de `/entrar`, así que
+lo escribe quien mande el enlace. Sin filtrar, `/entrar?destino=https://otro`
+convierte la pantalla en un trampolín: se ve el dominio correcto, se teclea el
+correo y se acaba en otra parte. **Solo se aceptan rutas internas** y ante
+cualquier duda se vuelve a la raíz (`web/lib/destino.ts`). Rechaza también
+`//evil.com` y `/\evil.com`, que empiezan por barra y aun así son otro dominio.
+
+### La marca, tal y como quedó
+
+- `/entrar`: `pactia-logo.png` sobre tarjeta `#FFFFFF` —lo único que admite su
+  fondo opaco— y **superficies neutras alrededor**, para que el único azul
+  fuerte sea el del logo y no se enfrente al `#0F4761` del Design System. El
+  botón sí es navy: es un control, no una superficie.
+- Barra superior, que es oscura: `pactia-logo-blanco.png`, el que sí tiene
+  transparencia real.
+- **Ningún token del Design System se tocó**, y los logos no se recolorean,
+  recortan ni deforman: solo se escalan en proporción. `alt` «Pactia Fondo
+  Inmobiliario» en los dos.
+
+Sigue pendiente lo de siempre: pedir a comunicaciones una versión transparente
+o en SVG del principal, y confirmar cuál es el azul corporativo oficial tras el
+corte del martes.
