@@ -17,7 +17,9 @@
  * auditar una calificacion discutida.
  */
 import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 import { gerenciaDelCorreo } from "./consultas";
+import { destinoSeguro } from "./destino";
 import { verificar } from "./firma";
 
 export const COOKIE_CORREO = "correo";
@@ -60,4 +62,29 @@ export async function identidadActual(): Promise<Identidad | null> {
 export async function esAdministrador(): Promise<boolean> {
   const yo = await identidadActual();
   return yo?.rol === "administrador";
+}
+
+/**
+ * La identidad, o se va a `/entrar`. **Toda pantalla salvo `/entrar` la llama.**
+ *
+ * Antes leer era abierto con el enlace y el correo se pedia al ir a calificar.
+ * El dueno lo cambio el 2026-09-24: ahora se entra primero. **Mejora privacidad
+ * e imagen, no la atribucion** — quien conozca un correo autorizado sigue
+ * pudiendo usarlo, R-A2 y H-012 siguen abiertos, y hay que decirlo al publicar
+ * H1 y H2. Esto no es autenticacion y no conviene que lo parezca.
+ *
+ * `destino` es la ruta que se pidio, para volver a ella despues de entrar. Se
+ * pasa desde cada pagina porque un componente de servidor no puede leer la ruta
+ * actual, y se sanea en `destino.ts`.
+ *
+ * **Que no se olvide en una pagina nueva** lo comprueba
+ * `tests/test_puerta_de_entrada.py`, que recorre `web/app/**\/page.tsx`. Una
+ * pantalla que se olvide de llamar aqui quedaria abierta sin que nadie lo note,
+ * igual que `/priorizados` estuvo rota sin que ninguna comprobacion lo viera.
+ */
+export async function exigirIdentidad(destino: string): Promise<Identidad> {
+  const yo = await identidadActual();
+  if (yo) return yo;
+  const a = destinoSeguro(destino);
+  redirect(a === "/" ? "/entrar" : `/entrar?destino=${encodeURIComponent(a)}`);
 }
