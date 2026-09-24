@@ -12,10 +12,14 @@ $py = "$env:LOCALAPPDATA\venvs\territorial\Scripts\python.exe"
 & $py scripts\avance_calificacion.py --csv
 ```
 
-> **Condición acompañada.** Estas calificaciones se emiten con el dueño
-> presente. **H2 del PRD mide calificación sostenida sin acompañamiento**, así
-> que la tasa que salga de aquí se reporta como tasa en condición acompañada y
-> no se compara con el criterio de éxito. Ver
+> **La condición se registra por sesión, no de una vez para toda la ronda.** La
+> ronda se **diseñó** como sesiones 1 a 1 acompañadas, pero **las tres sesiones
+> registradas hasta el 2026-09-24 ocurrieron sin acompañamiento**, así que la
+> columna «Acompañada» de la tabla es el dato que manda y no esta cabecera.
+>
+> **H2 del PRD mide calificación sostenida sin acompañamiento.** Al reportar hay
+> que separar las dos condiciones en vez de etiquetar la ronda entera; una tasa
+> agregada sobre sesiones mixtas no dice nada de H2. Ver
 > [plan-siguientes-pasos.md](plan-siguientes-pasos.md) y
 > [decisiones-remediacion.md](decisiones-remediacion.md).
 
@@ -35,16 +39,32 @@ $py = "$env:LOCALAPPDATA\venvs\territorial\Scripts\python.exe"
 
 | Fecha | Persona | Gerencia | Tipo | Acompañada | Notas |
 |---|---|---|---|---|---|
-| 2026-09-23 | wsanchez@pactia.com | analitica | adicional | — (prueba de humo) | 6 calificaciones **reales**, emitidas al verificar el despliegue. Cuentan para el análisis |
-| *por registrar* | sherrera@pactia.com | rotacion_portafolio | prd | *por registrar* | 2 de 15 al 2026-09-23 |
-| | abejarano@pactia.com | general | prd | | |
-| | rcuentas@pactia.com | juridica | prd | | |
-| | lnavarro@pactia.com | producto_hoteles_oficinas | prd | | |
-| | egomez@pactia.com | producto_logistica | prd | | |
-| | jecheverri@pactia.com | administrativa | adicional | | |
+| 2026-09-23 | Juan Antonio Echeverri · jecheverri@pactia.com | administrativa | adicional | **no** | **15 de 15, completa.** Calificó por su cuenta |
+| 2026-09-23 | Sandra Patricia Herrera Sanchez · sherrera@pactia.com | rotacion_portafolio | prd | **no** | **2 de 15, sesión incompleta.** Empezó por su cuenta |
+| 2026-09-23 | Wilmar Stiven Sanchez Muñoz · wsanchez@pactia.com | analitica | adicional | — (prueba de humo) | **6 de 15.** Operador del pipeline. Calificaciones **reales**, emitidas al verificar el despliegue: cuentan para el análisis |
+| | Andres Bejarano Palacios · abejarano@pactia.com | general | prd | | |
+| | Rodrigo Adolfo Cuentas Rodriguez · rcuentas@pactia.com | juridica | prd | | |
+| | Lina Maria Navarro Villa · lnavarro@pactia.com | producto_hoteles_oficinas | prd | | |
+| | Edwin Gómez Villalobos · egomez@pactia.com | producto_logistica | prd | | |
 
 Las 5 gerencias `prd` son el núcleo del experimento; `analitica` y
 `administrativa` se reportan aparte (F0.1b).
+
+### Dónde estamos al 2026-09-24
+
+**23 de 105 calificaciones pedidas** (15 × 7), y **0 de las 5 gerencias `prd`
+han terminado**, a cinco días del corte. La única completa es `administrativa`,
+que es adicional.
+
+Dos cosas que conviene ver ahora y no al analizar:
+
+- **Ninguna de las sesiones registradas fue acompañada.** El plan preveía lo
+  contrario, así que lo que la ronda está midiendo hasta ahora es **la condición
+  que H2 sí mide**. Los 15 de 15 de `administrativa` son el dato más
+  interesante que hay, aunque sea de una gerencia adicional.
+- **Sandra Herrera se quedó en 2 de 15.** Una sesión que empieza y no termina es
+  distinto de no empezar, y al reportar hay que distinguirlas: la primera dice
+  algo sobre el esfuerzo que pide calificar, la segunda no dice nada todavía.
 
 ## Congelamiento
 
