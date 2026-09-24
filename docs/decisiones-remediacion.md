@@ -400,3 +400,52 @@ Tres cosas que salieron de la verificación:
   Design System, que son fríos (`#5B6670`, `#8A9199`). Choca menos y **importa
   menos**: esos neutros están marcados `[provisional]` y no son identidad de
   Pactia, mientras que el gris del logo sí.
+
+## Decisiones de marca y nota metodológica (2026-09-24)
+
+### El logo principal tiene fondo opaco: se usa solo sobre blanco
+
+`pactia-logo.png` declara canal alfa pero está **100% opaco**, con el 80% de sus
+píxeles en blanco puro. Decisión del dueño: **se usa solo sobre superficie
+`#FFFFFF`**, donde el rectángulo no se distingue, y **se pedirá a comunicaciones
+una versión transparente o en SVG**. **El archivo no se modifica**: recortarlo o
+quitarle el fondo por nuestra cuenta sería alterar un activo de marca.
+
+`pactia-logo-blanco.png` sí tiene transparencia real y sirve para fondo oscuro.
+
+### Los dos azules: no se toca ningún token durante la ronda
+
+El logo usa **`#1D2559`** y el Design System **`#0F4761`** (`color-navy-700`,
+marcado «Confirmado», derivado de la plantilla Word corporativa). Son azules
+distintos y el choque es real.
+
+**Durante la ronda no se cambia ningún token del Design System.** Cambiar el
+primario movería el color de todo lo que los calificadores ya están viendo, que
+es justo lo que el congelamiento evita.
+
+La salida provisional: **la pantalla de entrada usa superficies neutras**, para
+que el logo sea **el único azul fuerte de la pantalla** y los dos azules no
+queden enfrentados. **Tras el corte del martes se confirma con comunicaciones
+cuál es el azul corporativo oficial**, y eso decide si se ajusta el token, el
+logo o ninguno.
+
+### La ronda es de condición mixta
+
+Se diseñó como sesiones 1 a 1 acompañadas y **no está saliendo así**: las tres
+sesiones del 2026-09-23 fueron sin acompañamiento.
+
+- **Cada sesión se etiqueta acompañada o no** en
+  [ronda-calificacion.md](ronda-calificacion.md). La etiqueta va por sesión, no
+  por ronda.
+- **H2 se reporta separado por condición.** Una tasa agregada sobre sesiones
+  mixtas no responde a H2, que mide calificación sostenida **sin**
+  acompañamiento.
+- **El tiempo entre calificaciones de una misma persona se conserva como dato
+  del análisis**, y **ninguna calificación se descarta por rápida**. Que alguien
+  responda en segundos dice algo sobre cómo se usa la herramienta; descartarlo
+  sería decidir de antemano qué cuenta como calificación legítima, y eso
+  contaminaría H1 con un criterio que nadie acordó.
+
+Queda reflejado en tres sitios, que son los que alguien lee: el
+[plan](plan-siguientes-pasos.md), aquí y la cabecera de
+`scripts/avance_calificacion.py`, que es lo que se mira durante la ronda.

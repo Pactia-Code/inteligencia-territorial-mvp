@@ -19,7 +19,12 @@ $py = "$env:LOCALAPPDATA\venvs\territorial\Scripts\python.exe"
 >
 > **H2 del PRD mide calificación sostenida sin acompañamiento.** Al reportar hay
 > que separar las dos condiciones en vez de etiquetar la ronda entera; una tasa
-> agregada sobre sesiones mixtas no dice nada de H2. Ver
+> agregada sobre sesiones mixtas no dice nada de H2.
+>
+> **Ninguna calificación se descarta por rápida.** El tiempo entre
+> calificaciones de una misma persona se conserva como dato del análisis: dice
+> algo sobre cómo se usa la herramienta, y descartarlo sería decidir de antemano
+> qué cuenta como calificación legítima. Ver
 > [plan-siguientes-pasos.md](plan-siguientes-pasos.md) y
 > [decisiones-remediacion.md](decisiones-remediacion.md).
 

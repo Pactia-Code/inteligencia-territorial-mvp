@@ -23,10 +23,19 @@ base.
   insight. Si dos personas de una misma gerencia califican el mismo insight, la
   segunda **corrige** a la primera y por gerencia sigue contando una.
 
-**Y el aviso que hay que llevar hasta el informe:** esta ronda se califica
-**acompañada**, así que su tasa de respuesta no es comparable con el criterio de
-H2 del PRD, que mide calificación sostenida sin acompañamiento. Ver
-`docs/plan-siguientes-pasos.md`.
+**Y el aviso que hay que llevar hasta el informe:** la ronda es de **condición
+mixta**. Se diseñó acompañada y parte de las calificaciones se emiten sin
+acompañamiento, así que **la tasa de aquí no se reporta agregada**: cada sesión
+se etiqueta en `docs/ronda-calificacion.md` y **H2 se reporta separado por
+condición**, porque H2 del PRD mide calificación sostenida *sin* acompañamiento.
+
+**Este script no sabe de qué condición es cada calificación** —la base no lo
+guarda— así que sus totales son de las dos juntas y sirven para acompañar la
+ronda, no para reportar H2.
+
+**Ninguna calificación se descarta por rápida.** El tiempo entre calificaciones
+de una misma persona se conserva como dato del análisis. Ver
+`docs/plan-siguientes-pasos.md` y `docs/decisiones-remediacion.md`.
 
 Uso:
 
@@ -200,9 +209,10 @@ def main() -> int:
 
     completas = sum(1 for g in prd if conteo_gerencia.get(g, 0) == len(pedidos))
     print(f"\n  gerencias «prd» que terminaron: {completas} de {len(prd)}")
-    print("\n  La ronda se califica ACOMPAÑADA: esta tasa no es comparable con el\n"
-          "  criterio de H2 del PRD, que mide calificación sostenida sin\n"
-          "  acompañamiento. Ver docs/plan-siguientes-pasos.md.")
+    print("\n  Ronda de CONDICIÓN MIXTA: unas sesiones son acompañadas y otras no,\n"
+          "  y la base no guarda cuál es cuál. Esto sirve para acompañar la ronda,\n"
+          "  NO para reportar H2, que va separado por condición según la etiqueta\n"
+          "  de cada sesión en docs/ronda-calificacion.md.")
     return 0
 
 

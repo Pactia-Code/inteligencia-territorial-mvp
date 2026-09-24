@@ -60,12 +60,19 @@ calificar**, y si ocurre **queda registrado** en
 [ronda-calificacion.md](ronda-calificacion.md), con qué se cambió y a quién
 afectó.
 
-> **Nota metodológica, y hay que llevarla hasta el informe.** Esta ronda se
-> califica **acompañada**. **H2 del PRD mide calificación sostenida y sin
-> acompañamiento**, así que la tasa de respuesta que salga de aquí **se reporta
-> como lo que es —tasa en condición acompañada— y no se compara directamente
-> con el criterio de éxito.** Una tasa alta aquí no demuestra H2; una baja sí
-> sería mala señal, porque se obtuvo en la condición más favorable.
+> **Nota metodológica, y hay que llevarla hasta el informe.** Esta ronda es de
+> **condición mixta**: se diseñó como sesiones acompañadas, pero parte de las
+> calificaciones se emiten sin acompañamiento. **Cada sesión se etiqueta
+> acompañada o no** en [ronda-calificacion.md](ronda-calificacion.md), y **H2 se
+> reporta separado por condición**, nunca como una tasa agregada — H2 del PRD
+> mide calificación sostenida **sin** acompañamiento, así que mezclarlas da un
+> número que no responde a la hipótesis.
+>
+> **El tiempo entre calificaciones de una misma persona se conserva como dato
+> del análisis, y ninguna calificación se descarta por rápida.** Que alguien
+> responda en segundos es una observación sobre cómo se usa la herramienta, no
+> un motivo para tirar el dato: descartarlo sería decidir de antemano qué
+> cuenta como una calificación legítima.
 
 ## P0.5 · Correcciones visibles durante la ronda · **1,25 d**
 
