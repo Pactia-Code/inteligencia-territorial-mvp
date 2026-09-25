@@ -12,14 +12,23 @@ $py = "$env:LOCALAPPDATA\venvs\territorial\Scripts\python.exe"
 & $py scripts\avance_calificacion.py --csv
 ```
 
-> **La condición se registra por sesión, no de una vez para toda la ronda.** La
-> ronda se **diseñó** como sesiones 1 a 1 acompañadas, pero **las tres sesiones
-> registradas hasta el 2026-09-24 ocurrieron sin acompañamiento**, así que la
-> columna «Acompañada» de la tabla es el dato que manda y no esta cabecera.
+> ## La condición de la ronda, que es una sola
 >
-> **H2 del PRD mide calificación sostenida sin acompañamiento.** Al reportar hay
-> que separar las dos condiciones en vez de etiquetar la ronda entera; una tasa
-> agregada sobre sesiones mixtas no dice nada de H2.
+> **Todas las sesiones de gerencias tienen la misma condición: invitación
+> personal del dueño, de unos 5 minutos, y después calificación autónoma sin su
+> presencia.** No hay sesiones acompañadas y no hay condición mixta: lo que
+> varía entre personas es cuándo calificaron, no cómo.
+>
+> **La única excepción es la sesión de Wilmar Sánchez (`analitica`)**, que es la
+> prueba de humo del operador del pipeline y va aparte por eso, no por la
+> condición.
+>
+> **Qué se puede decir de la tasa.** Se obtiene **con invitación personal y
+> calificación autónoma**. **H2 del PRD suponía notificación por correo**, así
+> que la tasa **se reporta con esta condición y no se compara directamente con
+> el criterio de éxito**. La invitación personal no es acompañamiento, pero
+> tampoco es un correo: está en medio, y por eso se nombra en vez de asimilarla
+> a ninguno de los dos.
 >
 > **Ninguna calificación se descarta por rápida.** El tiempo entre
 > calificaciones de una misma persona se conserva como dato del análisis: dice
@@ -28,13 +37,17 @@ $py = "$env:LOCALAPPDATA\venvs\territorial\Scripts\python.exe"
 > [plan-siguientes-pasos.md](plan-siguientes-pasos.md) y
 > [decisiones-remediacion.md](decisiones-remediacion.md).
 
-## Cómo se conduce la sesión
+## Cómo se conduce
 
+- **Invitación personal de unos 5 minutos**, del dueño a cada gerencia. Ahí se
+  explica **la herramienta, no los insights**: lo que H1 mide es si el insight
+  le parece relevante a la gerencia, no si se entiende la pantalla.
+- **Después cada persona califica por su cuenta**, sin el dueño delante y
+  cuando quiera. De ahí que las horas de las sesiones vayan de las 08:55 a las
+  23:08.
 - **Cada persona teclea su propio correo y emite sus propias calificaciones.**
   `calificacion.id_usuario` registra quién tecleó; calificar por otro dejaría un
   registro falso.
-- **Se explica la herramienta, no los insights.** Lo que H1 mide es si el
-  insight le parece relevante a la gerencia, no si se entiende la pantalla.
 - **No se comenta ante nadie la calificación de otro** (CA-M7.2). Basta con
   mencionar «fulano le puso 5» para que dejen de ser independientes.
 - **Se piden 5 insights en cada uno de los 3 primeros municipios: 15 en total.**
@@ -42,16 +55,16 @@ $py = "$env:LOCALAPPDATA\venvs\territorial\Scripts\python.exe"
 
 ## Sesiones
 
-| Fecha | Persona | Gerencia | Tipo | Acompañada | Notas |
+| Fecha | Persona | Gerencia | Tipo | Condición | Notas |
 |---|---|---|---|---|---|
-| 2026-09-23 | Juan Antonio Echeverri · jecheverri@pactia.com | administrativa | adicional | **no** | **15 de 15, completa.** Calificó por su cuenta |
-| 2026-09-23 | Sandra Patricia Herrera Sanchez · sherrera@pactia.com | rotacion_portafolio | prd | **no** | **2 de 15, sesión incompleta.** Empezó por su cuenta, 15:47 |
-| 2026-09-23 | Wilmar Stiven Sanchez Muñoz · wsanchez@pactia.com | analitica | adicional | — (prueba de humo) | **6 de 15.** Operador del pipeline. Calificaciones **reales**, emitidas al verificar el despliegue: cuentan para el análisis |
-| 2026-09-24 | Sandra Patricia Herrera Sanchez · sherrera@pactia.com | rotacion_portafolio | prd | **no** | **Segunda sesión: las 13 que faltaban, 22:53 a 23:08. Queda en 15 de 15.** Volvió por su cuenta al día siguiente, y **ya con la pantalla de entrada desplegada** |
-| 2026-09-25 | Rodrigo Adolfo Cuentas Rodriguez · rcuentas@pactia.com | juridica | prd | **no** | **15 de 15, completa**, 08:55 a 09:15 (19,5 min). **8 comentarios**, la sesión que más comentó de toda la ronda |
-| 2026-09-25 | Lina Maria Navarro Villa · lnavarro@pactia.com | producto_hoteles_oficinas | prd | **no** | **15 de 15, completa**, 09:30 a 09:52 (21,7 min). 3 comentarios |
-| | Andres Bejarano Palacios · abejarano@pactia.com | general | prd | | |
-| | Edwin Gómez Villalobos · egomez@pactia.com | producto_logistica | prd | | |
+| 2026-09-23 | Juan Antonio Echeverri · jecheverri@pactia.com | administrativa | adicional | invitación + autónoma | **15 de 15, completa**, 17:35 a 17:49 (13,4 min) |
+| 2026-09-23 | Sandra Patricia Herrera Sanchez · sherrera@pactia.com | rotacion_portafolio | prd | invitación + autónoma | **2 de 15, sesión incompleta**, 15:47 |
+| 2026-09-23 | Wilmar Stiven Sanchez Muñoz · wsanchez@pactia.com | analitica | adicional | **prueba de humo** | **6 de 15**, 14:50 a 14:56. Operador del pipeline: **va aparte por eso, no por la condición**. Calificaciones **reales**, emitidas al verificar el despliegue: cuentan para el análisis |
+| 2026-09-24 | Sandra Patricia Herrera Sanchez · sherrera@pactia.com | rotacion_portafolio | prd | invitación + autónoma | **Segunda sesión: las 13 que faltaban, 22:53 a 23:08. Queda en 15 de 15.** Volvió al día siguiente, y **ya con la pantalla de entrada desplegada** |
+| 2026-09-25 | Rodrigo Adolfo Cuentas Rodriguez · rcuentas@pactia.com | juridica | prd | invitación + autónoma | **15 de 15, completa**, 08:55 a 09:15 (19,5 min). **8 comentarios**, la sesión que más comentó de toda la ronda |
+| 2026-09-25 | Lina Maria Navarro Villa · lnavarro@pactia.com | producto_hoteles_oficinas | prd | invitación + autónoma | **15 de 15, completa**, 09:30 a 09:52 (21,7 min). 3 comentarios |
+| | Andres Bejarano Palacios · abejarano@pactia.com | general | prd | invitación + autónoma | |
+| | Edwin Gómez Villalobos · egomez@pactia.com | producto_logistica | prd | invitación + autónoma | |
 
 Las 5 gerencias `prd` son el núcleo del experimento; `analitica` y
 `administrativa` se reportan aparte (F0.1b).
@@ -74,10 +87,10 @@ seguidas: jurídica de 08:55 a 09:15 y hoteles y oficinas de 09:30 a 09:52.
 
 Cuatro cosas que conviene ver ahora y no al analizar:
 
-- **Ninguna de las sesiones registradas fue acompañada.** El plan preveía lo
-  contrario, así que **lo que la ronda está midiendo es la condición que H2 sí
-  mide**. Con 3 de 5 gerencias `prd` completas sin acompañamiento, eso ha dejado
-  de ser una anécdota y pasa a ser el resultado principal.
+- **Todas las sesiones son de la misma condición**: invitación personal de unos
+  5 minutos y calificación autónoma. **No hay sesiones acompañadas**, así que la
+  tasa es de una condición única y no hay que separarla al reportar — lo que sí
+  hay que hacer es **nombrarla**, porque no es la del criterio de H2.
 - **Herrera terminó en dos sesiones, no en una.** Se quedó en 2 de 15 el día 23
   y volvió el 24 a completar las 13 restantes. Eso cambia lo que se puede decir
   de la primera: **abandonar no fue definitivo**, y al reportar conviene contar
@@ -124,7 +137,8 @@ calificaciones ya emitidas siguen siendo comparables con las que vengan.
 >
 > **Y ya hay una medición de eso**: Herrera completó sus 13 calificaciones
 > restantes el 24 por la noche, **con la pantalla de entrada ya desplegada** y
-> sin acompañamiento. La puerta no le impidió calificar.
+> calificando por su cuenta. La puerta no le impidió calificar, y después lo
+> confirmaron las dos sesiones completas del 25.
 
 ## Corte
 

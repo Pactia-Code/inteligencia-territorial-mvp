@@ -38,24 +38,24 @@ si la compuerta sale GO, es la [Fase 0 del PRD](#y-después-la-fase-0-del-prd).
 
 ---
 
-## P0 · Ronda de calificación 1 a 1
+## P0 · Ronda de calificación
 
-**Plazo: martes 2026-09-29.** El dueño se reúne con cada una de las 7 personas
-calificadoras y **califican en esa sesión**.
+**Plazo: martes 2026-09-29.** El dueño hace una **invitación personal de unos 5
+minutos** a cada gerencia, y **después cada quien califica por su cuenta**, sin
+él delante.
 
 Cómo se hace, y por qué así:
 
 - **Cada gerente teclea su propio correo y emite sus propias calificaciones.**
   No las dicta ni las delega: `calificacion.id_usuario` registra quién tecleó, y
   si el dueño calificara por otro, ese registro diría algo falso.
-- **El dueño explica la herramienta, no los insights.** La pregunta que H1 mide
-  es si el insight le parece relevante a la gerencia, no si se entiende la
-  pantalla.
+- **En la invitación se explica la herramienta, no los insights.** La pregunta
+  que H1 mide es si el insight le parece relevante a la gerencia, no si se
+  entiende la pantalla.
 - **No se comenta la calificación de nadie ante otro** (CA-M7.2): las
   calificaciones son independientes, y basta con mencionar «fulano le puso 5»
   para que dejen de serlo.
-- **La versión móvil (H-044) deja de ser prerrequisito.** Con sesión acompañada
-  y de escritorio, no bloquea; baja a P5.
+- **La versión móvil (H-044) deja de ser prerrequisito.** No bloquea; baja a P5.
 
 **Congelamiento hasta el corte del martes.** No se republica el informe ni se
 cambia nada que altere lo que ven los calificadores: ni el payload, ni los
@@ -64,13 +64,18 @@ calificar**, y si ocurre **queda registrado** en
 [ronda-calificacion.md](ronda-calificacion.md), con qué se cambió y a quién
 afectó.
 
-> **Nota metodológica, y hay que llevarla hasta el informe.** Esta ronda es de
-> **condición mixta**: se diseñó como sesiones acompañadas, pero parte de las
-> calificaciones se emiten sin acompañamiento. **Cada sesión se etiqueta
-> acompañada o no** en [ronda-calificacion.md](ronda-calificacion.md), y **H2 se
-> reporta separado por condición**, nunca como una tasa agregada — H2 del PRD
-> mide calificación sostenida **sin** acompañamiento, así que mezclarlas da un
-> número que no responde a la hipótesis.
+> **Nota metodológica, y hay que llevarla hasta el informe.** **La ronda tiene
+> una sola condición**: la tasa de respuesta se obtiene **con invitación
+> personal y calificación autónoma**. Ninguna sesión fue acompañada, así que no
+> hay nada que separar al reportar.
+>
+> **H2 del PRD suponía notificación por correo**, así que la tasa **se reporta
+> con esta condición y no se compara directamente con el criterio de éxito.** La
+> invitación personal no es acompañamiento, pero tampoco es un correo: está en
+> medio, y nombrarla es más honesto que asimilarla a cualquiera de los dos.
+>
+> La sesión de `analitica` va aparte por ser la **prueba de humo** del operador
+> del pipeline, no por su condición.
 >
 > **El tiempo entre calificaciones de una misma persona se conserva como dato
 > del análisis, y ninguna calificación se descarta por rápida.** Que alguien
@@ -180,7 +185,7 @@ aceptado, y hay que decirlo igual al publicar H1 y H2. Ver
   es quien tecleó, la gerencia es a quien se atribuye, y solo coinciden mientras
   haya una persona por gerencia.
 - **[ronda-calificacion.md](ronda-calificacion.md)** — registro de sesiones:
-  fecha, persona, gerencia y si fue acompañada.
+  fecha, persona, gerencia, condición y horas de inicio y fin.
 - **Corte: martes 2026-09-29 a las 23:59, hora de Bogotá (UTC−5)**, que en la
   base es **2026-09-30 a las 04:59 UTC**. La exportación de `calificacion` a CSV
   va **fuera del repositorio**, **se ejecuta después de esa hora** y filtra por

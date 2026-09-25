@@ -1,7 +1,7 @@
 r"""Cuánto lleva calificado cada persona en la ronda. **Solo lectura.**
 
-Sirve para acompañar la ronda 1 a 1: saber a quién falta antes del corte, sin
-tener que abrir la base a mano ni preguntar.
+Sirve para seguir la ronda: saber a quién falta antes del corte, sin tener que
+abrir la base a mano ni preguntar.
 
 **No escribe nada y no cierra nada.** La app no cierra el ciclo sola: el corte
 es una exportación de `calificacion` a CSV al final del martes, y esa foto es la
@@ -23,15 +23,18 @@ base.
   insight. Si dos personas de una misma gerencia califican el mismo insight, la
   segunda **corrige** a la primera y por gerencia sigue contando una.
 
-**Y el aviso que hay que llevar hasta el informe:** la ronda es de **condición
-mixta**. Se diseñó acompañada y parte de las calificaciones se emiten sin
-acompañamiento, así que **la tasa de aquí no se reporta agregada**: cada sesión
-se etiqueta en `docs/ronda-calificacion.md` y **H2 se reporta separado por
-condición**, porque H2 del PRD mide calificación sostenida *sin* acompañamiento.
+**Y el aviso que hay que llevar hasta el informe:** la ronda tiene **una sola
+condición**. La tasa se obtiene con **invitación personal del dueño, de unos 5
+minutos, y calificación autónoma después, sin su presencia**. Ninguna sesión fue
+acompañada, así que no hay nada que separar.
 
-**Este script no sabe de qué condición es cada calificación** —la base no lo
-guarda— así que sus totales son de las dos juntas y sirven para acompañar la
-ronda, no para reportar H2.
+**H2 del PRD suponía notificación por correo**, así que la tasa **se reporta con
+esta condición y no se compara directamente con el criterio de éxito**. La
+invitación personal no es acompañamiento, pero tampoco es un correo.
+
+La sesión de `analitica` va aparte por ser la **prueba de humo** del operador
+del pipeline, no por su condición. El registro de sesiones está en
+`docs/ronda-calificacion.md`.
 
 **Ninguna calificación se descarta por rápida.** El tiempo entre calificaciones
 de una misma persona se conserva como dato del análisis. Ver
@@ -209,10 +212,11 @@ def main() -> int:
 
     completas = sum(1 for g in prd if conteo_gerencia.get(g, 0) == len(pedidos))
     print(f"\n  gerencias «prd» que terminaron: {completas} de {len(prd)}")
-    print("\n  Ronda de CONDICIÓN MIXTA: unas sesiones son acompañadas y otras no,\n"
-          "  y la base no guarda cuál es cuál. Esto sirve para acompañar la ronda,\n"
-          "  NO para reportar H2, que va separado por condición según la etiqueta\n"
-          "  de cada sesión en docs/ronda-calificacion.md.")
+    print("\n  CONDICIÓN de la ronda: invitación personal del dueño (~5 min) y\n"
+          "  calificación autónoma después. Ninguna sesión fue acompañada.\n"
+          "  H2 del PRD suponía notificación por correo, así que esta tasa se\n"
+          "  reporta con esta condición y NO se compara con el criterio de éxito.\n"
+          "  La fila de analitica es la prueba de humo del operador del pipeline.")
     return 0
 
 

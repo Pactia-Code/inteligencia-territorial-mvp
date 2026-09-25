@@ -497,3 +497,37 @@ cualquier duda se vuelve a la raíz (`web/lib/destino.ts`). Rechaza también
 Sigue pendiente lo de siempre: pedir a comunicaciones una versión transparente
 o en SVG del principal, y confirmar cuál es el azul corporativo oficial tras el
 corte del martes.
+
+## La condición de la ronda, precisada por el dueño (2026-09-25)
+
+**Esta entrada corrige las dos anteriores sobre el tema** —«la ronda se califica
+acompañada» del 23 y «la ronda es de condición mixta» del 24—. Las dos partían
+de un supuesto equivocado sobre cómo se estaba conduciendo.
+
+**La ronda tiene una sola condición, y ninguna sesión fue acompañada:**
+
+- **Invitación personal del dueño de unos 5 minutos** a cada gerencia, donde se
+  explica la herramienta y no los insights.
+- **Calificación autónoma después**, sin él delante y cuando la persona quiera.
+  De ahí que las sesiones vayan de las 08:55 a las 23:08.
+- Vale para Echeverri, Herrera, Cuentas, Navarro **y las que vengan**.
+
+**La sesión de Wilmar Sánchez (`analitica`) va aparte**, pero **por ser la
+prueba de humo del operador del pipeline, no por su condición.**
+
+### Cómo se reporta
+
+> La tasa de respuesta de la ronda **se obtiene con invitación personal y
+> calificación autónoma**. **H2 del PRD suponía notificación por correo**, así
+> que **se reporta con esta condición y no se compara directamente con el
+> criterio de éxito.**
+
+**Por qué importa nombrarla en vez de asimilarla.** La invitación personal no es
+acompañamiento —nadie mira mientras se califica, y las horas lo demuestran— pero
+tampoco es el correo que H2 suponía: alguien pidió esto en persona, y eso pesa
+en si se responde. Está en medio, y llamarlo por su nombre es lo único que deja
+al lector juzgar cuánto vale la tasa.
+
+**Lo que esto simplifica:** ya no hay que separar la tasa por condición, porque
+solo hay una. La columna «Acompañada» de la bitácora pasa a ser **«Condición»**,
+y deja de haber un dato que el registro tenía que aportar sesión a sesión.
