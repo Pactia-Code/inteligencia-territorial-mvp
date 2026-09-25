@@ -531,3 +531,37 @@ al lector juzgar cuánto vale la tasa.
 **Lo que esto simplifica:** ya no hay que separar la tasa por condición, porque
 solo hay una. La columna «Acompañada» de la bitácora pasa a ser **«Condición»**,
 y deja de haber un dato que el registro tenía que aportar sesión a sesión.
+
+## Decisiones del dueño para F0b (2026-09-25)
+
+### 1. H-030: la cifra «entre el 25 % y el 50 %» se retira
+
+**No se define un método a posteriori para reproducirla.** La auditoría dejó dos
+salidas —definir el criterio «laxo/estricto» en F0b.4 o retirar la cifra— y el
+dueño elige retirar.
+
+**Y la razón vale más que el caso.** Inventar el método después de conocer el
+número que debe salir es elegir la consulta que confirma la cifra, aunque nadie
+lo haga a propósito. Si en el futuro se quiere esa medición, **se define el
+método antes de calcular y se publica lo que resulte**, salga lo que salga.
+
+F0b.4 queda sin objeto para esta cifra.
+
+### 2. P-5: H5 se publica como condicional
+
+Sin la tarifa real de `gpt-5.4-mini`, **H5 se publica como `1.586 + 239·k` con
+k = 1 y la advertencia impresa**. Cuando haya tarifa real **se cambia k y se
+regenera** — que es justo lo que un informe generado por script permite y uno
+escrito a mano no.
+
+### 3. Se empieza por F0b.3
+
+La tasa de rechazo desglosada por regla, 0,5 d. Es lo que la auditoría pone
+primero en la ruta crítica y desbloquea una cifra que hoy **no se puede citar**
+(ver el aviso de `CLAUDE.md` §4).
+
+### 4. Acceso a la base principal para F0b: solo lectura
+
+**`SELECT` y nada más.** Ninguna escritura. Si alguna cifra exigiera una
+migración o escribir en la base principal, **el trabajo se detiene y se
+pregunta** antes de tocar nada.
