@@ -331,7 +331,7 @@ que las gerencias calificaron.
 | **M1** Ingesta | ✅ | 18 municipios y 20.030 señales. Conectores vivos diferidos a Fase 0 |
 | **Prefiltro** | 🟡 Sin validar | Reduce 61,2%, pero el diccionario de obra da entre 13% y 90% según el municipio (**A2**) |
 | **M2** Clasificación | 🟡 No reproducible | Prompt **v4**, lotes de 50. CA-M2.1: 95,2% y 94,9% en dos pasadas. Pero **una de cada cinco señales cambia de destino entre pasadas idénticas** (**A6**). No afecta al ranking —el score lee `senal_cruda`— pero sí a lo que las gerencias leen |
-| **M3** Validación | ✅ Funciona | 7 reglas R1–R7, **código puro**. **Su tasa de rechazo está pendiente de F0b.3** y no debe citarse hasta entonces: ver el aviso de abajo |
+| **M3** Validación | ✅ Funciona | 8 reglas R1–R8, **código puro**. Tasa de rechazo **ya calculable y verificada** por regla (F0b.3): **1,2 % en la corrida 10, todo R6**. Ver el aviso de abajo antes de citarla |
 | **M4** Correlación | 🟡 No reproducible | **v1 es lo publicado y el valor por defecto**; v2 es **candidata** hasta F2.3. Solo el 14,1% de las convergencias se repiten entre pasadas idénticas (**A11**). CA-M4.3 implementado pero sin ejercitar |
 | **M5** Scoring | ✅ | F1–F6, normalización por cohorte, **top 10** y desglose. `VERSION_ALGORITMO` en **v3**. Pesos provisionales: los definitivos los decide Gerencia General (**A1/4**) |
 | **M6** Síntesis | 🟡 | Composición y publicación hechas, **ni una cifra del LLM** por construcción. **Falta el Sintetizador** |
@@ -339,13 +339,26 @@ que las gerencias calificaron.
 | **M8** Trazabilidad | 🟡 | Linaje de dataset, de prompts por contenido y trazas por agente. Falta Langfuse y el checkpointing de CA-M8.4 |
 | **M9** Aplicativo | 🟡 En producción | Rutas: `/entrar`, `/`, `/ciclo/[id]`, `/priorizados`, y `/historico` y `/metricas` como «Próximamente». **Faltan el histórico y las métricas de verdad** (P3). Lee Neon directamente; escribe solo `calificacion`, `seguimiento` e `identificacion` |
 
-> ### La tasa de rechazo del validador: no la cites todavía
+> ### La tasa de rechazo del validador: cómo se cita
 >
-> **La cifra «0,0%» que este documento traía era falsa** y la auditoría la marcó
-> como tal. La tasa real **está pendiente de F0b.3**, que exige persistirla y
-> reportarla **desglosada por regla** —R1–R7 son fidelidad de cita y R8 es cifra
-> sin fuente, que son fallos distintos del modelo—. **Hasta que F0b.3 cierre, no
-> uses ninguna tasa de rechazo en un informe ni en una conclusión sobre H4.**
+> **La cifra «0,0%» que este documento traía era falsa.** La real sale de
+> `reglas/tasa_rechazo.py` (F0b.3) y reproduce la de la auditoría: **4/326 =
+> 1,2 % en la corrida 10**, 7/320 = 2,2 % en la 7 y 15/342 = 4,4 % en la 8.
+> **Los 27 rechazos de toda la base son R6**: la cita no aparece en la señal.
+>
+> Tres condiciones para citarla, y sin ellas se engaña:
+>
+> 1. **El denominador son los insights del Clasificador.** Los consolidados del
+>    Correlacionador no pueden fallar —su evidencia la une el código— y
+>    meterlos solo diluye la tasa.
+> 2. **R8 no se ha evaluado en ninguna corrida persistida**, incluida la 10: las
+>    doce son anteriores a F0.2. Su cero es «sin medir», no «ninguna cifra
+>    inventada».
+> 3. **Va siempre con la frase de H-029**: mide fidelidad de cita contra el
+>    contenido ingerido, no veracidad.
+>
+> Se publica en `informe_resultados.md` con F0b.1; hasta entonces ese documento
+> sigue diciendo 0,0 %.
 
 ### Dos resultados que no conviene enterrar
 
