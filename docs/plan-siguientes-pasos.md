@@ -181,10 +181,22 @@ aceptado, y hay que decirlo igual al publicar H1 y H2. Ver
   haya una persona por gerencia.
 - **[ronda-calificacion.md](ronda-calificacion.md)** — registro de sesiones:
   fecha, persona, gerencia y si fue acompañada.
-- **Corte el martes 29 al final del día**: exportación de `calificacion` a CSV
-  **fuera del repositorio**. Esa foto es la que se analiza. **La app no cierra
-  el ciclo sola**: nada en el código impide calificar después del martes, así
-  que el corte lo define la exportación, no el sistema.
+- **Corte: martes 2026-09-29 a las 23:59, hora de Bogotá (UTC−5)**, que en la
+  base es **2026-09-30 a las 04:59 UTC**. La exportación de `calificacion` a CSV
+  va **fuera del repositorio**, **se ejecuta después de esa hora** y filtra por
+  `creado_en <= '2026-09-30 04:59:59+00'`. Esa foto es la que se analiza.
+
+  **El instante va en los dos husos a propósito.** La base guarda en UTC y
+  Bogotá va cinco horas por detrás, así que un corte definido solo como «el
+  martes» se aplicaría mal por cinco horas — y se llevaría por delante las
+  calificaciones de última hora, que son las más probables. Ya pasó con la
+  segunda sesión de Herrera, que figura con fecha 25 siendo del 24 en local.
+
+  **La app no cierra el ciclo sola**: nada en el código impide calificar después
+  del martes, así que el corte lo define la exportación, no el sistema. Lo que
+  llegue después existirá en la base y no en la foto, y la diferencia hay que
+  declararla al reportar. El detalle está en
+  [ronda-calificacion.md](ronda-calificacion.md).
 
 ## P2 · F0b — prerrequisitos de la decisión go/no-go · **5 d**
 

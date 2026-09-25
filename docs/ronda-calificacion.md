@@ -120,8 +120,28 @@ calificaciones ya emitidas siguen siendo comparables con las que vengan.
 
 ## Corte
 
-**Martes 29 al final del día**: exportación de `calificacion` a CSV **fuera del
-repositorio**. Esa foto es la que se analiza.
+**Martes 2026-09-29 a las 23:59, hora de Bogotá (UTC−5).** En la base, que
+guarda en UTC, eso es **2026-09-30 a las 04:59**.
+
+La exportación de `calificacion` a CSV va **fuera del repositorio**, **se
+ejecuta después de esa hora** y filtra por:
+
+```sql
+WHERE creado_en <= '2026-09-30 04:59:59+00'
+```
+
+Esa foto es la que se analiza.
+
+> **Por qué se escribe el instante en los dos husos.** Las calificaciones de la
+> segunda sesión de Herrera figuran en la base con fecha **25** siendo de la
+> noche del **24** en Bogotá. Un corte definido solo como «el martes» se
+> aplicaría mal por cinco horas, y se llevaría por delante justo las
+> calificaciones de última hora, que son las que más probable es que lleguen.
+>
+> Nota sobre el predicado: `<= '04:59:59+00'` deja fuera la fracción de segundo
+> entre `04:59:59.000001` y `04:59:59.999999`. Si se quiere el mismo límite sin
+> ese hueco, el equivalente exacto es `< '2026-09-30 05:00:00+00'`. Queda a
+> decisión del dueño; el filtro oficial es el de arriba.
 
 **La app no cierra el ciclo sola**: nada en el código impide calificar después
 del martes, así que el corte lo define la exportación y no el sistema. Si
