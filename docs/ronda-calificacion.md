@@ -48,9 +48,9 @@ $py = "$env:LOCALAPPDATA\venvs\territorial\Scripts\python.exe"
 | 2026-09-23 | Sandra Patricia Herrera Sanchez · sherrera@pactia.com | rotacion_portafolio | prd | **no** | **2 de 15, sesión incompleta.** Empezó por su cuenta, 15:47 |
 | 2026-09-23 | Wilmar Stiven Sanchez Muñoz · wsanchez@pactia.com | analitica | adicional | — (prueba de humo) | **6 de 15.** Operador del pipeline. Calificaciones **reales**, emitidas al verificar el despliegue: cuentan para el análisis |
 | 2026-09-24 | Sandra Patricia Herrera Sanchez · sherrera@pactia.com | rotacion_portafolio | prd | **no** | **Segunda sesión: las 13 que faltaban, 22:53 a 23:08. Queda en 15 de 15.** Volvió por su cuenta al día siguiente, y **ya con la pantalla de entrada desplegada** |
+| 2026-09-25 | Rodrigo Adolfo Cuentas Rodriguez · rcuentas@pactia.com | juridica | prd | **no** | **15 de 15, completa**, 08:55 a 09:15 (19,5 min). **8 comentarios**, la sesión que más comentó de toda la ronda |
+| 2026-09-25 | Lina Maria Navarro Villa · lnavarro@pactia.com | producto_hoteles_oficinas | prd | **no** | **15 de 15, completa**, 09:30 a 09:52 (21,7 min). 3 comentarios |
 | | Andres Bejarano Palacios · abejarano@pactia.com | general | prd | | |
-| | Rodrigo Adolfo Cuentas Rodriguez · rcuentas@pactia.com | juridica | prd | | |
-| | Lina Maria Navarro Villa · lnavarro@pactia.com | producto_hoteles_oficinas | prd | | |
 | | Edwin Gómez Villalobos · egomez@pactia.com | producto_logistica | prd | | |
 
 Las 5 gerencias `prd` son el núcleo del experimento; `analitica` y
@@ -62,25 +62,33 @@ Las 5 gerencias `prd` son el núcleo del experimento; `analitica` y
 > por detrás. Son de la noche del 24 en local. Al contar sesiones por día hay
 > que convertir, o la misma sesión sale partida en dos fechas.
 
-### Dónde estamos al 2026-09-25
+### Dónde estamos al 2026-09-25, 10:00 de Bogotá
 
-**36 de 105 calificaciones pedidas** (15 × 7), y **1 de las 5 gerencias `prd` ha
-terminado**: `rotacion_portafolio`. También está completa `administrativa`, que
-es adicional y no cuenta para H2. Las otras cuatro `prd` no han empezado.
+**66 de 105 calificaciones pedidas** (15 × 7), y **3 de las 5 gerencias `prd`
+han terminado**: `juridica`, `producto_hoteles_oficinas` y
+`rotacion_portafolio`. También está completa `administrativa`, que es adicional
+y no cuenta para H2. Quedan sin empezar **`general` y `producto_logistica`**.
 
-Tres cosas que conviene ver ahora y no al analizar:
+La mañana del 25 aportó **30 calificaciones en una hora**, en dos sesiones
+seguidas: jurídica de 08:55 a 09:15 y hoteles y oficinas de 09:30 a 09:52.
+
+Cuatro cosas que conviene ver ahora y no al analizar:
 
 - **Ninguna de las sesiones registradas fue acompañada.** El plan preveía lo
-  contrario, así que lo que la ronda está midiendo hasta ahora es **la condición
-  que H2 sí mide**. Los 15 de 15 de `administrativa` son el dato más
-  interesante que hay, aunque sea de una gerencia adicional.
+  contrario, así que **lo que la ronda está midiendo es la condición que H2 sí
+  mide**. Con 3 de 5 gerencias `prd` completas sin acompañamiento, eso ha dejado
+  de ser una anécdota y pasa a ser el resultado principal.
 - **Herrera terminó en dos sesiones, no en una.** Se quedó en 2 de 15 el día 23
-  y volvió el 24 a completar las 13 restantes, sin que nadie la acompañara. Eso
-  cambia lo que se puede decir de la primera sesión: **abandonar no fue
-  definitivo**, y al reportar conviene contar sesiones y no solo personas.
-- **Su segunda sesión fue ya con la pantalla de entrada desplegada.** Es la
-  primera evidencia de que la puerta de P0.5 no impide calificar a alguien
-  distinto del operador del pipeline.
+  y volvió el 24 a completar las 13 restantes. Eso cambia lo que se puede decir
+  de la primera: **abandonar no fue definitivo**, y al reportar conviene contar
+  sesiones y no solo personas.
+- **Completar lleva unos 20 minutos.** Las cuatro sesiones completas van de 13,4
+  a 21,7 minutos para 15 insights. Es un dato de esfuerzo que H2 necesita y que
+  no se deduce del conteo.
+- **Los comentarios se concentran.** Hay 13 en total y **11 son de las dos
+  sesiones del 25** (jurídica 8, hoteles 3). Al analizar H1 conviene mirar si
+  eso es la persona, el momento o los insights que les tocaron, y no darlo por
+  «unas gerencias se implican más».
 
 ## Congelamiento
 
