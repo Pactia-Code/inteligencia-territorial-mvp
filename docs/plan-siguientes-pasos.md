@@ -38,6 +38,68 @@ si la compuerta sale GO, es la [Fase 0 del PRD](#y-después-la-fase-0-del-prd).
 
 ---
 
+## La hoja de ruta, en orden
+
+**Decidida por el dueño el 2026-09-25.** Los bloques P0–P6 dicen *qué* hay que
+hacer; esto dice **en qué orden y qué espera a qué**.
+
+| # | Qué | Cuándo | Bloque |
+|---|---|---|---|
+| **1** | **La ronda, hasta el corte** | Hasta el **martes 2026-09-29, 23:59 de Bogotá** | P0 · P1 |
+| **2** | **F0b, en paralelo**: construir ya el script que regenera `informe_resultados.md` | **Se construye ahora, se ejecuta después del corte** | P2 |
+| **3** | **Análisis de la ronda** | Tras el corte | **nuevo**, ver abajo |
+| **4** | **Decisión go/no-go** | Con el informe regenerado y el análisis delante | — |
+| **5** | Si GO: **P4 y el Sintetizador**, antes del ciclo 4 | Después de la decisión | P4 · P3 |
+| **6** | **Producto**: histórico, métricas, trazabilidad en pantalla, azul corporativo, móvil | Después | P3 · P5 |
+| **7** | **Fase 0 del PRD** | Horizonte | — |
+
+**P6 (endurecimiento) se intercala**, no espera turno: son 10,7 d de deuda que
+se van metiendo entre lo demás según haya hueco.
+
+### 2. Por qué F0b se construye antes del corte y se ejecuta después
+
+**Lo que tarda es escribir el script, no correrlo.** Son 3 d de F0b.1 y la
+ronda dura 4 días: hacerlos en serie llegaría tarde a la decisión sin ninguna
+necesidad.
+
+Y hay una razón mejor que la de calendario: **el script tiene que estar escrito
+antes de conocer los resultados de H1 y H2**. Si se escribe después, cada
+consulta se elige —aunque sea sin querer— sabiendo qué número produce. Fijar el
+método antes de ver el dato es lo que hace que la cifra signifique algo.
+
+### 3. Análisis de la ronda · *nuevo, tras el corte*
+
+Sobre la exportación del corte, no sobre la base en vivo. **Alimenta F0b**: es
+lo que llena las secciones de H1 y H2 que hoy están vacías.
+
+| Qué | Por qué |
+|---|---|
+| **H1: distribución de calificaciones por gerencia**, con y sin las adicionales | El núcleo son las 5 `prd`; `administrativa` y `analitica` van aparte (F0.1b) y pueden mover la media |
+| **H2: tasa por la condición registrada** | Invitación personal y calificación autónoma. **No se compara directamente con el criterio**, que suponía notificación por correo |
+| **Acuerdo entre gerencias** | Un insight que todas puntúan alto dice algo distinto de uno que divide. Sin esto, la media esconde el desacuerdo |
+| **Tiempos por sesión** | Ya medidos: de 13,4 a 21,7 minutos para 15 insights. Es el dato de esfuerzo que H2 necesita |
+| **Comentarios** | 13 hasta ahora, muy concentrados. Son lo único cualitativo que la ronda produce |
+
+### 5. Si sale GO: qué va antes del ciclo 4
+
+**P4 (fiabilidad del pipeline) y el Sintetizador, los dos antes de correr.** No
+es orden caprichoso: el **ciclo 4 sería el primero que aprende de calificaciones
+reales** (CA-M4.3), que hoy está implementado y **no se puede probar porque no
+había ni una calificación**. Estrenarlo sobre un pipeline que aún marca como
+completas las corridas interrumpidas (H-037) sería medir el aprendizaje y el
+fallo a la vez.
+
+### Decisiones del dueño que esta hoja de ruta espera
+
+| Decisión | Qué depende de ella |
+|---|---|
+| **¿Hay ciclo 4?** | Si no, P4 deja de ser prerrequisito y el paso 5 desaparece |
+| **Plan de Vercel** (Hobby / Pro) | La observabilidad: los errores de runtime dan 403 en Hobby |
+| **Azul corporativo y logo**, con comunicaciones | El token `color-navy-700` frente al `#1D2559` del logo, y la versión transparente del principal |
+| **Tarifa real de `gpt-5.4-mini` (P-5)** | Cerrar H5 con una cifra en vez de la condicional `1.586 + 239·k` |
+
+---
+
 ## P0 · Ronda de calificación
 
 **Plazo: martes 2026-09-29.** El dueño hace una **invitación personal de unos 5
@@ -316,11 +378,10 @@ documental, con la comparación pendiente en F2.3.
 
 ## Decisiones pendientes del dueño
 
-| | Decisión | Bloquea |
-|---|---|---|
-| **Plan de Vercel** | Hobby frente a Pro | La observabilidad —los errores de runtime dan 403 en Hobby— y «Only Preview Deployments» |
-| **P-5** | Tarifa real de `gpt-5.4-mini` | Cerrar H5 con una cifra en vez de un factor declarado (F0b.2) |
-| **Ciclo 4** | ¿Se corre uno nuevo? | Si sí, **P4 sube a prerrequisito** |
+**Están arriba**, en [la hoja de ruta](#decisiones-del-dueño-que-esta-hoja-de-ruta-espera):
+ciclo 4, plan de Vercel, azul y logo con comunicaciones, y la tarifa real
+(P-5). Se listan allí y no aquí para que no haya dos listas que se
+desincronicen.
 
 ---
 
