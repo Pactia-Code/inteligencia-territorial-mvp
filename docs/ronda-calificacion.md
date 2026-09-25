@@ -45,8 +45,9 @@ $py = "$env:LOCALAPPDATA\venvs\territorial\Scripts\python.exe"
 | Fecha | Persona | Gerencia | Tipo | Acompañada | Notas |
 |---|---|---|---|---|---|
 | 2026-09-23 | Juan Antonio Echeverri · jecheverri@pactia.com | administrativa | adicional | **no** | **15 de 15, completa.** Calificó por su cuenta |
-| 2026-09-23 | Sandra Patricia Herrera Sanchez · sherrera@pactia.com | rotacion_portafolio | prd | **no** | **2 de 15, sesión incompleta.** Empezó por su cuenta |
+| 2026-09-23 | Sandra Patricia Herrera Sanchez · sherrera@pactia.com | rotacion_portafolio | prd | **no** | **2 de 15, sesión incompleta.** Empezó por su cuenta, 15:47 |
 | 2026-09-23 | Wilmar Stiven Sanchez Muñoz · wsanchez@pactia.com | analitica | adicional | — (prueba de humo) | **6 de 15.** Operador del pipeline. Calificaciones **reales**, emitidas al verificar el despliegue: cuentan para el análisis |
+| 2026-09-24 | Sandra Patricia Herrera Sanchez · sherrera@pactia.com | rotacion_portafolio | prd | **no** | **Segunda sesión: las 13 que faltaban, 22:53 a 23:08. Queda en 15 de 15.** Volvió por su cuenta al día siguiente, y **ya con la pantalla de entrada desplegada** |
 | | Andres Bejarano Palacios · abejarano@pactia.com | general | prd | | |
 | | Rodrigo Adolfo Cuentas Rodriguez · rcuentas@pactia.com | juridica | prd | | |
 | | Lina Maria Navarro Villa · lnavarro@pactia.com | producto_hoteles_oficinas | prd | | |
@@ -55,21 +56,31 @@ $py = "$env:LOCALAPPDATA\venvs\territorial\Scripts\python.exe"
 Las 5 gerencias `prd` son el núcleo del experimento; `analitica` y
 `administrativa` se reportan aparte (F0.1b).
 
-### Dónde estamos al 2026-09-24
+> **Las horas son de Bogotá y las de la base son UTC.** Las 13 calificaciones
+> de la segunda sesión de Herrera figuran en `calificacion.creado_en` con fecha
+> **2026-09-25** —entre las 03:53 y las 04:08— porque Colombia va cinco horas
+> por detrás. Son de la noche del 24 en local. Al contar sesiones por día hay
+> que convertir, o la misma sesión sale partida en dos fechas.
 
-**23 de 105 calificaciones pedidas** (15 × 7), y **0 de las 5 gerencias `prd`
-han terminado**, a cinco días del corte. La única completa es `administrativa`,
-que es adicional.
+### Dónde estamos al 2026-09-25
 
-Dos cosas que conviene ver ahora y no al analizar:
+**36 de 105 calificaciones pedidas** (15 × 7), y **1 de las 5 gerencias `prd` ha
+terminado**: `rotacion_portafolio`. También está completa `administrativa`, que
+es adicional y no cuenta para H2. Las otras cuatro `prd` no han empezado.
+
+Tres cosas que conviene ver ahora y no al analizar:
 
 - **Ninguna de las sesiones registradas fue acompañada.** El plan preveía lo
   contrario, así que lo que la ronda está midiendo hasta ahora es **la condición
   que H2 sí mide**. Los 15 de 15 de `administrativa` son el dato más
   interesante que hay, aunque sea de una gerencia adicional.
-- **Sandra Herrera se quedó en 2 de 15.** Una sesión que empieza y no termina es
-  distinto de no empezar, y al reportar hay que distinguirlas: la primera dice
-  algo sobre el esfuerzo que pide calificar, la segunda no dice nada todavía.
+- **Herrera terminó en dos sesiones, no en una.** Se quedó en 2 de 15 el día 23
+  y volvió el 24 a completar las 13 restantes, sin que nadie la acompañara. Eso
+  cambia lo que se puede decir de la primera sesión: **abandonar no fue
+  definitivo**, y al reportar conviene contar sesiones y no solo personas.
+- **Su segunda sesión fue ya con la pantalla de entrada desplegada.** Es la
+  primera evidencia de que la puerta de P0.5 no impide calificar a alguien
+  distinto del operador del pipeline.
 
 ## Congelamiento
 
@@ -100,10 +111,12 @@ calificaciones ya emitidas siguen siendo comparables con las que vengan.
 | 2026-09-24 | **«Próximamente»** en `/historico` y `/metricas` | Las dos entradas del menú daban 404, que durante la ronda se lee como que el sistema está roto | A quien pulsara esas entradas | **PR #2** |
 | 2026-09-24 | **Pantalla de entrada** con correo y logo | Decisión del dueño: privacidad e imagen. Antes el informe se leía con solo tener el enlace | **A todos**, y es la que más se nota: ahora hay que entrar antes de ver nada | **PR #3**, merge `45ec4d2` |
 
-> **La tercera cambia lo que se encuentra quien aún no ha entrado.** Las cuatro
-> gerencias `prd` que no han empezado recibirán la pantalla de entrada sin
-> haberla visto antes. No altera el informe ni la calificación, pero **sí lo que
-> ven al abrir el enlace**, y conviene avisarlas antes del martes.
+> **La tercera cambia lo que se encuentra quien aún no ha entrado.** No altera el
+> informe ni la calificación, pero **sí lo que se ve al abrir el enlace**.
+>
+> **Y ya hay una medición de eso**: Herrera completó sus 13 calificaciones
+> restantes el 24 por la noche, **con la pantalla de entrada ya desplegada** y
+> sin acompañamiento. La puerta no le impidió calificar.
 
 ## Corte
 

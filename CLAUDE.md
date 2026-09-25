@@ -43,6 +43,17 @@ existe porque romperla estropea el experimento en curso.
 7. **La documentación va a `main`.** `remediacion/f0` queda como referencia
    histórica; no se trabaja sobre ella.
 
+### Al resumir el estado de la ronda
+
+**No incluyas avisos ni recordatorios sobre contactar o avisar a los
+calificadores.** El dueño lleva esa relación fuera del proyecto y no necesita
+que se la recuerden; repetirlo en cada resumen gasta espacio que debería ir a lo
+que sí se deduce de los datos.
+
+Lo que sí va en un resumen: **las cifras, lo que cambió desde la última vez y lo
+que se puede o no concluir de ello.** Un avance de 2 a 15 en una gerencia es un
+dato; «habría que escribirle a fulano» no lo es.
+
 ---
 
 ## 1. Qué es este proyecto
@@ -437,7 +448,7 @@ Microsoft Store y no sirve.
 
 ```powershell
 $py = "$env:LOCALAPPDATA\venvs\territorial\Scripts\python.exe"
-& $py -m pytest -q                                      # 345 pruebas, aisladas
+& $py -m pytest -q                                      # 368 pruebas, aisladas
 & $py scripts\calcular_scores.py --ciclo 3              # M5, no gasta tokens
 & $py scripts\avance_calificacion.py                    # ronda, solo lectura
 & $py scripts\verificar_llm.py                          # conexión al tenant
