@@ -66,8 +66,13 @@ y las dos rondas se reportan por separado.
 |---|---|
 | **mar 2026-09-29** | ✅ Corte de la **ronda principal**, 23:59 de Bogotá |
 | **jue 2026-10-01** | ✅ **Exportación de la ronda principal**: 66 filas, en `C:\dev\respaldos\corte-ronda-2026-09-29\` · empieza **F0b.1** |
+| **jue 2026-10-01** | ✅ **Tablero Javelin congelado** por decisión del dueño, una semana antes del cierre de la extendida |
+| **hasta el jue 2026-10-08** | **F0b.1** |
 | **jue 2026-10-08** | Cierre de la **ronda extendida**, 23:59 de Bogotá (`2026-10-09 04:59:59+00`) |
 | **vie 2026-10-09** | **Exportación de la extendida**, en `C:\dev\respaldos\corte-ronda-extendida-2026-10-08\` · **análisis** de las dos rondas · **se ejecuta el script** de F0b.1 |
+| **vie 9 – sáb 10** | **Evaluación del piloto** contra el tablero y el PRD |
+| **sáb 10 – dom 11** | **Preparación de la presentación** |
+| **lun 2026-10-12** | *Festivo en Colombia* |
 | **mar 2026-10-13** | **Presentación** |
 | *después del 13* | **Sintetizador** y **ciclo 4**, si sale GO |
 
@@ -79,6 +84,27 @@ se ejecuta: el margen es para probarlo, no para escribirlo.
 no hay análisis, y sin análisis el script no tiene qué poner en H1 y H2. Por eso
 la exportación se hace a primera hora, y por eso el script tiene que poder
 regenerarse en cuanto el análisis termine.
+
+### El tablero Javelin, y por qué se congeló antes del cierre
+
+El tablero salió de [`docs/prompts/javelin.md`](prompts/javelin.md) y está en
+[`docs/javelin.md`](javelin.md). **Se congeló el 2026-10-01**, por decisión del
+dueño: estaba previsto para el 6 y se adelantó, así que queda fijo **una semana
+antes de que cierre la ronda extendida**, por la misma razón por la que F0b.1 se escribe antes
+de ejecutarse: un criterio elegido después de ver los datos se elige —aunque sea
+sin querer— para que el resultado cuadre.
+
+Tres reglas que lo mantienen honesto, y están en la plantilla:
+
+- **H1–H5 se copian del PRD con su criterio de éxito original.** Ningún umbral
+  se toca.
+- **Las hipótesis añadidas** para completar dos por dimensión van marcadas como
+  **«experimento hacia adelante»** y **no se evalúan con los datos actuales**.
+- **Cada hipótesis dice si ya tiene datos del MVP o no.**
+
+La evaluación del 9 y el 10 sale de
+[`docs/prompts/evaluacion-piloto.md`](prompts/evaluacion-piloto.md), y mide el
+piloto contra ese tablero congelado y contra el PRD.
 
 ### 2. Por qué F0b se construye antes del corte y se ejecuta después
 
