@@ -19,7 +19,7 @@ Esto es lo que viene, en orden.
 |---|---|---:|---|
 | **P0** | Ronda de calificación 1 a 1 | *actividad, no subfase* | H1 y H2: sin calificaciones no hay experimento |
 | ~~**P0.5**~~ | ~~Correcciones visibles durante la ronda~~ | **hecho** | Desplegado el 2026-09-24 (PR #2 y #3) |
-| **P1** | Seguimiento de la ronda | *actividad* + script hecho | Saber a quién falta antes del corte |
+| **P1** | Seguimiento de la ronda | *actividad* + script hecho | Saber a quién falta antes de cada corte |
 | **P2** | F0b · prerrequisitos de la decisión | **5 d** | La compuerta go/no-go |
 | **P3** | Capacidades del PRD no construidas | **6 d** + Sintetizador *sin estimar* | Cumplir lo que el PRD pide |
 | **P4** | Antes de correr un ciclo nuevo | **7 d** (+ ~USD 3 de tokens) | Un ciclo 4, si se decide |
@@ -45,16 +45,40 @@ hacer; esto dice **en qué orden y qué espera a qué**.
 
 | # | Qué | Cuándo | Bloque |
 |---|---|---|---|
-| **1** | **La ronda, hasta el corte** | Hasta el **martes 2026-09-29, 23:59 de Bogotá** | P0 · P1 |
-| **2** | **F0b, en paralelo**: construir ya el script que regenera `informe_resultados.md` | **Se construye ahora, se ejecuta después del corte** | P2 |
-| **3** | **Análisis de la ronda** | Tras el corte | **nuevo**, ver abajo |
-| **4** | **Decisión go/no-go** | Con el informe regenerado y el análisis delante | — |
-| **5** | Si GO: **P4 y el Sintetizador**, antes del ciclo 4 | Después de la decisión | P4 · P3 |
+| **1** | **La ronda**: principal, **cerrada** el 29; extendida, hasta el 8 | Principal ✅ · extendida hasta el **2026-10-08** | P0 · P1 |
+| **2** | **F0b, en paralelo**: construir el script que regenera `informe_resultados.md` | **Desde el 2026-10-01**, se ejecuta el 9 | P2 |
+| **3** | **Análisis de la ronda**, de las dos por separado | El **9** | **nuevo**, ver abajo |
+| **4** | **Presentación y decisión go/no-go** | El **13** | — |
+| **5** | Si GO: **P4 y el Sintetizador**, antes del ciclo 4 | **Después del 13** | P4 · P3 |
 | **6** | **Producto**: histórico, métricas, trazabilidad en pantalla, azul corporativo, móvil | Después | P3 · P5 |
 | **7** | **Fase 0 del PRD** | Horizonte | — |
 
 **P6 (endurecimiento) se intercala**, no espera turno: son 10,7 d de deuda que
 se van metiendo entre lo demás según haya hueco.
+
+### El calendario hasta la presentación
+
+**Decidido por el dueño el 2026-10-01: la presentación pasa al 13.** Las
+calificaciones posteriores al corte del 29 se aceptan como **ronda extendida**,
+y las dos rondas se reportan por separado.
+
+| Fecha | Qué |
+|---|---|
+| **mar 2026-09-29** | ✅ Corte de la **ronda principal**, 23:59 de Bogotá |
+| **jue 2026-10-01** | ✅ **Exportación de la ronda principal**: 66 filas, en `C:\dev\respaldos\corte-ronda-2026-09-29\` · empieza **F0b.1** |
+| **jue 2026-10-08** | Cierre de la **ronda extendida**, 23:59 de Bogotá (`2026-10-09 04:59:59+00`) |
+| **vie 2026-10-09** | **Exportación de la extendida**, en `C:\dev\respaldos\corte-ronda-extendida-2026-10-08\` · **análisis** de las dos rondas · **se ejecuta el script** de F0b.1 |
+| **mar 2026-10-13** | **Presentación** |
+| *después del 13* | **Sintetizador** y **ciclo 4**, si sale GO |
+
+**F0b.1 tiene del 1 al 9: seis días hábiles para 3 d de estimación.** Holgura
+hay, pero el script tiene que estar terminado **antes** del 9, porque ese día
+se ejecuta: el margen es para probarlo, no para escribirlo.
+
+**Y el 9 concentra tres cosas que dependen unas de otras**: sin la exportación
+no hay análisis, y sin análisis el script no tiene qué poner en H1 y H2. Por eso
+la exportación se hace a primera hora, y por eso el script tiene que poder
+regenerarse en cuanto el análisis termine.
 
 ### 2. Por qué F0b se construye antes del corte y se ejecuta después
 
@@ -67,10 +91,11 @@ antes de conocer los resultados de H1 y H2**. Si se escribe después, cada
 consulta se elige —aunque sea sin querer— sabiendo qué número produce. Fijar el
 método antes de ver el dato es lo que hace que la cifra signifique algo.
 
-### 3. Análisis de la ronda · *nuevo, tras el corte*
+### 3. Análisis de la ronda · *nuevo, el 9*
 
-Sobre la exportación del corte, no sobre la base en vivo. **Alimenta F0b**: es
-lo que llena las secciones de H1 y H2 que hoy están vacías.
+Sobre las **dos exportaciones**, no sobre la base en vivo, y **cada ronda por
+separado**: la principal (cerrada el 29) y la extendida (cerrada el 8).
+**Alimenta F0b**: es lo que llena las secciones de H1 y H2 que hoy están vacías.
 
 | Qué | Por qué |
 |---|---|
@@ -102,7 +127,8 @@ fallo a la vez.
 
 ## P0 · Ronda de calificación
 
-**Plazo: martes 2026-09-29.** El dueño hace una **invitación personal de unos 5
+**Ronda principal cerrada el martes 2026-09-29** en 66 de 105; **ronda
+extendida hasta el jueves 2026-10-08**. El dueño hace una **invitación personal de unos 5
 minutos** a cada gerencia, y **después cada quien califica por su cuenta**, sin
 él delante.
 
@@ -119,12 +145,10 @@ Cómo se hace, y por qué así:
   para que dejen de serlo.
 - **La versión móvil (H-044) deja de ser prerrequisito.** No bloquea; baja a P5.
 
-**Congelamiento hasta el corte del martes.** No se republica el informe ni se
-cambia nada que altere lo que ven los calificadores: ni el payload, ni los
-textos, ni la selección pedida. **Solo se corrige un error que impida
-calificar**, y si ocurre **queda registrado** en
-[ronda-calificacion.md](ronda-calificacion.md), con qué se cambió y a quién
-afectó.
+**El congelamiento terminó** con el corte de la ronda principal, el 29.
+Mientras duró no se republicó el informe y solo entraron las correcciones de
+P0.5; el registro está en [ronda-calificacion.md](ronda-calificacion.md). La
+ronda extendida se califica sobre el mismo informe 8.
 
 > **Nota metodológica, y hay que llevarla hasta el informe.** **La ronda tiene
 > una sola condición**: la tasa de respuesta se obtiene **con invitación
@@ -261,9 +285,17 @@ aceptado, y hay que decirlo igual al publicar H1 y H2. Ver
 
   **La app no cierra el ciclo sola**: nada en el código impide calificar después
   del martes, así que el corte lo define la exportación, no el sistema. Lo que
-  llegue después existirá en la base y no en la foto, y la diferencia hay que
-  declararla al reportar. El detalle está en
-  [ronda-calificacion.md](ronda-calificacion.md).
+  llegó después es de la **ronda extendida**, que se reporta aparte.
+
+  ✅ **Exportada el 2026-10-01**: 66 filas en
+  `C:\dev\respaldos\corte-ronda-2026-09-29\`, con manifiesto y sha256. **Se
+  reconstruyó por `creado_en` dos días después del corte**, así que una
+  corrección o un comentario añadido en ese intervalo no se vería (H-008); la
+  evidencia y su alcance están en [ronda-calificacion.md](ronda-calificacion.md).
+- **Corte de la ronda extendida: jueves 2026-10-08 a las 23:59 de Bogotá**
+  (`2026-10-09 04:59:59+00`). Se exporta **el 9**, a
+  `C:\dev\respaldos\corte-ronda-extendida-2026-10-08\` — **el mismo día**, para
+  que la ventana sin marca de tiempo sea de horas y no de días.
 
 ## P2 · F0b — prerrequisitos de la decisión go/no-go · **5 d**
 
@@ -288,7 +320,7 @@ costo con un factor declarado en vez de una cifra cerrada.
 
 Salen de la matriz de conformidad de la auditoría: CA en **No cumple**, más los
 **Parcial** cuyo hallazgo es una Brecha que la remediación no cerró. **Nada de
-esto se hace antes del corte del martes.**
+esto se hace antes de la presentación del 13.**
 
 | Capacidad | Criterios | Subfase | Esfuerzo | Cierre |
 |---|---|---|---:|---|
