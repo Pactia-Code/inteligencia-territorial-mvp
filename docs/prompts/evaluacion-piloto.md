@@ -66,7 +66,7 @@ Máximo 4 afirmaciones por lado, cada una anclada en un número de las tablas an
   |---|---|
   | Línea base del PRD | **[Sin línea base]**. Ver la regla «No hay antes» |
   | Arquetipo de la solución | `docs/prd.md` §3, Arquitectura |
-  | Tablero Javelin | `docs/javelin.md`, con los criterios **congelados el 2026-10-06** |
+  | Tablero Javelin | `docs/javelin.md`, con los criterios **congelados el 2026-10-01** por decisión del dueño |
   | Registro de los experimentos | **Dos exportaciones, por separado**: la **ronda principal** en `C:\dev\respaldos\corte-ronda-2026-09-29\` y la **ronda extendida** en `C:\dev\respaldos\corte-ronda-extendida-2026-10-08\`, más `docs/informe_resultados.md` **regenerado por F0b.1** |
   | Observaciones cualitativas | Los **comentarios de las calificaciones** —columna `comentario` de los dos `calificacion.csv`— y las **notas cualitativas del dueño** |
 

@@ -1,6 +1,7 @@
 # Tablero Javelin — MVP Inteligencia Territorial
 
-> **Borrador para revisión del dueño. Se congela el 2026-10-06.**
+> **Congelado el 2026-10-01 por decisión del dueño. No se modifica ningún
+> criterio después de esta fecha.**
 
 Generado el 2026-10-01 con [`docs/prompts/javelin.md`](prompts/javelin.md),
 aplicando sus reglas del proyecto. Entradas: [`docs/prd.md`](prd.md) (último
@@ -21,8 +22,8 @@ tablero ya congelado.
 | 1 | **Deseabilidad** | El pipeline agéntico produce insights que las gerencias consideran relevantes | Que una gerencia distingue un insight útil de uno que no lo es al leerlo en el informe | Piloto del MVP | Distribución de calificaciones 1-5 | ≥30% de insights con promedio ≥4 **[EST]** | PRD H1 | **Sí** — calificaciones de la ronda principal (exportadas) y de la extendida (abierta) | §1, línea 46 |
 | 2 | **Deseabilidad** | Las 7 gerencias califican de forma sostenida | Que calificar es lo bastante útil y barato como para hacerlo sin que nadie insista. **Desviaciones registradas**: el núcleo son **5 gerencias «prd»**, no 7; y la condición fue **invitación personal y calificación autónoma**, no notificación por correo | Piloto del MVP | Tasa de respuesta por gerencia por ciclo | ≥50% promedio en ciclo 3 **[EST]** | PRD H2 | **Sí** — tasa por gerencia de las dos rondas, con su condición | §1, línea 47 |
 | 3 | **Viabilidad** | El costo por ciclo es viable a escala nacional | Que el costo por municipio se mantiene al pasar de 18 a 1.103 municipios | Piloto del MVP | Tokens y costo por ciclo, extrapolado a 1.103 municipios | Extrapolación documentada | PRD H5 | **Sí** — tokens de las 266 trazas de agente; tarifa condicional (P-5) | §1, línea 50 |
-| 4 | **Viabilidad** | El Área de Analítica puede operar el sistema con la capacidad que tiene | Que un ciclo corre casi solo y pide poca intervención humana, como exige la restricción de origen del PRD | **Concierge**: quien opere un ciclo anota cada intervención —qué hizo y cuántos minutos— durante 2 ciclos | Horas-persona de intervención por ciclo | **≤ 8 horas-persona por ciclo** *(umbral propuesto, a decidir por el dueño)* | **Añadida** — experimento hacia adelante | **No** — las horas no se registraron durante el piloto | §0, línea 34 · §6, línea 395 |
-| 5 | **Viabilidad** | Los municipios priorizados producen acción, no solo lectura | Que una gerencia mueve el estado de un municipio en el tablero de seguimiento cuando le interesa | **Concierge**: en el siguiente informe publicado, pedir a las gerencias que muevan el estado de los municipios del top 3 que revisen, y una entrevista de 10 minutos con quien los mueva | % de municipios del top 3 que salen de `priorizado` en un ciclo, y cuántos llegan a `en_estructuracion` | **≥ 1 de los 3 municipios del top 3 sale de `priorizado` por ciclo** *(umbral propuesto, a decidir por el dueño)* | **Añadida** — experimento hacia adelante | **No** — `seguimiento` tiene 0 cambios de estado | §6, líneas 396 y 398 · CA-M9.9, línea 357 |
+| 4 | **Viabilidad** | El Área de Analítica puede operar el sistema con la capacidad que tiene | Que un ciclo corre casi solo y pide poca intervención humana, como exige la restricción de origen del PRD | **Concierge**: quien opere un ciclo anota cada intervención —qué hizo y cuántos minutos— durante 2 ciclos | Horas-persona de intervención por ciclo | **≤ 8 horas-persona por ciclo** *(umbral del dueño)* | **Añadida** — experimento hacia adelante | **No** — las horas no se registraron durante el piloto | §0, línea 34 · §6, línea 395 |
+| 5 | **Viabilidad** | Los municipios priorizados producen acción, no solo lectura | Que una gerencia mueve el estado de un municipio en el tablero de seguimiento cuando le interesa | **Observación**: durante un ciclo se mira el tablero **sin pedir a las gerencias que muevan estados**. **Después del ciclo**, una entrevista de 10 minutos para entender por qué actuaron o no | % de municipios del top 3 que salen de `priorizado` en un ciclo, y cuántos llegan a `en_estructuracion` | **≥ 1 de los 3 municipios del top 3 sale de `priorizado` por ciclo** *(umbral del dueño)* | **Añadida** — experimento hacia adelante | **No** — `seguimiento` tiene 0 cambios de estado | §6, líneas 396 y 398 · CA-M9.9, línea 357 |
 | 6 | **Factibilidad** | Las fuentes públicas con API contienen señal accionable | Que lo que el Clasificador extrae de SECOP y del feed de noticias se sostiene con citas que existen en la fuente | Piloto del MVP | % de insights que sobreviven al validador | ≥60% **[EST]** | PRD H3 | **Sí** — estado de validación de cada insight, por corrida | §1, línea 48 |
 | 7 | **Factibilidad** | La cadena multiagente preserva la trazabilidad | Que de cada insight publicado se puede volver a la señal de origen sin pasar por el modelo | Piloto del MVP | % de insights con evidencia completa hasta fuente | 100% (bloqueante) | PRD H4 | **Sí** — traza extremo a extremo del informe publicado | §1, línea 49 |
 
@@ -39,8 +40,10 @@ nueva.
 
 | # | Qué se fija | De dónde sale |
 |---|---|---|
-| 1 | **Sobre los 15 insights pedidos** del informe 8, no sobre los 241 que muestra | «Se califica solo lo pedido» — `CLAUDE.md` regla 5 · F0.4 |
-| 1 | **Se reporta dos veces**: solo con las 5 gerencias «prd», y con las adicionales | F0.1b · plan, «Análisis de la ronda» |
+| 1 | **Sobre los 15 insights pedidos** del informe 8, no sobre los 241 que muestra | «Se califica solo lo pedido» — `CLAUDE.md` regla 5 · F0.4 · **decisión del dueño del 2026-10-01** |
+| 1 | **El promedio de cada insight usa las calificaciones de las gerencias «prd»** | Decisión del dueño del 2026-10-01 |
+| 1 | **Un insight cuenta solo si tiene al menos 2 calificaciones «prd».** Si no, se reporta como **«insuficiente»** y **queda fuera del cálculo**: ni en el numerador ni en el denominador. El porcentaje se calcula sobre los insights que sí cuentan, y se dice cuántos quedaron fuera | Decisión del dueño del 2026-10-01 |
+| 1 | **Se reporta también la versión con adicionales**: **sobre los mismos insights** —los que tienen al menos 2 calificaciones «prd»—, con el promedio incluyendo además las de `administrativa` y `analitica`. Así las dos versiones comparan el mismo conjunto | Decisión del dueño del 2026-10-01 · F0.1b |
 | 2 | **Tasa por gerencia = calificados ÷ 15 pedidos**, y el promedio es **sobre las 5 gerencias «prd»** | F0.1b · núcleo del experimento |
 | 2 | **Se reporta con su condición** y no se compara directamente con el criterio, que suponía correo | Decisión del 2026-09-25, condición única de la ronda |
 | 1, 2 | **Ronda principal y ronda extendida, por separado** | Decisión del 2026-10-01 |
@@ -101,16 +104,18 @@ son experimentos hacia adelante y **no entran en la decisión del 13**:
 - **GO CONDICIONADO**: H4 cumplido pero H2 bajo.
 - **NO-GO**: H4 incumplido, o H1 y H3 ambos por debajo del criterio.
 
-## Pendiente de decidir antes del 6
+## Decidido por el dueño el 2026-10-01, al congelar
 
-1. **Los dos umbrales de las hipótesis añadidas son propuestas mías**, no salen
-   del PRD, que no da cifra: **≤ 8 horas-persona por ciclo** —un día de trabajo
-   por quincena— para la 4, y **≥ 1 de 3 municipios** del top 3 fuera de
-   `priorizado` por ciclo para la 5. La plantilla exige umbral específico para
-   las añadidas, así que hay que fijarlos.
-2. **H1: ¿cuenta el promedio de un insight calificado por una sola gerencia?**
-   El PRD no lo dice y cambia el resultado. Hay que decidirlo antes de ver los
-   datos, no después.
-3. **La dimensión de H2.** Va en deseabilidad porque mide si las gerencias
-   quieren usarlo; podría defenderse en viabilidad, como problema de diseño
-   organizacional (PRD §1, regla de decisión). No cambia nada de la compuerta.
+1. **Hipótesis 4**: el umbral es **≤ 8 horas-persona por ciclo**, un día de
+   trabajo por quincena. El PRD no daba cifra; la fija el dueño.
+2. **Hipótesis 5**: el umbral es **≥ 1 de los 3 municipios del top 3 fuera de
+   `priorizado` por ciclo**. Y el experimento **observa sin intervenir**: no se
+   pide a las gerencias que muevan estados, porque pedirlo mediría la
+   obediencia y no el interés. La entrevista va **después** del ciclo.
+3. **H1**: sobre los 15 insights pedidos, con el promedio de las gerencias
+   «prd», contando solo los insights con **al menos 2 calificaciones «prd»**;
+   el resto se reporta como **«insuficiente»** y queda fuera. Se reporta
+   también con adicionales. Detalle en la tabla de definiciones.
+4. **H2 se queda en deseabilidad.**
+5. **El tablero se congela hoy**, cinco días antes de lo previsto y una semana
+   antes del cierre de la ronda extendida.

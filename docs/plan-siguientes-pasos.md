@@ -66,7 +66,8 @@ y las dos rondas se reportan por separado.
 |---|---|
 | **mar 2026-09-29** | ✅ Corte de la **ronda principal**, 23:59 de Bogotá |
 | **jue 2026-10-01** | ✅ **Exportación de la ronda principal**: 66 filas, en `C:\dev\respaldos\corte-ronda-2026-09-29\` · empieza **F0b.1** |
-| **hasta el mar 2026-10-06** | **Tablero Javelin** derivado del PRD, con sus criterios **congelados** antes del cierre de la extendida · **F0b.1 en paralelo** |
+| **jue 2026-10-01** | ✅ **Tablero Javelin congelado** por decisión del dueño, una semana antes del cierre de la extendida |
+| **hasta el jue 2026-10-08** | **F0b.1** |
 | **jue 2026-10-08** | Cierre de la **ronda extendida**, 23:59 de Bogotá (`2026-10-09 04:59:59+00`) |
 | **vie 2026-10-09** | **Exportación de la extendida**, en `C:\dev\respaldos\corte-ronda-extendida-2026-10-08\` · **análisis** de las dos rondas · **se ejecuta el script** de F0b.1 |
 | **vie 9 – sáb 10** | **Evaluación del piloto** contra el tablero y el PRD |
@@ -84,11 +85,12 @@ no hay análisis, y sin análisis el script no tiene qué poner en H1 y H2. Por 
 la exportación se hace a primera hora, y por eso el script tiene que poder
 regenerarse en cuanto el análisis termine.
 
-### El tablero Javelin, y por qué se congela el 6
+### El tablero Javelin, y por qué se congeló antes del cierre
 
-El tablero sale de [`docs/prompts/javelin.md`](prompts/javelin.md) y se guarda
-como `docs/javelin.md`. **Sus criterios quedan fijos el 6, dos días antes de que
-cierre la ronda extendida**, por la misma razón por la que F0b.1 se escribe antes
+El tablero salió de [`docs/prompts/javelin.md`](prompts/javelin.md) y está en
+[`docs/javelin.md`](javelin.md). **Se congeló el 2026-10-01**, por decisión del
+dueño: estaba previsto para el 6 y se adelantó, así que queda fijo **una semana
+antes de que cierre la ronda extendida**, por la misma razón por la que F0b.1 se escribe antes
 de ejecutarse: un criterio elegido después de ver los datos se elige —aunque sea
 sin querer— para que el resultado cuadre.
 

@@ -565,3 +565,40 @@ primero en la ruta crítica y desbloquea una cifra que hoy **no se puede citar**
 **`SELECT` y nada más.** Ninguna escritura. Si alguna cifra exigiera una
 migración o escribir en la base principal, **el trabajo se detiene y se
 pregunta** antes de tocar nada.
+
+## Tablero Javelin: decisiones del dueño y congelamiento (2026-10-01)
+
+El tablero de [`docs/javelin.md`](javelin.md) **queda congelado hoy**. **No se
+modifica ningún criterio después de esta fecha.** Estaba previsto para el 6 y se
+adelanta: queda fijo una semana antes de que cierre la ronda extendida, y
+**antes de ver los datos con los que se va a evaluar**, que es lo que le da
+valor.
+
+Las cinco decisiones con las que se congela:
+
+1. **Hipótesis 4 — capacidad de Analítica: ≤ 8 horas-persona por ciclo.** El
+   PRD no daba cifra; el umbral es del dueño. Equivale a un día de trabajo por
+   quincena.
+
+2. **Hipótesis 5 — acción sobre los priorizados: ≥ 1 de los 3 municipios del
+   top 3 sale de `priorizado` por ciclo.** Y **se corrige el experimento**: se
+   observa el tablero **sin pedir a las gerencias que muevan estados**, y la
+   entrevista de 10 minutos va **después del ciclo**, para entender por qué
+   actuaron o no. Pedir que muevan estados mediría la obediencia a la petición,
+   no el interés por el municipio.
+
+3. **H1 — cómo se calcula.** La base son **los 15 insights pedidos**. El
+   promedio de cada insight usa **las calificaciones de las gerencias «prd»**.
+   **Un insight cuenta solo si tiene al menos 2 calificaciones «prd»**; si no,
+   se reporta como **«insuficiente»** y queda fuera del cálculo. **Se reporta
+   también la versión con adicionales**, sobre los mismos insights que cuentan
+   en la principal, para que las dos comparen el mismo conjunto.
+
+4. **H2 se queda en deseabilidad.**
+
+5. **El tablero se congela el 2026-10-01**, con el encabezado «Congelado el
+   2026-10-01 por decisión del dueño. No se modifica ningún criterio después de
+   esta fecha».
+
+**El umbral del 30 % de H1 no cambia**: lo que se fija es sobre qué insights se
+calcula, no cuánto hay que alcanzar.

@@ -46,7 +46,7 @@ Ordenar: primero deseabilidad, luego viabilidad, luego factibilidad.
 
   6. **Para H1–H5, el experimento es el piloto del MVP** tal como el PRD lo define en la columna «Cómo se mide» de §1. No se inventa otro experimento para ellas.
 
-  7. **Los criterios se congelan el 2026-10-06**, antes del cierre de la ronda extendida. A partir de ahí no se editan: un criterio elegido después de ver los datos se elige —aunque sea sin querer— para que el resultado cuadre.
+  7. **Los criterios se congelan antes del cierre de la ronda extendida** —el tablero de este piloto se congeló el 2026-10-01, por decisión del dueño—. A partir de ahí no se editan: un criterio elegido después de ver los datos se elige —aunque sea sin querer— para que el resultado cuadre.
 
   El tablero resultante se guarda en `docs/javelin.md`.
 </reglas_del_proyecto>
