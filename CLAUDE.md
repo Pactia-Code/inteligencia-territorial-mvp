@@ -17,7 +17,7 @@ el **jueves 2026-10-08** · **presentación el 2026-10-13**
 | **Cómo se entra** | Por **`/entrar`**, con un correo registrado y activo, **sin clave**. **Ninguna ruta se ve sin entrar**; al hacerlo se vuelve a la página pedida. Botón **Salir** en la barra. **No es autenticación**: R-A2 y H-012 siguen abiertos |
 | **Publicado** | Informe **8**, ciclo 3, congelando scoring 24 y agentes 10 |
 | **Base** | Neon PostgreSQL, base **`territorial`** — *nunca* `neondb`, que solo tiene tablas de `neon_auth` |
-| **Pruebas** | 368, en verde |
+| **Pruebas** | 437, en verde |
 
 **Las siete reglas de operación que rigen hoy.** No son de estilo: cada una
 existe porque romperla estropea el experimento en curso.
@@ -114,7 +114,7 @@ Y lo que dice qué pasa ahora:
 | [Estado del despliegue](docs/estado-despliegue.md) | Los 11 pasos y lo que quedó abierto |
 | [Decisiones de remediación](docs/decisiones-remediacion.md) | Lo que decidió el dueño, riesgos aceptados e incidentes |
 | **Auditoría** | 51 hallazgos y la matriz de los 59 CA. **No está en `main`**: `git show audit/2026-09-22:docs/auditoria.md` |
-| [Informe de resultados](docs/informe_resultados.md) | Lo medido por hipótesis, para la compuerta de la semana 8 |
+| [Informe de resultados](docs/informe_resultados.md) | Lo medido por hipótesis. **Se genera con `scripts/informe_resultados.py` y no se edita a mano**: la prosa está en `src/territorial/informes/plantilla_resultados.md` |
 
 > El **[Design System](docs/design-system.md) es la autoridad de color y
 > tipografía**, derivado de la plantilla Word corporativa real. **Léelo entero
@@ -355,8 +355,7 @@ que las gerencias calificaron.
 > 3. **Va siempre con la frase de H-029**: mide fidelidad de cita contra el
 >    contenido ingerido, no veracidad.
 >
-> Se publica en `informe_resultados.md` con F0b.1; hasta entonces ese documento
-> sigue diciendo 0,0 %.
+> Así se publica en `informe_resultados.md` desde F0b.1, generado por script.
 
 ### Dos resultados que no conviene enterrar
 
@@ -459,7 +458,7 @@ Microsoft Store y no sirve.
 
 ```powershell
 $py = "$env:LOCALAPPDATA\venvs\territorial\Scripts\python.exe"
-& $py -m pytest -q                                      # 368 pruebas, aisladas
+& $py -m pytest -q                                      # 437 pruebas, aisladas
 & $py scripts\calcular_scores.py --ciclo 3              # M5, no gasta tokens
 & $py scripts\avance_calificacion.py                    # ronda, solo lectura
 & $py scripts\verificar_llm.py                          # conexión al tenant

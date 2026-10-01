@@ -20,15 +20,17 @@ Esto es lo que viene, en orden.
 | **P0** | Ronda de calificación 1 a 1 | *actividad, no subfase* | H1 y H2: sin calificaciones no hay experimento |
 | ~~**P0.5**~~ | ~~Correcciones visibles durante la ronda~~ | **hecho** | Desplegado el 2026-09-24 (PR #2 y #3) |
 | **P1** | Seguimiento de la ronda | *actividad* + script hecho | Saber a quién falta antes de cada corte |
-| **P2** | F0b · prerrequisitos de la decisión | **5 d** | La compuerta go/no-go |
+| **P2** | F0b · prerrequisitos de la decisión | **1 d** pendiente (F0b.2); F0b.1, F0b.3 hechos y F0b.4 sin objeto | La compuerta go/no-go |
 | **P3** | Capacidades del PRD no construidas | **6 d** + Sintetizador *sin estimar* | Cumplir lo que el PRD pide |
 | **P4** | Antes de correr un ciclo nuevo | **7 d** (+ ~USD 3 de tokens) | Un ciclo 4, si se decide |
 | **P5** | Interfaz | **3,1 d** | Legibilidad y uso |
 | **P6** | Endurecimiento | **10,7 d** | Mantenimiento y deuda |
 
-**Total pendiente con estimación: 31,8 d**, más el Sintetizador y 0,25 d
-sueltos (ver «Lo que no quedó en ningún bloque»). Es esfuerzo de un
-desarrollador.
+**Total pendiente con estimación: 27,8 d**, más el Sintetizador. Es esfuerzo
+de un desarrollador. Los 0,25 d sueltos de H-029 se cerraron con F0b.1.
+
+**El 2026-10-01 salen 4 d de P2**: F0b.1 (3 d) y F0b.3 (0,5 d) hechos en
+`feat/f0b`, y F0b.4 (0,5 d) sin objeto al retirarse la cifra de H-030.
 
 Eran 33,05 d; **P0.5 se cerró el 2026-09-24 y sus 1,25 d salen del total.** Lo
 que queda son P2 a P6, que es lo mismo que había antes de que apareciera P0.5.
@@ -67,7 +69,7 @@ y las dos rondas se reportan por separado.
 | **mar 2026-09-29** | ✅ Corte de la **ronda principal**, 23:59 de Bogotá |
 | **jue 2026-10-01** | ✅ **Exportación de la ronda principal**: 66 filas, en `C:\dev\respaldos\corte-ronda-2026-09-29\` · empieza **F0b.1** |
 | **jue 2026-10-01** | ✅ **Tablero Javelin congelado** por decisión del dueño, una semana antes del cierre de la extendida |
-| **hasta el jue 2026-10-08** | **F0b.1** |
+| **jue 2026-10-01** | ✅ **F0b.1** terminado en `feat/f0b`: el informe se genera por script |
 | **jue 2026-10-08** | Cierre de la **ronda extendida**, 23:59 de Bogotá (`2026-10-09 04:59:59+00`) |
 | **vie 2026-10-09** | **Exportación de la extendida**, en `C:\dev\respaldos\corte-ronda-extendida-2026-10-08\` · **análisis** de las dos rondas · **se ejecuta el script** de F0b.1 |
 | **vie 9 – sáb 10** | **Evaluación del piloto** contra el tablero y el PRD |
@@ -323,17 +325,17 @@ aceptado, y hay que decirlo igual al publicar H1 y H2. Ver
   `C:\dev\respaldos\corte-ronda-extendida-2026-10-08\` — **el mismo día**, para
   que la ventana sin marca de tiempo sea de horas y no de días.
 
-## P2 · F0b — prerrequisitos de la decisión go/no-go · **5 d**
+## P2 · F0b — prerrequisitos de la decisión go/no-go · **1 d pendiente** de 5
 
 Puede avanzar **en paralelo a la ronda**: toca `informe_resultados.md` y los
 scripts que lo generan, no lo que ven los calificadores.
 
 | Subfase | Resuelve | Esfuerzo | Cierre |
 |---|---|---:|---|
-| **F0b.1** | H-034 (causa raíz), H-027, H-030; arrastra H-031, H-032, H-033 | **3 d** | `python scripts/informe_resultados.py` produce el archivo commiteado sin diferencias |
+| ~~**F0b.1**~~ | H-034 (causa raíz), H-027, H-030; arrastra H-031, H-032, H-033 | **hecho** | ✅ `--check` da «sin diferencias»; las 19 cifras de la auditoría salen idénticas. Rama `feat/f0b` |
 | **F0b.2** | H-035 (+ H-006 en lo que toca a H5) | **1 d** | Dos ejecuciones sobre el mismo corte dan las mismas cifras |
-| **F0b.3** | H-028, **H-010 desglosado por regla** | **0,5 d** | `SELECT` da 4/326 para la corrida 10 y el documento lo publica |
-| **F0b.4** | H-030 | **0,5 d** | La cifra tiene script o no aparece |
+| ~~**F0b.3**~~ | H-028, **H-010 desglosado por regla** | **hecho** | ✅ 4/326 en la corrida 10, todo R6, publicado en el informe. Rama `feat/f0b` |
+| ~~**F0b.4**~~ | H-030 | **sin objeto** | La cifra se retiró por decisión del dueño (2026-10-01) |
 
 **H-010 se reporta desglosado por regla**, no como un porcentaje único: R1–R7
 son fidelidad de cita y **R8 es cifra sin fuente**, que son fallos distintos del
@@ -426,7 +428,7 @@ de Analítica** (pendiente A2).
 | H-ID | Por qué |
 |---|---|
 | **H-012** | **Riesgo aceptado (R-A2).** El dueño no adopta el token, así que queda **abierto y sin subfase**. F0.3 redujo el residual —cookie firmada, solo correos registrados, rastro— pero la identidad sigue siendo declarativa, y hay que decirlo al publicar H1 y H2 |
-| **H-029** | **F3.1, 0,25 d.** La tasa de rechazo mide fidelidad de cita contra lo ingerido, no veracidad, y el documento no lo declara. Depende de F0b.1 y se cierra con él, así que en la práctica viaja dentro de P2 |
+| ~~**H-029**~~ | **F3.1, cerrado con F0b.1** (2026-10-01): el informe regenerado publica la tasa de rechazo con la frase de que mide fidelidad de cita contra lo ingerido, no veracidad |
 
 ## Cerrado por la remediación (no vuelve a aparecer arriba)
 
