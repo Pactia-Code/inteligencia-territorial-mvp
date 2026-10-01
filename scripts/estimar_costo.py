@@ -42,16 +42,18 @@ from sqlalchemy import func, select  # noqa: E402
 from territorial.almacen.modelos import TrazaAgente  # noqa: E402
 from territorial.almacen.sesion import sesion  # noqa: E402
 
-# Medido sobre el snapshot el 2026-09-17.
-# Tasa del Clasificador: Barranquilla ciclo 2, 284 señales en 6 lotes,
-# 68.058 tokens de entrada y 25.986 de salida.
-ENTRADA_POR_SENAL = 240
-SALIDA_POR_SENAL = 92
-SENALES_CARGA_INICIAL = 7_628
-SENALES_POR_QUINCENA_18 = 615
-MUNICIPIOS_MVP = 18
-MUNICIPIOS_NACIONAL = 1_103
-QUINCENAS_POR_ANIO = 26
+# Las constantes viven en `informes/costo.py` desde F0b.1: el informe de
+# resultados publica H5 con ellas, y una copia aquí podría divergir. Ver allí
+# qué arrastra cada una —615 señales por quincena no tiene productor—.
+from territorial.informes.costo import (  # noqa: E402
+    ENTRADA_POR_SENAL,
+    MUNICIPIOS_MVP,
+    MUNICIPIOS_NACIONAL,
+    QUINCENAS_POR_ANIO,
+    SALIDA_POR_SENAL,
+    SENALES_CARGA_INICIAL,
+    SENALES_POR_QUINCENA_18,
+)
 
 
 def _escenarios() -> list[tuple[str, float, float]]:

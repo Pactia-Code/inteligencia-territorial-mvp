@@ -34,35 +34,14 @@ from sqlalchemy import select  # noqa: E402
 
 from territorial.almacen.modelos import (  # noqa: E402
     CorridaAgentes,
-    Descarte,
     Insight,
     Municipio,
 )
 from territorial.almacen.sesion import sesion  # noqa: E402
 
-
-def destino_por_senal(sesion_bd, id_corrida: int) -> dict[int, tuple[str, str]]:
-    """{id_senal: (destino, detalle)} para una pasada."""
-    mapa: dict[int, tuple[str, str]] = {}
-
-    for ins in sesion_bd.scalars(
-        select(Insight).where(Insight.id_corrida == id_corrida)
-    ).all():
-        for s in ins.ids_senal or []:
-            mapa[s] = ("insight", ins.categoria)
-
-    for d in sesion_bd.scalars(
-        select(Descarte).where(Descarte.id_corrida == id_corrida)
-    ).all():
-        # Un insight gana sobre un descarte: si aparece en ambos, se usó.
-        if d.id_senal in mapa:
-            continue
-        mapa[d.id_senal] = (
-            "descarte" if d.declarado else "sin_contabilizar",
-            d.motivo[:60],
-        )
-
-    return mapa
+# Vive en `informes/mediciones.py` desde F0b.1: es la misma definición con la
+# que `informe_resultados.md` publica A6, y dos copias envejecerían por separado.
+from territorial.informes.mediciones import destino_por_senal  # noqa: E402
 
 
 def main() -> int:

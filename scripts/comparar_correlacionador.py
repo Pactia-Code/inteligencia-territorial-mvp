@@ -120,12 +120,11 @@ def oscilacion(metrica: str) -> float:
 
 
 # Palabras que indican que la implicación se moja con una tipología, que es lo
-# que CA-M4.2 pide y lo que el contexto debería mejorar.
-TIPOLOGIA = (
-    "vivienda", "residencial", "vis", "interés social", "interes social",
-    "industrial", "logístic", "logistic", "comercial", "oficina", "bodega",
-    "renovación", "renovacion", "estrato",
-)
+# que CA-M4.2 pide y lo que el contexto debería mejorar. Viven en
+# `informes/mediciones.py` desde F0b.1: el informe de resultados publica la
+# tipología de las corridas 11 y 12 con esta misma lista, y una copia aquí
+# podría divergir sin que nadie se enterara.
+from territorial.informes.mediciones import TIPOLOGIA  # noqa: E402
 
 
 def numeros_del_contexto(fila: ContextoMunicipal | None) -> set[str]:
