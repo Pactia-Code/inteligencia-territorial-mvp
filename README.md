@@ -8,7 +8,7 @@ El pipeline va de un snapshot de datos —SECOP II, feed de noticias, TerriData�
 a un informe de los **10 municipios mejor puntuados** que **7 gerencias**
 califican de 1 a 5.
 
-## Estado — 2026-09-23
+## Estado — 2026-10-01
 
 **Desplegado y en uso.** El despliegue terminó el 2026-09-23, 11 de 11 pasos
 (ver [estado-despliegue.md](docs/estado-despliegue.md)).
@@ -17,24 +17,22 @@ califican de 1 a 5.
 |---|---|
 | **Aplicación** | <https://inteligencia-territorial-mvp.vercel.app> — Vercel, rama de producción `main` |
 | **Informe publicado** | **el 8**, ciclo 3, congelando scoring 24 y agentes 10 · 241 insights, 933 citas, 10 municipios |
-| **Ronda de calificación** | En curso, **hasta el martes 2026-09-29** ([bitácora](docs/ronda-calificacion.md)) |
+| **Ronda de calificación** | **Principal cerrada** el 2026-09-29: 66 de 105, 3 de 5 gerencias `prd`. **Extendida hasta el 2026-10-08** ([bitácora](docs/ronda-calificacion.md)) |
+| **Presentación** | **2026-10-13** |
 | **Base** | Neon PostgreSQL, base `territorial`, rama `main` · Alembic en `d5932c3bdc03` |
 | **Usuarios** | 8 activos: 7 gerencias calificadoras y 1 administrador |
-| **Pruebas** | 345, en verde |
+| **Pruebas** | 368, en verde |
 
-> ### Tres reglas operativas en vigor
+> ### Dos reglas operativas en vigor
 >
-> **1. Congelamiento hasta el corte del martes 29.** No se republica el informe
-> ni se cambia nada que altere lo que ven los calificadores: ni el payload, ni
-> los textos, ni la selección pedida. Republicar cambiaría los insights pedidos
-> y las calificaciones ya emitidas dejarían de ser comparables. **Solo se
-> corrige un error que impida calificar**, y queda anotado en la bitácora.
+> **El congelamiento terminó** con el corte de la ronda principal, el 29. Lo
+> que entró mientras duró —solo las correcciones de P0.5— está en la bitácora.
 >
-> **2. No se corren ciclos nuevos** hasta cerrar el bloque **P4** del
+> **1. No se corren ciclos nuevos** hasta cerrar el bloque **P4** del
 > [plan](docs/plan-siguientes-pasos.md): una corrida interrumpida hoy queda
 > marcada como completa y es publicable (H-037).
 >
-> **3. `correr_ciclo.py --seco` no es seco: escribe y gasta tokens** (H-038).
+> **2. `correr_ciclo.py --seco` no es seco: escribe y gasta tokens** (H-038).
 > No lo uses. El `--seco` de `publicar_informe.py` sí revierte, y ese es el que
 > hay que usar antes de publicar.
 
@@ -174,7 +172,7 @@ Tres cosas que cuesta descubrir solas:
 ## Scripts, y cuándo usar cada uno
 
 ```powershell
-& $py -m pytest -q                 # 345 pruebas; aisladas, no tocan ninguna base
+& $py -m pytest -q                 # 368 pruebas; aisladas, no tocan ninguna base
 & $py -m alembic upgrade head
 & $py -m alembic check             # y esto es lo que de verdad lo verifica
 ```
@@ -260,7 +258,7 @@ del LLM** (CA-M6.3). El LLM redacta; los números los pone el código.
 | Documento | Qué contiene |
 |---|---|
 | [**Plan de siguientes pasos**](docs/plan-siguientes-pasos.md) | **Qué viene y en qué orden**, con el esfuerzo de cada bloque |
-| [Ronda de calificación](docs/ronda-calificacion.md) | Bitácora de la ronda en curso y el corte del martes 29 |
+| [Ronda de calificación](docs/ronda-calificacion.md) | Las dos rondas, sus sesiones, sus cortes y dónde están las exportaciones |
 | [Estado del despliegue](docs/estado-despliegue.md) | Los 11 pasos, qué quedó abierto y las reglas que salieron de ahí |
 | [Decisiones de remediación](docs/decisiones-remediacion.md) | Lo que decidió el dueño, los riesgos aceptados y los incidentes |
 | **Auditoría** | Rama `audit/2026-09-22` — 51 hallazgos, matriz de conformidad de los 59 CA y plan de remediación. **No está en `main`**: `git show audit/2026-09-22:docs/auditoria.md` |
@@ -273,9 +271,10 @@ del LLM** (CA-M6.3). El LLM redacta; los números los pone el código.
 
 ## Lo que decide el go/no-go
 
-**H1 y H2 se miden con las calificaciones de esta ronda, y hasta el 2026-09-23
-no había ninguna.** Por eso la ronda es la prioridad y todo lo demás espera al
-corte del martes.
+**H1 y H2 se miden con las calificaciones de la ronda**, que se reportan en dos
+partes: la **principal**, cerrada el 29 en 66 de 105, y la **extendida**, hasta
+el 8 de octubre. El análisis y el informe regenerado se hacen el 9, y la
+presentación es el **13**.
 
 **H4 —trazabilidad al 100%— es bloqueante**: si falla, la arquitectura no es
 auditable y no puede ir a producción. No se resuelve con más ingeniería.

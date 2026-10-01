@@ -1,7 +1,13 @@
 # Ronda de calificación — ciclo 3, informe 8
 
-**Plazo: martes 2026-09-29.** Registro de las sesiones 1 a 1 y de cualquier
-cambio hecho durante el congelamiento.
+**Dos rondas, que se reportan por separado** (decisión del dueño, 2026-10-01):
+
+| Ronda | Cierre | Estado | Exportación |
+|---|---|---|---|
+| **Principal** | martes **2026-09-29 23:59** de Bogotá | **Cerrada: 66 de 105, 3 de 5 gerencias `prd`** | Hecha el 2026-10-01, ver [Corte](#corte) |
+| **Extendida** | jueves **2026-10-08 23:59** de Bogotá (`2026-10-09 04:59:59+00`) | Abierta | El **9 de octubre**, en `C:\dev\respaldos\corte-ronda-extendida-2026-10-08\` |
+
+Registro de las sesiones y de lo que se cambió mientras duró el congelamiento.
 
 El avance en vivo no se anota aquí: se consulta, que es más fiable que una
 tabla escrita a mano.
@@ -75,12 +81,15 @@ Las 5 gerencias `prd` son el núcleo del experimento; `analitica` y
 > por detrás. Son de la noche del 24 en local. Al contar sesiones por día hay
 > que convertir, o la misma sesión sale partida en dos fechas.
 
-### Dónde estamos al 2026-09-25, 10:00 de Bogotá
+### Dónde estamos al 2026-10-01
 
-**66 de 105 calificaciones pedidas** (15 × 7), y **3 de las 5 gerencias `prd`
-han terminado**: `juridica`, `producto_hoteles_oficinas` y
+**La ronda principal está cerrada en 66 de 105 calificaciones pedidas** (15 × 7)
+y **3 de las 5 gerencias `prd`**: `juridica`, `producto_hoteles_oficinas` y
 `rotacion_portafolio`. También está completa `administrativa`, que es adicional
-y no cuenta para H2. Quedan sin empezar **`general` y `producto_logistica`**.
+y no cuenta para H2. **`general` y `producto_logistica` cerraron en cero.**
+
+**Entre el 25 y el corte no entró ninguna calificación más**: la última es del
+25 a las 09:52. La ronda extendida sigue abierta hasta el 8.
 
 La mañana del 25 aportó **30 calificaciones en una hora**, en dos sesiones
 seguidas: jurídica de 08:55 a 09:15 y hoteles y oficinas de 09:30 a 09:52.
@@ -103,14 +112,14 @@ Cuatro cosas que conviene ver ahora y no al analizar:
   eso es la persona, el momento o los insights que les tocaron, y no darlo por
   «unas gerencias se implican más».
 
-## Congelamiento
+## Congelamiento · **terminado**
 
-Hasta el corte del martes **no se republica el informe** ni se cambia nada que
-altere lo que ven los calificadores: ni el payload, ni los textos, ni la
-selección pedida. Un informe republicado cambiaría los insights pedidos y las
-calificaciones ya emitidas dejarían de ser comparables.
+**Terminó con el corte de la ronda principal**, el martes 2026-09-29 a las 23:59
+de Bogotá. Mientras duró no se republicó el informe ni se cambió nada que
+alterara lo que veían los calificadores: ni el payload, ni los textos, ni la
+selección pedida. Lo único que entró fueron las correcciones de P0.5, abajo.
 
-**Solo se corrige un error que impida calificar**, y se anota aquí.
+La **ronda extendida** se califica sobre **el mismo informe 8**.
 
 > **Excepción autorizada por el dueño el 2026-09-24.** Se permiten cuatro
 > correcciones que **no cambian el informe ni cómo se califica**: el fallo de
@@ -166,6 +175,43 @@ Esa foto es la que se analiza.
 > decisión del dueño; el filtro oficial es el de arriba.
 
 **La app no cierra el ciclo sola**: nada en el código impide calificar después
-del martes, así que el corte lo define la exportación y no el sistema. Si
-alguien califica el miércoles, la calificación existirá en la base pero no
-estará en la foto — y la diferencia hay que declararla al reportar.
+del martes, así que el corte lo define la exportación y no el sistema. Lo que
+llegue después es de la **ronda extendida**, que se reporta aparte.
+
+### La exportación de la ronda principal
+
+**Hecha el 2026-10-01 a las 14:48 de Bogotá**, desde `main` en `c6582a7`, con
+la conexión en **modo de solo lectura de PostgreSQL**.
+
+**Carpeta:** `C:\dev\respaldos\corte-ronda-2026-09-29\`
+
+| Archivo | Filas | sha256 |
+|---|---:|---|
+| `calificacion.csv` | **66** | `bfef6bae5c3f2959692dfa234d6daec721f71f64e4804ea2a2f9a5dee9ca802f` |
+| `usuario.csv` | 10 | `1f4829b190554d87cf77e006c2d9e02334e2eaaff1a0959bee6d9cc86ab8b9ca` |
+| `gerencias_congeladas.csv` | 7 | `75307afc53f2a34aee471da7418a22a0b3c773ae61888942a88990711c753385` |
+| `README.md` | — | `8f0e7a27a10f4bab8a8f1995bda58d5d86771f1ddcef07ccbb82afe8ffdf5de3` |
+
+`manifiesto.json` lleva además la consulta exacta, el commit y la fecha. El
+`tipo` de cada gerencia sale de la **lista congelada en el informe 8**, no de
+`config/gerencias.json` de hoy, y `usuario.csv` va **sin nombre ni cargo**.
+
+> ### La limitación de esta exportación
+>
+> **El corte se reconstruyó por `creado_en` el 2026-10-01, no se fotografió el
+> 29.** Es exacto para las calificaciones nuevas, pero hay dos cambios que no
+> dejan marca de tiempo: **una corrección** reescribe la fila y conserva el
+> `creado_en` original (H-008), y **un comentario añadido después** es un
+> `UPDATE` sin fecha. Y **`identificacion` no registra a quien vuelve con su
+> cookie**, que dura un año.
+>
+> **La evidencia, y su alcance:** a la fecha de la exportación hay **0
+> calificaciones posteriores al corte** y **una sola entrada posterior**,
+> `abejarano@pactia.com` (`general`) el 30 a las 16:56, que **no tiene ninguna
+> calificación** y es el único usuario de su gerencia, así que no pudo corregir
+> nada. **El dueño declara que no modificó calificaciones.** Eso acota los
+> cambios posibles, pero no los descarta: quedaría una corrección de alguien con
+> cookie válida entre el 29 y el 1.
+>
+> **Para la ronda extendida, la exportación se hace el mismo 9**, para que esa
+> ventana sea de horas y no de días.

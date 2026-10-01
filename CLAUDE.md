@@ -3,9 +3,9 @@
 Guía de trabajo para agentes sobre este repositorio. **Breve a propósito:** lo
 que ya está detallado en `docs/` se enlaza, no se repite.
 
-**Actualizado:** 2026-09-24 · **en producción**, con entrada por correo · ciclo
-3, informe 8 · ronda de calificación hasta el martes 2026-09-29, **con el
-contenido congelado**
+**Actualizado:** 2026-10-01 · **en producción**, con entrada por correo · ciclo
+3, informe 8 · ronda principal **cerrada y exportada** · ronda extendida hasta
+el **jueves 2026-10-08** · **presentación el 2026-10-13**
 
 ---
 
@@ -25,13 +25,11 @@ existe porque romperla estropea el experimento en curso.
 1. **La base principal es de solo lectura por defecto.** Cualquier escritura
    —migración, carga, publicación— necesita **confirmación explícita del
    dueño**, en ese momento y para esa operación.
-2. **Congelamiento hasta el corte del martes 29.** No se republica ni se cambia
-   nada que altere lo que ven los calificadores. Republicar cambiaría los
-   insights pedidos y las calificaciones ya emitidas dejarían de ser
-   comparables. Se corrige un error que impida calificar, y **el dueño autorizó
-   además las correcciones de P0.5**, que no tocan el informe ni cómo se
-   califica. Todo lo aplicado se anota en
-   [ronda-calificacion.md](docs/ronda-calificacion.md).
+2. **El congelamiento terminó** con el corte de la ronda principal, el martes
+   2026-09-29 a las 23:59 de Bogotá. Mientras duró no se republicó nada y solo
+   entraron las correcciones de P0.5; el registro está en
+   [ronda-calificacion.md](docs/ronda-calificacion.md). La **ronda extendida**
+   sigue abierta hasta el **2026-10-08** sobre el mismo informe 8.
 3. **No se corren ciclos nuevos** hasta cerrar el bloque **P4** del
    [plan](docs/plan-siguientes-pasos.md).
 4. **Publicar es siempre `scripts/publicar_informe.py`**, empezando por
@@ -112,7 +110,7 @@ Y lo que dice qué pasa ahora:
 | Documento | Para qué |
 |---|---|
 | [**Plan de siguientes pasos**](docs/plan-siguientes-pasos.md) | **Qué viene y en qué orden** (P0–P6), con el esfuerzo de cada bloque |
-| [Ronda de calificación](docs/ronda-calificacion.md) | La ronda en curso, el congelamiento y el corte |
+| [Ronda de calificación](docs/ronda-calificacion.md) | Las dos rondas —principal y extendida—, sus sesiones y sus cortes |
 | [Estado del despliegue](docs/estado-despliegue.md) | Los 11 pasos y lo que quedó abierto |
 | [Decisiones de remediación](docs/decisiones-remediacion.md) | Lo que decidió el dueño, riesgos aceptados e incidentes |
 | **Auditoría** | 51 hallazgos y la matriz de los 59 CA. **No está en `main`**: `git show audit/2026-09-22:docs/auditoria.md` |
